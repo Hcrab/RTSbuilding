@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.common.RtsHistoryConstants;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelCraftDockLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
 import net.minecraft.resources.ResourceLocation;
@@ -89,7 +91,7 @@ public final class BuilderScreenConstants {
 
     // ======================== Chain Destroy Limits ========================
     public static final int ULTIMINE_MIN_LIMIT = 1;
-    public static final int ULTIMINE_MAX_LIMIT = 256;
+    public static final int ULTIMINE_MAX_LIMIT = MiningLimits.MAX_CHAIN_LIMIT;
 
     // ======================== Shape wheel ========================
     /** Shape wheel radius */
@@ -102,6 +104,26 @@ public final class BuilderScreenConstants {
     public static final int SHAPE_MAX_OFFSET = SHAPE_MAX_DIMENSION - 1;
     /** Shape maximum radius */
     public static final int SHAPE_MAX_RADIUS = 32;
+
+    /**
+     * 返回当前服务端下发的形状边长上限。
+     *
+     * <p>这些值不能在类初始化时缓存：服务端配置重载后，预览和输入限制必须
+     * 与真正的放置端保持一致。常量仅作为兼容旧调用方的默认值保留。</p>
+     */
+    public static int shapeMaxDimension() {
+        return Math.max(1, Config.maxShapeDimension());
+    }
+
+    /** 返回当前服务端下发的形状半径上限。 */
+    public static int shapeMaxRadius() {
+        return Math.max(1, Config.maxShapeRadius());
+    }
+
+    /** 返回由边长上限推导出的偏移上限。 */
+    public static int shapeMaxOffset() {
+        return Math.max(0, shapeMaxDimension() - 1);
+    }
     /** Shape rotation step degrees */
     public static final int SHAPE_ROTATE_STEP_DEGREES = 15;
     /** Shape history limit */

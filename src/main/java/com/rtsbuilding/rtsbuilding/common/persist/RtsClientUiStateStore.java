@@ -6,6 +6,7 @@ import com.google.gson.FieldAttributes;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import net.minecraftforge.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -616,24 +617,22 @@ public final class RtsClientUiStateStore {
             clean.quickBuild.building.buildLineConnected = this.quickBuild.building.buildLineConnected;
             clean.quickBuild.building.creativeOverwrite = this.quickBuild.building.creativeOverwrite;
             // quickBuild — mining
-            clean.quickBuild.mining.ultimineLimit = Math.max(1, Math.min(256, this.quickBuild.mining.ultimineLimit));
+            // 保存玩家上次的连锁目标意图；服务器上限由当前 SERVER 配置动态裁定，不能
+            // 在清理本地状态时把已经保存的大于旧默认 256 的值悄悄压回去。
+            clean.quickBuild.mining.ultimineLimit = MiningLimits.clampChainLimit(
+                    this.quickBuild.mining.ultimineLimit);
             clean.quickBuild.mining.areaMineShape = sanitizeEnum(this.quickBuild.mining.areaMineShape, "CHAIN");
             clean.quickBuild.mining.catalogPage = sanitizeEnum(
                     this.quickBuild.mining.catalogPage, "SHAPES");
             clean.quickBuild.mining.convenienceTool = sanitizeEnum(
                     this.quickBuild.mining.convenienceTool, "REPEAT_BOX");
-            clean.quickBuild.mining.convenienceSizeX = Math.max(1,
-                    Math.min(64, this.quickBuild.mining.convenienceSizeX));
-            clean.quickBuild.mining.convenienceSizeY = Math.max(1,
-                    Math.min(128, this.quickBuild.mining.convenienceSizeY));
-            clean.quickBuild.mining.convenienceSizeZ = Math.max(1,
-                    Math.min(64, this.quickBuild.mining.convenienceSizeZ));
-            clean.quickBuild.mining.convenienceChunkUp = Math.max(0,
-                    Math.min(128, this.quickBuild.mining.convenienceChunkUp));
-            clean.quickBuild.mining.convenienceChunkDown = Math.max(0,
-                    Math.min(128, this.quickBuild.mining.convenienceChunkDown));
+            clean.quickBuild.mining.convenienceSizeX = Math.max(1, this.quickBuild.mining.convenienceSizeX);
+            clean.quickBuild.mining.convenienceSizeY = Math.max(1, this.quickBuild.mining.convenienceSizeY);
+            clean.quickBuild.mining.convenienceSizeZ = Math.max(1, this.quickBuild.mining.convenienceSizeZ);
+            clean.quickBuild.mining.convenienceChunkUp = Math.max(0, this.quickBuild.mining.convenienceChunkUp);
+            clean.quickBuild.mining.convenienceChunkDown = Math.max(0, this.quickBuild.mining.convenienceChunkDown);
             clean.quickBuild.mining.convenienceTreeMaxBlocks = Math.max(1,
-                    Math.min(8192, this.quickBuild.mining.convenienceTreeMaxBlocks));
+                    Math.min(MiningLimits.MAX_TREE_BLOCKS, this.quickBuild.mining.convenienceTreeMaxBlocks));
             clean.quickBuild.mining.destroyFillMode = sanitizeEnum(this.quickBuild.mining.destroyFillMode, "FILL");
             clean.quickBuild.mining.destroyRotationDegrees = Math.floorMod(this.quickBuild.mining.destroyRotationDegrees, 360);
             clean.quickBuild.mining.destroyLineConnected = this.quickBuild.mining.destroyLineConnected;

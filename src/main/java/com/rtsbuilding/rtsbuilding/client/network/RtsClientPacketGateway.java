@@ -1,16 +1,26 @@
 package com.rtsbuilding.rtsbuilding.client.network;
 
+import com.rtsbuilding.rtsbuilding.Config;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientOperationDiagnostics;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceIds;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsBreakPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyFragmentPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyTracePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMinePayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMineTracePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsConfirmSmartFillPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsConvenienceDestroyPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsConvenienceDestroyTracePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsDeleteWorkflowPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsResumePlacementActionPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsScanResumePlacementPayload;
@@ -27,6 +37,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsBatchLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMinePayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMineTracePayload;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsOpenCraftTerminalPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsOpenGuiBindingPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
@@ -56,6 +67,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsStoreHotbarSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsToggleCameraPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltimineTracePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUndoPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsRedoPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
@@ -77,8 +89,25 @@ import net.minecraft.world.phys.Vec3;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
 
 public final class RtsClientPacketGateway {
+    private static final AtomicLong NEXT_AREA_DESTROY_REQUEST_ID =
+            new AtomicLong(Math.max(1L, System.nanoTime()));
+
     private RtsClientPacketGateway() {
     }
+
+    /** G06 直接使用的权威世界配置查询/保存门面。 */
+    public static com.rtsbuilding.rtsbuilding.common.config.RtsServerConfigRequestToken requestServerConfig() { return RtsClientServerConfigNetwork.requestCurrent(); }
+    public static com.rtsbuilding.rtsbuilding.common.config.RtsServerConfigRequestToken saveServerConfig(java.util.List<com.rtsbuilding.rtsbuilding.common.config.RtsServerConfigChange> changes) { return RtsClientServerConfigNetwork.save(changes); }
+    public static com.rtsbuilding.rtsbuilding.common.config.RtsServerConfigRequestToken saveServerConfig(int expectedRevision, java.util.List<com.rtsbuilding.rtsbuilding.common.config.RtsServerConfigChange> changes) { return RtsClientServerConfigNetwork.save(expectedRevision, changes); }
+    public static com.rtsbuilding.rtsbuilding.common.config.RtsServerConfigView currentServerConfig() { return RtsClientServerConfigNetwork.current(); }
+    /** G06 读取最近一次服务端 ACK/广播结果；失败时可保留草稿并展示 message。 */
+    public static com.rtsbuilding.rtsbuilding.common.config.RtsServerConfigUpdateResult lastServerConfigResult() { return RtsClientServerConfigNetwork.lastResult(); }
+    public static long serverConfigSessionId() { return RtsClientServerConfigNetwork.sessionId(); }
+    public static long lastServerConfigResultSessionId() { return RtsClientServerConfigNetwork.lastResultSessionId(); }
+    public static int lastServerConfigResultRequestId() { return RtsClientServerConfigNetwork.lastResultRequestId(); }
+    public static com.rtsbuilding.rtsbuilding.common.config.RtsServerConfigUpdateResult lastServerConfigSaveResult() { return RtsClientServerConfigNetwork.lastSaveResult(); }
+    public static long lastServerConfigSaveResultSessionId() { return RtsClientServerConfigNetwork.lastSaveResultSessionId(); }
+    public static int lastServerConfigSaveResultRequestId() { return RtsClientServerConfigNetwork.lastSaveResultRequestId(); }
 
     public static void sendSetMode(BuilderMode mode) {
         PacketDistributor.sendToServer(new C2SRtsSetModePayload((byte) mode.ordinal()));
@@ -146,6 +175,11 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendRequestStoragePage(int page, String search, String category, RtsStorageSort sort, boolean ascending, int pageSize) {
+        sendRequestStoragePage(page, search, category, sort, ascending, pageSize, 0L, 0L, 0L);
+    }
+
+    public static void sendRequestStoragePage(int page, String search, String category, RtsStorageSort sort,
+            boolean ascending, int pageSize, long sessionId, long queryId, long requestId) {
         boolean pinyinSearchEnabled = isChineseLanguageSelected();
         PacketDistributor.sendToServer(new C2SRtsRequestStoragePagePayload(
                 page,
@@ -155,7 +189,15 @@ public final class RtsClientPacketGateway {
                 ascending,
                 pageSize,
                 pinyinSearchEnabled,
-                buildLocalizedSearchMatches(search, pinyinSearchEnabled)));
+                buildLocalizedSearchMatches(search, pinyinSearchEnabled),
+                sessionId, queryId, requestId));
+    }
+
+    /** 中文语言和本地化命中集合会改变搜索结果，必须进入查询代际。 */
+    public static String storageSearchSourceKey(String search) {
+        boolean pinyinSearchEnabled = isChineseLanguageSelected();
+        return pinyinSearchEnabled + "\u0000"
+                + buildLocalizedSearchMatches(search, pinyinSearchEnabled);
     }
 
     public static void sendSetAutoStoreMinedDrops(boolean enabled) {
@@ -438,6 +480,9 @@ public final class RtsClientPacketGateway {
         if (hits == null || hits.isEmpty()) {
             return;
         }
+        if (hits.size() > C2SRtsPlaceBatchPayload.MAX_POSITIONS) {
+            return;
+        }
         Direction face = hits.get(0).getDirection();
         BlockHitResult placementTemplate = templateHit == null ? hits.get(0) : templateHit;
         double hitOffsetX = placementTemplate.getLocation().x - placementTemplate.getBlockPos().getX();
@@ -450,9 +495,6 @@ public final class RtsClientPacketGateway {
             }
             positions.add(hit.getBlockPos().immutable());
             RtsCullingClientState.revealLikelyPlacement(hit.getBlockPos(), hit.getDirection());
-            if (positions.size() >= C2SRtsPlaceBatchPayload.MAX_POSITIONS) {
-                break;
-            }
         }
         if (positions.isEmpty()) {
             return;
@@ -641,6 +683,22 @@ public final class RtsClientPacketGateway {
                 toolProtectionEnabled));
     }
 
+    public static void sendAreaMine(int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
+            int toolSlot, String toolItemId, ItemStack toolPrototype, byte shapeType, byte fillType,
+            boolean toolProtectionEnabled, long traceId, RtsTraceInputKind inputKind) {
+        int targetCount = boundedVolume(minX, maxX, minY, maxY, minZ, maxZ);
+        RtsTraceInputKind input = safeInput(inputKind);
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "AREA_MINE", 0, input, RtsMiningStopOrigin.NONE, targetCount);
+        PacketDistributor.sendToServer(new C2SRtsAreaMineTracePayload(
+                traceId, sequence, clientTick(), 0, input.wireId(), RtsMiningStopOrigin.NONE.wireId(),
+                minX, maxX, minY, maxY, minZ, maxZ,
+                (byte) Mth.clamp(toolSlot, 0, 8),
+                toolItemId == null ? "" : toolItemId,
+                toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                shapeType, fillType, toolProtectionEnabled));
+    }
+
     public static void sendPathfindingGoTo(BlockPos target) {
         if (target != null) {
             PacketDistributor.sendToServer(new C2SRtsPathfindingPayload(target));
@@ -660,17 +718,69 @@ public final class RtsClientPacketGateway {
                 toolProtectionEnabled));
     }
 
+    public static void sendMineStart(BlockPos pos, int face, int toolSlot, String toolItemId,
+            ItemStack toolPrototype, boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled,
+            long traceId, RtsTraceInputKind inputKind) {
+        RtsTraceInputKind input = safeInput(inputKind);
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "MINE_START", 0, input, RtsMiningStopOrigin.NONE, 1);
+        double centerX = pos == null ? 0.0D : pos.getX() + 0.5D;
+        double centerY = pos == null ? 0.0D : pos.getY() + 0.5D;
+        double centerZ = pos == null ? 0.0D : pos.getZ() + 0.5D;
+        PacketDistributor.sendToServer(new C2SRtsMineTracePayload(
+                traceId, sequence, clientTick(), 0, input.wireId(), RtsMiningStopOrigin.NONE.wireId(),
+                pos == null ? BlockPos.ZERO : pos,
+                (byte) face, true, (byte) Mth.clamp(toolSlot, 0, 8),
+                toolItemId == null ? "" : toolItemId,
+                toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                allowPlacedBlockRecovery, toolProtectionEnabled, false,
+                centerX, centerY, centerZ, 0.0D, 0.0D, 0.0D,
+                0.0D, 0.0D, 0.0D));
+    }
+
     public static void sendAreaDestroy(List<BlockPos> positions, int toolSlot, String toolItemId, ItemStack toolPrototype,
             boolean toolProtectionEnabled) {
+        // 旧调用方也统一走分片协议，避免合法的大范围选择退回单包上限。
+        sendAreaDestroy(positions, toolSlot, toolItemId, toolPrototype, toolProtectionEnabled,
+                RtsTraceIds.NONE, RtsTraceInputKind.UNKNOWN);
+    }
+
+    public static void sendAreaDestroy(List<BlockPos> positions, int toolSlot, String toolItemId,
+            ItemStack toolPrototype, boolean toolProtectionEnabled, long traceId,
+            RtsTraceInputKind inputKind) {
         if (positions == null || positions.isEmpty()) {
+            RtsClientOperationDiagnostics.localRejected(traceId, "EMPTY_TARGETS");
             return;
         }
-        PacketDistributor.sendToServer(new C2SRtsAreaDestroyPayload(
-                positions,
+        if (positions.size() > C2SRtsAreaDestroyPayload.MAX_POSITIONS) {
+            RtsClientOperationDiagnostics.localRejected(traceId, "TARGET_LIMIT");
+            return;
+        }
+        RtsTraceInputKind input = safeInput(inputKind);
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "AREA_DESTROY", 0, input, RtsMiningStopOrigin.NONE, positions.size());
+        long requestId = nextAreaDestroyRequestId();
+        List<C2SRtsAreaDestroyFragmentPayload> fragments = C2SRtsAreaDestroyFragmentPayload.split(
+                traceId, requestId, sequence, clientTick(), 0,
+                input.wireId(), RtsMiningStopOrigin.NONE.wireId(), positions,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
-                toolProtectionEnabled));
+                toolProtectionEnabled);
+        try {
+            C2SRtsAreaDestroyFragmentPayload.validateTransfer(fragments);
+        } catch (RuntimeException invalidTransfer) {
+            RtsClientOperationDiagnostics.localRejected(traceId, "AREA_DESTROY_ENCODE_BUDGET");
+            if (Minecraft.getInstance().player != null) {
+                Minecraft.getInstance().player.displayClientMessage(
+                        net.minecraft.network.chat.Component.translatable(
+                                "message.rtsbuilding.mining.tool_data_too_large"), false);
+            }
+            return;
+        }
+        for (C2SRtsAreaDestroyFragmentPayload fragment : fragments) {
+            PacketDistributor.sendToServer(fragment);
+        }
     }
 
     /** 只发送便捷破坏的声明式参数，客户端预览坐标不会进入网络包。 */
@@ -685,6 +795,29 @@ public final class RtsClientPacketGateway {
                 requestId,
                 mode,
                 anchor.immutable(),
+                (byte) (face == null ? Direction.UP : face).get3DDataValue(),
+                settings == null ? RtsConvenienceDestroySettings.DEFAULT : settings,
+                (byte) Mth.clamp(toolSlot, 0, 8),
+                toolItemId == null ? "" : toolItemId,
+                toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                toolProtectionEnabled));
+    }
+
+    public static void sendConvenienceDestroy(long requestId,
+            RtsConvenienceDestroyMode mode, BlockPos anchor, Direction face,
+            RtsConvenienceDestroySettings settings, int toolSlot,
+            String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled,
+            long traceId, RtsTraceInputKind inputKind) {
+        if (mode == null || anchor == null) {
+            RtsClientOperationDiagnostics.localRejected(traceId, "INVALID_TARGET");
+            return;
+        }
+        RtsTraceInputKind input = safeInput(inputKind);
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "CONVENIENCE_DESTROY", 0, input, RtsMiningStopOrigin.NONE, 0);
+        PacketDistributor.sendToServer(new C2SRtsConvenienceDestroyTracePayload(
+                traceId, sequence, clientTick(), 0, input.wireId(), RtsMiningStopOrigin.NONE.wireId(),
+                requestId, mode, anchor.immutable(),
                 (byte) (face == null ? Direction.UP : face).get3DDataValue(),
                 settings == null ? RtsConvenienceDestroySettings.DEFAULT : settings,
                 (byte) Mth.clamp(toolSlot, 0, 8),
@@ -739,9 +872,34 @@ public final class RtsClientPacketGateway {
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
-                (short) Mth.clamp(limit, 1, 256),
+                (short) Mth.clamp(limit, 1, effectiveUltimineMaxBlocks()),
                 mode,
                 toolProtectionEnabled));
+    }
+
+    public static void sendUltimineStart(BlockPos pos, int face, int toolSlot, String toolItemId,
+            ItemStack toolPrototype, int limit, byte mode, boolean toolProtectionEnabled,
+            long traceId, RtsTraceInputKind inputKind) {
+        RtsTraceInputKind input = safeInput(inputKind);
+        int boundedLimit = Mth.clamp(limit, 1, effectiveUltimineMaxBlocks());
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "ULTIMINE", 0, input, RtsMiningStopOrigin.NONE, boundedLimit);
+        PacketDistributor.sendToServer(new C2SRtsUltimineTracePayload(
+                traceId, sequence, clientTick(), 0, input.wireId(), RtsMiningStopOrigin.NONE.wireId(),
+                pos == null ? BlockPos.ZERO : pos, (byte) face, (byte) Mth.clamp(toolSlot, 0, 8),
+                toolItemId == null ? "" : toolItemId,
+                toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                (short) boundedLimit, mode, toolProtectionEnabled));
+    }
+
+    /** 服务端同步后保留已保存的 257..4096 连锁偏好，不回落到旧的 256 常量。 */
+    private static int effectiveUltimineMaxBlocks() {
+        try {
+            return Mth.clamp(Config.ultimineMaxBlocks(), 1,
+                    com.rtsbuilding.rtsbuilding.common.mining.MiningLimits.MAX_CHAIN_LIMIT);
+        } catch (RuntimeException ignored) {
+            return com.rtsbuilding.rtsbuilding.common.mining.MiningLimits.DEFAULT_CHAIN_LIMIT;
+        }
     }
 
     public static void sendMineAbort(BlockPos pos, int face, int toolSlot) {
@@ -754,6 +912,48 @@ public final class RtsClientPacketGateway {
                 ItemStack.EMPTY,
                 false,
                 false));
+    }
+
+    public static void sendMineAbort(BlockPos pos, int face, int toolSlot, long traceId,
+            int heldMs, RtsTraceInputKind inputKind, RtsMiningStopOrigin origin) {
+        RtsTraceInputKind input = safeInput(inputKind);
+        RtsMiningStopOrigin stopOrigin = origin == null ? RtsMiningStopOrigin.EXPLICIT_CANCEL : origin;
+        RtsClientOperationDiagnostics.inputRelease(traceId, heldMs, input, stopOrigin);
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "MINE_STOP", heldMs, input, stopOrigin, 1);
+        PacketDistributor.sendToServer(new C2SRtsMineTracePayload(
+                traceId, sequence, clientTick(), Math.max(0, heldMs), input.wireId(), stopOrigin.wireId(),
+                pos == null ? BlockPos.ZERO : pos, (byte) face, false,
+                (byte) Mth.clamp(toolSlot, 0, 8), "", ItemStack.EMPTY,
+                false, false, false,
+                0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
+                0.0D, 0.0D, 0.0D));
+    }
+
+    private static RtsTraceInputKind safeInput(RtsTraceInputKind input) {
+        return input == null ? RtsTraceInputKind.UNKNOWN : input;
+    }
+
+    private static long clientTick() {
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft != null && minecraft.level != null ? minecraft.level.getGameTime() : -1L;
+    }
+
+    private static int boundedVolume(int minX, int maxX, int minY, int maxY, int minZ, int maxZ) {
+        long width = Math.abs((long) maxX - minX) + 1L;
+        long height = Math.abs((long) maxY - minY) + 1L;
+        long depth = Math.abs((long) maxZ - minZ) + 1L;
+        long volume = width > Long.MAX_VALUE / Math.max(1L, height)
+                ? Long.MAX_VALUE : width * height;
+        volume = volume > Long.MAX_VALUE / Math.max(1L, depth)
+                ? Long.MAX_VALUE : volume * depth;
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, volume));
+    }
+
+    private static long nextAreaDestroyRequestId() {
+        long requestId = NEXT_AREA_DESTROY_REQUEST_ID.getAndIncrement();
+        if (requestId != 0L) return requestId;
+        return NEXT_AREA_DESTROY_REQUEST_ID.getAndIncrement();
     }
 
     public static void sendUndo() {

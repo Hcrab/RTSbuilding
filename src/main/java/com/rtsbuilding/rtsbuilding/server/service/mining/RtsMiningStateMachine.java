@@ -1,7 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.compat.integrateddynamics.RtsIntegratedDynamicsCompat;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
+import com.rtsbuilding.rtsbuilding.server.history.HistoryBudget;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
@@ -195,6 +197,16 @@ public final class RtsMiningStateMachine {
         List<HistoryBlockRecord> neighborRecords = MultiBlockTracker.captureNeighborRecords(
                 player.serverLevel(), pos, player.isCreative());
 
+        // 单块旧路径也必须在世界变化前通过同一条保守门禁；detached 批处理会沿用任务摘要。
+        HistoryBudget directHistoryBudget = HistoryBudget.empty(
+                Math.max(1, session.mining.ultimineTotalTargets));
+        if (!directHistoryBudget.canAppend(encodePossibleHistory(preRecord, neighborRecords))) {
+            level.destroyBlockProgress(player.getId(), pos, -1);
+            RtsMiningNetworkHelper.clearMineProgress(player, pos);
+            reportHistoryCapacity(player);
+            return MiningAdvance.ended(1, 0, 1);
+        }
+
         MiningBreakResult result = destroyMinedBlock(player, session, pos, session.mining.miningToolSlot);
         level.destroyBlockProgress(player.getId(), pos, -1);
 
@@ -345,6 +357,8 @@ public final class RtsMiningStateMachine {
         int unitLimit = Math.max(0, Math.min(RtsMiningValidator.ultimineBlocksPerTick(), maxUnits));
         MiningWaitHint waitHint = null;
         boolean deferUntilNextTick = false;
+        HistoryBudget historyBudget = state.historyBudget();
+        boolean historyCapacityReported = state.historyCapacityReported();
 
         if (mode == MiningTaskState.Mode.PROGRESSIVE_SINGLE && !remaining.isEmpty()
                 && unitLimit > 0 && System.nanoTime() < deadlineNanos) {
@@ -378,13 +392,21 @@ public final class RtsMiningStateMachine {
                             stage = nextStage;
                         }
                     } else {
-                        boolean broken = destroyDetachedTarget(
-                                player, session, target, history, state.creativeOperation());
+                        DetachedDestroyResult destroyResult = destroyDetachedTarget(
+                                player, session, target, historyBudget, state.creativeOperation());
                         clearDetachedProgress(player, target);
                         remaining.remove(0);
                         processed++;
-                        if (broken) {
+                        if (destroyResult.capacityRejected()) {
+                            failed++;
+                            if (!historyCapacityReported) {
+                                reportHistoryCapacity(player);
+                                historyCapacityReported = true;
+                            }
+                        } else if (destroyResult.broken()) {
                             succeeded++;
+                            history.addAll(destroyResult.historyRecords());
+                            historyBudget = historyBudget.appended(destroyResult.historyRecords());
                         } else {
                             failed++;
                         }
@@ -425,12 +447,20 @@ public final class RtsMiningStateMachine {
                 waitHint = MiningWaitHint.tool();
                 break;
             }
-            boolean broken = destroyDetachedTarget(
-                    player, session, target, history, state.creativeOperation());
+            DetachedDestroyResult destroyResult = destroyDetachedTarget(
+                    player, session, target, historyBudget, state.creativeOperation());
             remaining.remove(0);
             processed++;
-            if (broken) {
+            if (destroyResult.capacityRejected()) {
+                failed++;
+                if (!historyCapacityReported) {
+                    reportHistoryCapacity(player);
+                    historyCapacityReported = true;
+                }
+            } else if (destroyResult.broken()) {
                 succeeded++;
+                history.addAll(destroyResult.historyRecords());
+                historyBudget = historyBudget.appended(destroyResult.historyRecords());
             } else {
                 failed++;
             }
@@ -441,7 +471,8 @@ public final class RtsMiningStateMachine {
         int nextFailed = state.failedUnits() + failed;
         MiningTaskState next = state.next(
                 remaining.isEmpty() ? MiningTaskState.Mode.BATCH : mode,
-                remaining, nextCursor, nextSucceeded, nextFailed, progress, stage, history);
+                remaining, nextCursor, nextSucceeded, nextFailed, progress, stage, history,
+                historyBudget, historyCapacityReported);
 
         MiningSliceResult.Outcome outcome;
         if (waitHint != null) outcome = MiningSliceResult.Outcome.WAITING;
@@ -463,15 +494,20 @@ public final class RtsMiningStateMachine {
                 && RtsMiningValidator.hasValidDestroySpeed(targetState, player.serverLevel(), target);
     }
 
-    private static boolean destroyDetachedTarget(
+    private static DetachedDestroyResult destroyDetachedTarget(
             ServerPlayer player, RtsStorageSession session, BlockPos target,
-            List<net.minecraft.nbt.CompoundTag> history, boolean creativeOperation) {
+            HistoryBudget historyBudget, boolean creativeOperation) {
         HistoryBlockRecord before = ServerHistoryManager.captureBlock(
                 player.serverLevel(), target, creativeOperation);
         List<HistoryBlockRecord> neighbors = MultiBlockTracker.captureNeighborRecords(
                 player.serverLevel(), target, creativeOperation);
+        List<net.minecraft.nbt.CompoundTag> possibleHistory = encodePossibleHistory(before, neighbors);
+        if (!historyBudget.canAppend(possibleHistory)) {
+            return DetachedDestroyResult.rejectedForCapacity();
+        }
         MiningBreakResult result = destroyMinedBlock(player, session, target, session.mining.miningToolSlot);
-        if (!result.broken()) return false;
+        if (!result.broken()) return DetachedDestroyResult.failed();
+        List<net.minecraft.nbt.CompoundTag> history = new ArrayList<>();
         if (before != null) history.add(MiningTaskCodec.encodeHistory(before));
         for (HistoryBlockRecord neighbor : neighbors) {
             if (!neighbor.pos().equals(target)
@@ -480,7 +516,42 @@ public final class RtsMiningStateMachine {
                 history.add(MiningTaskCodec.encodeHistory(neighbor));
             }
         }
-        return true;
+        return DetachedDestroyResult.broken(history);
+    }
+
+    /** 破坏前按最坏情况预留目标和所有可能连带邻居，避免破坏后才发现历史放不下。 */
+    private static List<net.minecraft.nbt.CompoundTag> encodePossibleHistory(
+            HistoryBlockRecord before, List<HistoryBlockRecord> neighbors) {
+        List<net.minecraft.nbt.CompoundTag> possible = new ArrayList<>(1 + neighbors.size());
+        if (before != null) possible.add(MiningTaskCodec.encodeHistory(before));
+        for (HistoryBlockRecord neighbor : neighbors) {
+            if (!neighbor.pos().equals(before == null ? null : before.pos())
+                    && neighbor.state() != null && !neighbor.state().isAir()) {
+                possible.add(MiningTaskCodec.encodeHistory(neighbor));
+            }
+        }
+        return possible;
+    }
+
+    private static void reportHistoryCapacity(ServerPlayer player) {
+        player.displayClientMessage(
+                net.minecraft.network.chat.Component.translatable("message.rtsbuilding.mining.history_capacity"),
+                true);
+    }
+
+    private record DetachedDestroyResult(
+            boolean broken, boolean capacityRejected, List<net.minecraft.nbt.CompoundTag> historyRecords) {
+        private static DetachedDestroyResult broken(List<net.minecraft.nbt.CompoundTag> historyRecords) {
+            return new DetachedDestroyResult(true, false, List.copyOf(historyRecords));
+        }
+
+        private static DetachedDestroyResult failed() {
+            return new DetachedDestroyResult(false, false, List.of());
+        }
+
+        private static DetachedDestroyResult rejectedForCapacity() {
+            return new DetachedDestroyResult(false, true, List.of());
+        }
     }
 
     private static void clearDetachedProgress(ServerPlayer player, BlockPos target) {
@@ -740,7 +811,13 @@ public final class RtsMiningStateMachine {
         return RtsMiningDropCapture.capture(player, session, () -> {
             boolean broken;
             ItemStack remainder;
-            if (session.mining.miningToolLease != null && !session.mining.miningToolLease.isEmpty()) {
+            if (RtsIntegratedDynamicsCompat.tryDestroyCable(player, pos)) {
+                // ID cable 自己负责网络节点清理与掉落；借用工具不应被这条专用移除路径重复改写。
+                broken = true;
+                remainder = session.mining.miningToolLease != null
+                        ? session.mining.miningToolLease.stack()
+                        : ItemStack.EMPTY;
+            } else if (session.mining.miningToolLease != null && !session.mining.miningToolLease.isEmpty()) {
                 RtsToolLease lease = session.mining.miningToolLease;
                 MiningBreakResult outcome = destroyBlockWithTemporaryMainHand(player, pos, lease.stack());
                 remainder = RtsToolLeaseManager.protectBorrowedToolRemainder(player, lease, outcome.remainder());

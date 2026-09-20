@@ -43,6 +43,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildMode;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.storage.LinkedStoragePanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
@@ -116,7 +117,7 @@ final class BuilderScreenModeSessionOwner {
             if (!screen.canUseRangeCulling()) {
                 return;
             }
-            screen.cameraInput.stopActiveMining();
+            screen.cameraInput.stopActiveMining(RtsMiningStopOrigin.MODE_SWITCH);
             screen.shapeController.clearShapeBuildSession();
             screen.cullingManager.toggleManagementMode();
             screen.cullingPanel.setOpen(screen.cullingManager.isManagementMode());
@@ -144,7 +145,7 @@ final class BuilderScreenModeSessionOwner {
                 screen.enforceBlueprintPlacementModeLock();
                 return;
             }
-            screen.cameraInput.stopActiveMining();
+            screen.cameraInput.stopActiveMining(RtsMiningStopOrigin.MODE_SWITCH);
             screen.shapeController.clearShapeBuildSession();
             screen.funnelHotkeyTemporaryMode = screen.controller.getMode() != BuilderMode.FUNNEL;
             if (screen.funnelHotkeyTemporaryMode) {
@@ -193,7 +194,7 @@ final class BuilderScreenModeSessionOwner {
     void updateModeWheelAltState() {
             boolean altDown = screen.isAltDown();
             if (altDown && !screen.modeWheelAltWasDown && screen.canOpenModeWheel()) {
-                screen.cameraInput.stopActiveMining();
+                screen.cameraInput.stopActiveMining(RtsMiningStopOrigin.WINDOW_OPENED);
                 screen.cameraInput.cancelPointerGestures();
                 screen.funnelMouseHoldButton = -1;
                 screen.syncFunnelHoldState();
@@ -220,7 +221,7 @@ final class BuilderScreenModeSessionOwner {
         }
 
     void selectModeFromWheel(BuilderMode mode) {
-            screen.cameraInput.stopActiveMining();
+            screen.cameraInput.stopActiveMining(RtsMiningStopOrigin.MODE_SWITCH);
             screen.shapeController.clearShapeBuildSession();
             screen.funnelHotkeyHeld = false;
             screen.funnelHotkeyTemporaryMode = false;
@@ -310,7 +311,7 @@ final class BuilderScreenModeSessionOwner {
             if (screen.controller.getMode() == BuilderMode.INTERACT && !screen.controller.isFunnelEnabled()) {
                 return;
             }
-            screen.cameraInput.stopActiveMining();
+            screen.cameraInput.stopActiveMining(RtsMiningStopOrigin.MODE_SWITCH);
             screen.shapeController.clearShapeBuildSession();
             screen.controller.setFunnelEnabled(false);
             screen.controller.setMode(BuilderMode.INTERACT);

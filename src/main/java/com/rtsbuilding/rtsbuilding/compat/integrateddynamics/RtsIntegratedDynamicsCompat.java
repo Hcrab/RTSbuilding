@@ -63,7 +63,7 @@ public final class RtsIntegratedDynamicsCompat {
             method.invoke(null, level, pos, player);
             BlockState after = level.getBlockState(pos);
             return !after.equals(before) || !CABLE_BLOCK_ID.equals(BuiltInRegistries.BLOCK.getKey(after.getBlock()));
-        } catch (IllegalAccessException | InvocationTargetException ex) {
+        } catch (IllegalAccessException | InvocationTargetException | RuntimeException | LinkageError ex) {
             RtsbuildingMod.LOGGER.warn("Failed to invoke Integrated Dynamics cable removal at {}", pos, ex);
             return false;
         }
@@ -75,9 +75,12 @@ public final class RtsIntegratedDynamicsCompat {
         }
         methodLookupDone = true;
         try {
-            Class<?> helperClass = Class.forName("org.cyclops.integrateddynamics.core.helper.CableHelpers");
+            Class<?> helperClass = Class.forName(
+                    "org.cyclops.integrateddynamics.core.helper.CableHelpers",
+                    false,
+                    RtsIntegratedDynamicsCompat.class.getClassLoader());
             removeCableMethod = helperClass.getMethod("removeCable", Level.class, BlockPos.class, Player.class);
-        } catch (ClassNotFoundException | NoSuchMethodException ex) {
+        } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | LinkageError ex) {
             RtsbuildingMod.LOGGER.debug("Integrated Dynamics cable removal helper is unavailable", ex);
             removeCableMethod = null;
         }

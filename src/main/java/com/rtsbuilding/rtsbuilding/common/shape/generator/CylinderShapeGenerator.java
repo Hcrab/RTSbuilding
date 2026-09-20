@@ -25,8 +25,8 @@ public class CylinderShapeGenerator extends AreaShapeGenerator {
     public List<BlockPos> generatePositions(AreaShapeInput input, ShapeFillMode fillMode) {
         int dx = input.end().getX() - input.start().getX();
         int dz = input.end().getZ() - input.start().getZ();
-        int radius = Math.min(64, Math.max(0, (int) Math.round(Math.sqrt(dx * (double) dx + dz * (double) dz))));
-        int height = clampOffset(input.heightOffset());
+        int radius = Math.min(input.maxOffset(), Math.max(0, (int) Math.round(Math.sqrt(dx * (double) dx + dz * (double) dz))));
+        int height = clampOffset(input.heightOffset(), input);
         int minY = Math.min(0, height);
         int maxY = Math.max(0, height);
         Set<Cell> filledBase = circleCells(radius, true);

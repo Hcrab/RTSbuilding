@@ -29,7 +29,12 @@ public record S2CRtsHarvestTierSkippedPayload(
                     (buf, payload) -> {
                         List<BlockPos> payloadPositions =
                                 payload.positions() == null ? List.of() : payload.positions();
-                        int size = Math.min(payloadPositions.size(), MAX_POSITIONS);
+                        if (payloadPositions.size() > MAX_POSITIONS) {
+                            throw new IllegalArgumentException(
+                                    "RTS harvest-tier feedback exceeds one packet budget: "
+                                            + payloadPositions.size() + " > " + MAX_POSITIONS);
+                        }
+                        int size = payloadPositions.size();
                         buf.writeVarInt(size);
                         for (int i = 0; i < size; i++) {
                             buf.writeBlockPos(payloadPositions.get(i));

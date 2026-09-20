@@ -615,8 +615,12 @@ class UiProductionAdapterContractTest {
         String preview = read(
                 "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/UiMainlineWindowRenderer.java");
 
-        assertTrue(panel.contains(
-                "workflowGeometry(state).hitAt(mouseX, mouseY)"));
+        String hitTarget = read(
+                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/WorkflowUiHitTarget.java");
+        assertTrue(panel.contains("WorkflowUiHitTarget.resolve("));
+        assertTrue(panel.contains("lastDrawnGeometry, lastDrawnState.rows, mouseX, mouseY"));
+        assertTrue(hitTarget.contains("geometry.hitAt(mouseX, mouseY)"));
+        assertTrue(panel.contains("WorkflowUiHitTarget.findByEntryId("));
         assertTrue(panel.contains("WorkflowPanelRenderer.renderRow("));
         assertTrue(renderer.contains("WorkflowChromeRenderer.renderRow("));
         assertTrue(renderer.contains("WorkflowStyle.row("));
@@ -701,6 +705,8 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/util/TinyFileDialogSupport.java");
         String repository = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibraryRepository.java");
+        String loader = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibraryLoadWorker.java");
         String saveCoordinator = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintCaptureSaveCoordinator.java");
         String preview = read(
@@ -731,8 +737,11 @@ class UiProductionAdapterContractTest {
         assertTrue(panel.contains("new ConfirmScreen("));
         assertTrue(panel.contains("BlueprintLibraryFileOperations.delete(current)"));
         assertTrue(fileOperations.contains("BlueprintWriters.writeVanillaStructure("));
-        assertTrue(repository.contains("Files.list(folder)"));
-        assertTrue(repository.contains("BlueprintReaders.parse("));
+        assertTrue(repository.contains("BlueprintLibraryLoadWorker::submit"));
+        assertFalse(repository.contains("Files.list(folder)"));
+        assertFalse(repository.contains("BlueprintReaders.parse("));
+        assertTrue(loader.contains("Files.list(folder)"));
+        assertTrue(loader.contains("BlueprintReaders.parse("));
         assertTrue(repository.contains("void addOrReplace("));
         assertTrue(saveCoordinator.contains("capture.startSave("));
         assertTrue(saveCoordinator.contains("capture.pollSaveResult()"));

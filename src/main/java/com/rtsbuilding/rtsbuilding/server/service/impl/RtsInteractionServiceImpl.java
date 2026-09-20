@@ -152,7 +152,8 @@ public final class RtsInteractionServiceImpl implements InteractionService {
             BlockPos placedPos = RtsPlacementHelper.detectPlacedPos(
                     level, effectiveBlockPos, beforeClicked, adjacentPos, beforeAdjacent);
             if (placedPos != null) {
-                PlacedBlockTrackerData.get(level).mark(placedPos);
+                PlacedBlockTrackerData.get(level).markPlaced(
+                        placedPos, player.getUUID(), level.getBlockState(placedPos));
                 if (!soundStack.isEmpty() && soundStack.getItem() instanceof BlockItem) {
                     RtsPlacementSound.playRemotePlacedBlockAnimation(player, placedPos);
                     RtsPlacementSound.playRemotePlacedBlockSound(player, level, placedPos);

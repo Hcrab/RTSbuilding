@@ -58,6 +58,8 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
@@ -133,7 +135,7 @@ final class BuilderScreenPointerActionOwner {
                 return false;
             }
             if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-                screen.cameraInput.stopActiveMining();
+                screen.cameraInput.stopActiveMining(RtsMiningStopOrigin.NEW_ACTION_REPLACED);
                 if (screen.isWorldArea(mouseX, mouseY)) {
                     BlockHitResult hit = screen.cursorPicker.pickBlockHit();
                     BlueprintPanel.handleCaptureWorldAction(
@@ -351,7 +353,7 @@ final class BuilderScreenPointerActionOwner {
             InputConstants.Key mouseKey = InputConstants.Type.MOUSE.getOrCreate(button);
             if (screen.shapeController.isAwaitingBatchDestroyConfirm()
                     && ClientKeyMappings.CONFIRM_BATCH_DESTROY.isActiveAndMatches(mouseKey)) {
-                screen.shapeController.tryConfirmPendingRangeDestroy();
+                screen.shapeController.tryConfirmPendingRangeDestroy(RtsTraceInputKind.MOUSE);
                 return true;
             }
             if (screen.shapeController.isAwaitingBatchPlaceConfirm()

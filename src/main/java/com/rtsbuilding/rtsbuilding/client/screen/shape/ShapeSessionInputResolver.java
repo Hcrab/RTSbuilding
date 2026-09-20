@@ -18,30 +18,7 @@ public final class ShapeSessionInputResolver {
     private static final double MIN_RAY_COMPONENT = 1.0E-5D;
     private static final double MAX_PLANE_DISTANCE = 128.0D;
 
-    public static ShapeBuildTypes.Input resolve(
-            ShapeBuildTypes.Session session,
-            BlockHitResult cursorHit,
-            boolean requireReady,
-            boolean lineConnected,
-            int footprintNudgeA,
-            int footprintNudgeB,
-            Vec3 rayOrigin,
-            Vec3 rayDirection) {
-        return resolve(
-                session,
-                cursorHit,
-                requireReady,
-                false,
-                lineConnected,
-                footprintNudgeA,
-                footprintNudgeB,
-                rayOrigin,
-                rayDirection);
-    }
-
-    /**
-     * 解析当前形状输入；垂直直线由调用方显式声明，避免解析器读取界面状态。
-     */
+    /** 带显式普通建造边界的解析入口，圆/球脚印使用独立 radius。 */
     public static ShapeBuildTypes.Input resolve(
             ShapeBuildTypes.Session session,
             BlockHitResult cursorHit,
@@ -51,7 +28,9 @@ public final class ShapeSessionInputResolver {
             int footprintNudgeA,
             int footprintNudgeB,
             Vec3 rayOrigin,
-            Vec3 rayDirection) {
+            Vec3 rayDirection,
+            int maxShapeDimension,
+            int maxShapeRadius) {
         if (session == null) {
             return null;
         }
@@ -68,15 +47,16 @@ public final class ShapeSessionInputResolver {
                 return null;
             }
             BlockPos pointB = verticalLine && session.shape() == BuildShape.LINE
-                    ? resolveVerticalLinePoint(session, cursorHit)
+                    ? resolveVerticalLinePoint(session, cursorHit, maxShapeDimension)
                     : resolvePlanePoint(session, cursorHit, rayOrigin, rayDirection);
             if (!verticalLine) {
                 pointB = applyFootprintNudges(
                         session.shape(), session.planeFace(), pointA, pointB,
-                        footprintNudgeA, footprintNudgeB);
+                        footprintNudgeA, footprintNudgeB,
+                        footprintLimit(session.shape(), maxShapeDimension, maxShapeRadius));
             }
             int heightOffset = verticalLine && pointB != null
-                    ? pointB.getY() - pointA.getY()
+                    ? ShapeGeometryPlaneSupport.toInt((long) pointB.getY() - pointA.getY())
                     : 0;
             return input(session, pointA, pointB, heightOffset, lineConnected);
         }
@@ -91,7 +71,8 @@ public final class ShapeSessionInputResolver {
         if (!verticalLine) {
             pointB = applyFootprintNudges(
                     session.shape(), session.planeFace(), pointA, pointB,
-                    footprintNudgeA, footprintNudgeB);
+                    footprintNudgeA, footprintNudgeB,
+                    footprintLimit(session.shape(), maxShapeDimension, maxShapeRadius));
         }
         return input(session, pointA, pointB, session.boxHeightOffset(), lineConnected);
     }
@@ -101,19 +82,24 @@ public final class ShapeSessionInputResolver {
      */
     public static BlockPos resolveVerticalLinePoint(
             ShapeBuildTypes.Session session,
-            BlockHitResult cursorHit) {
+            BlockHitResult cursorHit,
+            int maxShapeDimension) {
         BlockPos pointA = session == null ? null : session.pointA();
         if (pointA == null) {
             return cursorHit == null ? null : cursorHit.getBlockPos();
         }
-        int offset = session.boxHeightOffset();
+        long offset = session.boxHeightOffset();
         if (offset == 0 && cursorHit != null) {
-            offset = cursorHit.getBlockPos().getY() - pointA.getY();
+            offset = (long) cursorHit.getBlockPos().getY() - pointA.getY();
         }
         if (offset == 0) {
             offset = 1;
         }
-        return pointA.offset(0, ShapeGeometryUtil.clampShapeOffset(offset), 0);
+        int clampedOffset = clampSignedOffset(offset,
+                Math.max(0, Math.max(1, maxShapeDimension) - 1));
+        return new BlockPos(pointA.getX(),
+                ShapeGeometryPlaneSupport.toInt((long) pointA.getY() + clampedOffset),
+                pointA.getZ());
     }
 
     public static BlockPos resolvePlanePoint(
@@ -171,7 +157,8 @@ public final class ShapeSessionInputResolver {
             BlockPos pointA,
             BlockPos pointB,
             int footprintNudgeA,
-            int footprintNudgeB) {
+            int footprintNudgeB,
+            int maxOffset) {
         if (pointA == null || pointB == null
                 || (footprintNudgeA == 0 && footprintNudgeB == 0)
                 || shape == null || shape == BuildShape.BLOCK) {
@@ -190,14 +177,25 @@ public final class ShapeSessionInputResolver {
             axisA = axes[0];
             axisB = axes[1];
         }
-        int dx = pointB.getX() - pointA.getX();
-        int dy = pointB.getY() - pointA.getY();
-        int dz = pointB.getZ() - pointA.getZ();
-        int nextA = ShapeGeometryUtil.clampShapeOffset(
-                ShapeGeometryUtil.dotDelta(dx, dy, dz, axisA) + footprintNudgeA);
-        int nextB = ShapeGeometryUtil.clampShapeOffset(
-                ShapeGeometryUtil.dotDelta(dx, dy, dz, axisB) + footprintNudgeB);
+        long dx = (long) pointB.getX() - pointA.getX();
+        long dy = (long) pointB.getY() - pointA.getY();
+        long dz = (long) pointB.getZ() - pointA.getZ();
+        long projectedA = dx * axisA.getStepX() + dy * axisA.getStepY() + dz * axisA.getStepZ();
+        long projectedB = dx * axisB.getStepX() + dy * axisB.getStepY() + dz * axisB.getStepZ();
+        int nextA = clampSignedOffset(projectedA + footprintNudgeA, maxOffset);
+        int nextB = clampSignedOffset(projectedB + footprintNudgeB, maxOffset);
         return ShapeGeometryUtil.offsetPos(pointA, axisA, nextA, axisB, nextB);
+    }
+
+    private static int clampSignedOffset(long value, int maxMagnitude) {
+        long bound = Math.max(0L, maxMagnitude);
+        return ShapeGeometryPlaneSupport.toInt(Math.max(-bound, Math.min(bound, value)));
+    }
+
+    private static int footprintLimit(BuildShape shape, int maxDimension, int maxRadius) {
+        return shape == BuildShape.CIRCLE || shape == BuildShape.CYLINDER || shape == BuildShape.BALL
+                ? Math.max(0, maxRadius)
+                : Math.max(0, maxDimension - 1);
     }
 
     private static ShapeBuildTypes.Input input(

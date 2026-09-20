@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import net.minecraft.core.BlockPos;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningSelectionBounds;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -32,10 +33,12 @@ public final class RtsMiningTargetQueue {
         if (positions == null || positions.isEmpty() || canAccessTarget == null || acceptsTarget == null) {
             return new ArrayDeque<>();
         }
+        if (!MiningSelectionBounds.accepts(positions, RtsMiningValidator.areaMineSelectionLimit())) {
+            return new ArrayDeque<>();
+        }
         LinkedHashSet<BlockPos> unique = new LinkedHashSet<>();
-        int maxTargets = RtsMiningValidator.areaDestroyMaxTargets();
         for (BlockPos raw : positions) {
-            if (raw == null || unique.size() >= maxTargets) {
+            if (raw == null) {
                 continue;
             }
             BlockPos pos = raw.immutable();

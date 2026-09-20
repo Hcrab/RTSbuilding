@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.network.RtsNetworkProtocol;
 import com.rtsbuilding.rtsbuilding.network.blueprint.BlueprintPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.ForgePayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsBuilderPackets;
@@ -13,6 +14,7 @@ import com.rtsbuilding.rtsbuilding.network.pathfinding.RtsPathfindingPackets;
 import com.rtsbuilding.rtsbuilding.network.plugin.RtsPluginPackets;
 import com.rtsbuilding.rtsbuilding.network.progression.RtsProgressionPackets;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStoragePackets;
+import com.rtsbuilding.rtsbuilding.network.config.RtsServerConfigPackets;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -29,14 +31,13 @@ import net.minecraftforge.network.simple.SimpleChannel;
  * requires.
  */
 public final class RtsForgePayloadRegistrar {
-    // Create Value Settings 的负载加入行为 netId；拒绝旧 1.1.7 客户端按旧字段顺序解码。
-    private static final String PROTOCOL_VERSION = "2";
+    // 本 beta 的 payload 字段已变更；拒绝旧客户端按旧顺序解码。
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(RtsbuildingMod.MODID, "main"),
-            () -> PROTOCOL_VERSION,
-            PROTOCOL_VERSION::equals,
-            PROTOCOL_VERSION::equals);
+            () -> RtsNetworkProtocol.VERSION,
+            RtsNetworkProtocol.VERSION::equals,
+            RtsNetworkProtocol.VERSION::equals);
 
     private static boolean registered;
 
@@ -54,6 +55,7 @@ public final class RtsForgePayloadRegistrar {
         RtsCullingPackets.register(registrar);
         RtsCreateValueSettingsPackets.register(registrar);
         RtsStoragePackets.register(registrar);
+        RtsServerConfigPackets.register(registrar);
         RtsBuilderPackets.register(registrar);
         RtsCraftPackets.register(registrar);
         RtsProgressionPackets.register(registrar);

@@ -30,13 +30,31 @@ class RtsModConfigScreenContractTest {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsModConfigScreen.java"));
 
-        assertTrue(source.contains("config.rtsbuilding.section.area_mining"));
-        assertTrue(source.contains("config.rtsbuilding.area_mine_max_width"));
-        assertTrue(source.contains("config.rtsbuilding.area_mine_max_height"));
-        assertTrue(source.contains("config.rtsbuilding.area_mine_max_depth"));
-        assertTrue(source.contains("config.rtsbuilding.area_mine_max_volume"));
-        assertTrue(source.contains("config.rtsbuilding.area_destroy_max_targets"));
-        assertTrue(source.contains("Config.saveAreaMineLimitSettings"));
+        assertTrue(source.contains("RtsServerConfigField"));
+        assertTrue(source.contains("saveServerConfig"));
+        assertTrue(source.contains("baselineRevision"));
+        assertFalse(source.contains("Config.saveGeneralSettings"));
+        assertFalse(source.contains("Config.saveAreaMineLimitSettings"));
+        assertFalse(source.contains("getSingleplayerServer"));
+        assertFalse(source.contains("config.rtsbuilding.area_mine_max_width"));
+        assertFalse(source.contains("config.rtsbuilding.area_mine_max_height"));
+        assertFalse(source.contains("config.rtsbuilding.area_mine_max_depth"));
+        assertFalse(source.contains("config.rtsbuilding.area_destroy_max_targets"));
+    }
+
+    @Test
+    void screenLifecyclePreservesDraftsAndUsesImmediateWorldInputState() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsModConfigScreen.java"));
+
+        assertTrue(source.contains("if (!this.initialized)"));
+        assertTrue(source.contains("captureVisibleDrafts();"));
+        assertTrue(source.contains("box.setResponder"));
+        assertTrue(source.contains("worldLayout()"));
+        assertTrue(source.contains("GLFW.GLFW_KEY_ESCAPE"));
+        assertTrue(source.contains("closeWithoutSaving()"));
+        assertTrue(source.contains("setFocused(null)"));
+        assertFalse(source.contains("? savePersonal() : saveWorld()"));
     }
 
     @Test
@@ -49,8 +67,11 @@ class RtsModConfigScreenContractTest {
         assertFalse(generalSave.contains("USE_BLOCK_GHOST_PREVIEW"));
         assertFalse(generalSave.contains("USE_WIREFRAME_PREVIEW"));
         assertTrue(areaSave.contains("SERVER_SPEC.save()"));
-        assertTrue(areaSave.contains("AREA_MINE_MAX_WIDTH.set"));
-        assertTrue(areaSave.contains("AREA_DESTROY_MAX_TARGETS.set"));
+        assertTrue(areaSave.contains("MAX_SELECTION_VOLUME.set"));
+        assertFalse(areaSave.contains("AREA_MINE_MAX_WIDTH.set"));
+        assertFalse(areaSave.contains("AREA_MINE_MAX_HEIGHT.set"));
+        assertFalse(areaSave.contains("AREA_MINE_MAX_DEPTH.set"));
+        assertFalse(areaSave.contains("AREA_DESTROY_MAX_TARGETS.set"));
     }
 
     private static String slice(String source, String start, String end) {

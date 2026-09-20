@@ -22,6 +22,10 @@ public final class MinecraftTestBootstrapExtension implements BeforeAllCallback 
 
     @Override
     public void beforeAll(ExtensionContext context) throws Exception {
+        if (net.minecraftforge.fml.loading.FMLPaths.GAMEDIR.get() == null) {
+            net.minecraftforge.fml.loading.FMLPaths.loadAbsolutePaths(
+                    java.nio.file.Files.createTempDirectory("rts-junit-forge-"));
+        }
         ensureBootstrapped();
     }
 

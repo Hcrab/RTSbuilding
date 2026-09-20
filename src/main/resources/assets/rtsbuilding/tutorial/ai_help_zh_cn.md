@@ -36,7 +36,7 @@
 
 ### 范围绑定
 
-范围绑定用于一次扫描一片已加载区域里的存储端点。先切到存储绑定模式，按住 Ctrl 进入范围绑定；准星对准第一个角点左键，再对准对角左键。选区就绪后可滚轮调整高度，按住 Alt 可加快高度调整；按 Enter 或再次点击提交。提交后会继续留在范围绑定模式，方便连续框选；Esc 先清空当前框选，再次按 Esc 退出。当前实现的范围绑定提交为“存取”，目标上限为 64 × 64 × 64；服务端只扫描已加载区块，不会为了绑定自动加载新区块，并会对 AE2/RS 网络去重、保留代表端点。范围过大、无目标、未加载或无权限时，以服务端结果为准。
+范围绑定用于一次扫描一片已加载区域里的存储端点。先切到存储绑定模式，按住 Ctrl 进入范围绑定；准星对准第一个角点左键，再对准对角左键。选区就绪后可滚轮调整高度，按住 Alt 可加快高度调整；按 Enter 或再次点击提交。提交后会继续留在范围绑定模式，方便连续框选；Esc 先清空当前框选，再次按 Esc 退出。当前实现的范围绑定提交为“存取”，三个轴默认上限为 64 格，体积上限为 262144 格；服务端只扫描已加载区块，不会为了绑定自动加载新区块，并会对 AE2/RS 网络去重、保留代表端点。范围过大、无目标、未加载或无权限时，以服务端结果为准。
 
 ## 顶部栏模式
 
@@ -54,7 +54,7 @@
 - 右键是“仅提取”：只允许 RTS 取料，不接收自动存入；适合把某个端点当作专用材料来源。
 - 悬停顶部栏按钮并打开“查看绑定详情”，可以刷新、查看维度/坐标、调整优先级、切换权限或解绑。存储页面暂时为空时，先刷新并检查目标是否加载、存储整合插件/网络是否可用，不要直接判断为内容丢失。
 
-范围绑定位于存储绑定模式中：按住 Ctrl 进入，依次点击第一个角点和对角；滚轮调整高度，按住 Alt 可快速调整，按 Enter 或再次点击提交。提交后仍保持范围绑定模式，Esc 先清空当前框选，再次按 Esc 退出。当前提交为“存取”，最大选区为 64 × 64 × 64；服务端只扫描已加载区块，不会为绑定自动加载新区块，并会按 AE2/RS 网络去重保留代表端点。
+范围绑定位于存储绑定模式中：按住 Ctrl 进入，依次点击第一个角点和对角；滚轮调整高度，按住 Alt 可快速调整，按 Enter 或再次点击提交。提交后仍保持范围绑定模式，Esc 先清空当前框选，再次按 Esc 退出。当前提交为“存取”，三个轴默认上限为 64 格，体积上限为 262144 格；服务端只扫描已加载区块，不会为绑定自动加载新区块，并会按 AE2/RS 网络去重保留代表端点。
 
 ### 漏斗
 
@@ -71,6 +71,8 @@
 点击快速建造按钮，选择“范围建造”或“范围破坏”、形状和填充方式。范围建造用右键完成各个点位，范围破坏用左键完成各个点位；预览锁定后按确认键提交，默认确认键为 `Enter`。
 
 直线、方形、圆和球体使用 A/B 点；直线和圆支持水平或垂直方向。墙、圆柱和立方体还需要确定高度。“高级”可为墙、圆柱、球体和立方体提供三维框与方向箭头。“连接”会为斜向直线或墙补齐拐角，使路径保持面相邻。
+
+普通形状的两个上限彼此独立：`maxShapeDimension` 只控制直线/矩形各轴和圆柱高度，`maxShapeRadius` 只控制圆/圆柱底面和球体半径。默认值仍为 `32` / `32`，两者都接受 `1`–`Integer.MAX_VALUE`。每次生成仍统一受 `262144` 个不重复目标的真实容量约束；因此空心或骨架形状即使包围盒较大也可能合法，实心计划超过容量时会明确显示“过大”并禁止确认。预览、材料数量和确认提交消费同一份完整计划。范围破坏继续同时使用配置的 X/Y/Z 轴上限和包围盒体积检查。
 
 “连锁”位于范围破坏中。左键目标方块后，它会寻找相连的同类方块；面板中的上限控制最多处理数量。开启生存平衡时，连锁由“连锁破坏插件”独立解锁。泥土、雪、沙子等软方块不需要采掘等级插件；石头及以上方块仍需对应等级插件和可用的真实工具。范围建造和范围破坏的线框、方块虚影与动画可在设置中分别开关。
 
@@ -198,7 +200,7 @@ Legacy 使用原有资源包材质路径；其他主题使用游戏内语义色�
 - 自动存入、Shift 存入与工具保护：调整个人操作习惯。
 - 预览和动画：分别控制方块虚影、线框、破坏动画和范围破坏骨架。
 - 储存刷新：可控制每 30 秒自动刷新，以及是否让手动刷新按钮变绿。
-- 回收 RTS 放置方块：直接拆回 RTS 记录过的放置方块，不检查工具、采掘等级和精准采集。
+- 回收 RTS 放置方块：对当前玩家拥有有效放置凭据的方块直接精准回收，不要求玩家自备工具或链接储存；区块权限和第三方破坏事件仍生效。
 - Jade 跟随鼠标 / 在 RTS 中隐藏 Jade：避免 Jade 挡住顶部提示。
 - 容器悬浮窗：控制背包、箱子和机器旁的 RTS 面板。
 - 伤害提示与低血量退出：避免俯视时忽略玩家本体受击。
@@ -207,7 +209,7 @@ Legacy 使用原有资源包材质路径；其他主题使用游戏内语义色�
 
 范围操作的确认键默认为 `Enter`，可在 Minecraft 按键设置中搜索 RTSBuilding 修改。
 
-整合包和服务器规则不在齿轮面板中调整。请在“模组 / Mods → RTSBuilding → 配置 / Config”中修改，或编辑服务器的 `config/rts_building/rtsbuilding-common.toml`。
+整合包和服务器规则不在齿轮面板中调整。请在“模组 / Mods → RTSBuilding → 配置 / Config”中修改客户端设置；服务端请由 OP/单人所有者使用世界/服务器页，或编辑世界 `serverconfig/rtsbuilding-server.toml`。
 
 ## 常见问题
 
@@ -328,14 +330,19 @@ RTS 界面打开后，鼠标和键盘输入先经过界面输入路由。路由�
 
 ### 5. 结构化诊断日志
 
-服务端在统一 Pipeline 和 Workflow 边界写入 `[RTS-DIAG]` 单行记录，不在每方块或每 tick 路径刷屏。关键批量操作会记录：
+破坏操作使用 `trace → seq → op → workflow → task` 关联链。客户端鼠标或键盘触发时创建非零 `trace`，同一次按下、持续、释放、START、STOP 和服务端终态复用它；`seq` 标记边界事件顺序。服务端补入操作号、可见工作流号和持久任务号。输入类型及停止来源会区分鼠标、键盘、松开按键、切换模式、打开窗口和关闭 RTS。
 
-- `BEGIN`：请求已到达，包含操作号、玩家、模式、任务类型和目标数。
-- `RESULT`：请求被接受、跳过或拒绝，包含工作流号、失败阶段和稳定原因代码。
-- `FILTER`：一批目标因采掘等级、工具或会话范围被过滤时，只写一条聚合记录。
-- `TERMINAL`：工作流完成、部分失败、取消或超时，包含完成数和失败数。
+普通日志使用三个稳定前缀，不在每方块或每 tick 路径刷屏：
 
-排障时先用同一个 `op` 关联 `BEGIN` 与 `RESULT`，再用 `workflow` 查找异步任务的 `TERMINAL`。常见 `reason` 包括 `FEATURE_LOCKED`、`HARVEST_TIER_TOO_LOW`、`TOOL_CANNOT_HARVEST`、`OUTSIDE_SESSION_RANGE` 和 `CLAIM_DENIED`。单方块正常成功通常只写入 DEBUG，关键批量操作和拒绝结果保留在普通日志。
+- `[RTS-TRACE] side=C|S`：输入按下/释放、发包、服务端收包和客户端收到终态。
+- `[RTS-DIAG]`：Pipeline 的 `BEGIN/RESULT`、按原因聚合的 `FILTER`、工作流创建、任务提交/首切片/等待/恢复/进度、停止来源和 `TERMINAL`。
+- `[RTS-SERVER-HEALTH]`：严重 tick 间隔与同期 RTS 切片、队列、持久化聚合。时间重合不等于已经证明某个模组导致卡顿。
+
+筛选和失败按原因聚合，不逐方块写日志。`TERMINAL` 从最终 Task 快照生成且只发一次，保留是否真正执行、排队至首切片等待、最终完成/失败数等信息。`PERSIST_LOAD_*`、`PERSIST_SAVE_*` 和 `PERSIST_STOP_RESULT` 记录恢复及保存确认，不记录完整 NBT、蓝图、背包或绝对路径。
+
+结构化文件位于 `logs/rtsbuilding/diagnostics-client.jsonl` 和 `logs/rtsbuilding/diagnostics-server.jsonl`，约 8 MiB 轮转至 `.2/.3`。断线/停服尝试刷新；队列满或写入失败只丢诊断并统计，不阻塞帧或服务端 tick。
+
+`diagnostics.level` 默认 `BASIC`，记录有界生命周期及百分比进度节点；`VERBOSE` 另允许每秒一次任务进度采样；`OFF` 关闭这些诊断。排障先搜索同一十六进制 `trace`，再沿 `op/workflow/task` 关联。常见原因包括 `FEATURE_LOCKED`、`HARVEST_TIER_TOO_LOW`、`TOOL_CANNOT_HARVEST`、`OUTSIDE_SESSION_RANGE` 和 `CLAIM_DENIED`。请提供复现时间段的客户端和服务端日志；CPU 归因仍需 Spark、JFR 等 profiler。
 
 ## 主要功能责任链
 
@@ -351,13 +358,17 @@ RTS 界面打开后，鼠标和键盘输入先经过界面输入路由。路由�
 
 挖掘目标先经过软方块、插件采掘等级、真实工具可挖性、工具保护、范围、区块权限和特殊回收规则等检查。连锁请求受最大目标数和每 tick 处理数限制；范围请求另受各轴尺寸和总体积限制。
 
-每次连锁/范围挖掘应拥有独立进度和任务身份；两个任务重叠时，后执行者必须容忍目标已经变为空气或被前一任务处理，不能重复产出。开启“回收 RTS 放置方块”时，已被记录为 RTS 放置的目标走专用回收规则，可绕过工具、采掘等级和精准采集门槛。
+每次连锁/范围挖掘应拥有独立进度和任务身份；两个任务重叠时，后执行者必须容忍目标已经变为空气或被前一任务处理，不能重复产出。开启“回收 RTS 放置方块”时，同一玩家通过 RTS 或普通放置事件留下的有效凭据会在普通挖掘工作流和工具借用之前进入瞬时回收；凭据同时核对放置者、实际方块注册 ID 和代次。其他玩家、已被替换的方块或没有凭据的目标继续走普通挖掘，不能误消费旧记录。
+
+瞬时回收只对当前玩家、维度和精确目标临时使用内部精准采集工具，并调用一次原版玩家破坏入口。最终掉落仍经过 Forge 和第三方掉落事件：开启自动入库时先尝试链接储存，再回退玩家背包，剩余部分由原版落地；没有链接储存也不阻止回收。取消、权限拒绝或异常均按最终世界状态对账：方块未改变时保留凭据，只有确认方块已经改变后才提交凭据和链接引用清理。
 
 范围破坏提交时会冻结本次任务选择的工具槽位。已从绑定储存借出的真实工具优先使用；没有工具租约时，执行阶段读取任务冻结的快捷栏槽位，而不是可能已变化的会话旧槽位。采掘能力、工具保护和耐久写回都使用同一把真实工具。
 
 ### 撤回与重做历史
 
-Ctrl+Z 使用服务端权威历史，并按原操作发生时冻结的创造/生存模式执行，不能通过撤回前切换模式改变资源或 NBT 规则。每名玩家只保留最近三次完整建造或破坏操作；单次记录超过方块数或压缩 NBT 上限时，整条历史会被拒绝并提示玩家，不保留不完整快照。
+Ctrl+Z 使用服务端权威历史，并按原操作发生时冻结的创造/生存模式执行，不能通过撤回前切换模式改变资源或 NBT 规则。每名玩家的撤回栈和重做栈默认各保留最近三条完整操作，历史默认保留 600 秒；服务端可通过 `history.maxEntriesPerStack` 和 `history.retentionSeconds` 调整。单次记录超过方块数或压缩 NBT 上限时，整条历史会被拒绝并提示玩家，不保留不完整快照。
+
+放置与破坏历史同时保存操作前后的回收凭据快照。撤回/重做只在世界写入成功且当前代次仍匹配时恢复凭据；同一坐标后来放置的同类新方块不会被旧历史误删或重新认领。
 
 创造模式会保存建造前后或破坏前的完整 BlockState 与方块实体 NBT。Ctrl+Z 恢复操作前快照，Ctrl+Y 仅重做已经成功撤回的创造操作；新的世界修改会清空旧重做分支。生存建造撤回会移除本次放置成功的方块并将材料返还到绑定储存或玩家物品栏；生存破坏撤回只保存位置和 BlockState，不恢复方块实体 NBT，并从绑定储存、记录的工具栏槽位或明确回退来源支付所需方块。部分成功必须按具体位置裁剪历史，不能把未执行位置误判为已经完成。
 
@@ -401,7 +412,7 @@ UI Core 状态快照可能在 `BuilderScreen` 构造期间生成。此时 Screen
 
 ## RTS 内设置面板
 
-下表对应 RTS 右上角齿轮中的玩家设置。它们会立即生效，不需要重启。绝大多数保存在客户端 UI 状态文件中；带“客户端配置”的项目保存在 `config/rts_building/rtsbuilding-client.toml`。多人服务器不能用这些选项改写服务端规则。
+下表对应 RTS 右上角齿轮中的玩家设置。它们会立即生效，不需要重启。绝大多数保存在客户端 UI 状态文件中；带“客户端配置”的项目保存在 `config/rtsbuilding-client.toml`。多人服务器不能用这些选项改写服务端规则。
 
 ### 操作
 
@@ -436,7 +447,7 @@ UI Core 状态快照可能在 `BuilderScreen` 构造期间生成。此时 Screen
 | 挖掘掉落物自动入库 | 开 | 服务端会话开关；挖掘产物优先进入绑定储存，关闭后按世界掉落路径处理。 |
 | 刷新免打扰 | 关 | 储存变化时不把手动刷新按钮变绿；不关闭刷新本身。 |
 | 每 30 秒自动刷新储存 | 开 | 检测到储存变化时，最多每 30 秒自动请求一次页面刷新。 |
-| 回收 RTS 放置方块 | 关 | 对已记录的 RTS 放置方块启用专用回收，绕过工具、采掘等级和精准采集检查。 |
+| 回收 RTS 放置方块 | 关 | 对当前玩家拥有有效放置凭据的方块启用原版事件兼容的瞬时精准回收；不要求链接储存，掉落依次尝试链接储存、背包和世界落地。 |
 | 工具保护 | 开 | 批量挖掘在工具耐久约 5% 时停止；服务端执行请求会携带此偏好。 |
 | 半血自动退出 RTS | 开 | 玩家在 RTS 中受击且生命降到一半及以下时返回普通视角。 |
 | 超越维度网络 | 开 | 将可用的超越维度主网络纳入 RTS 储存会话。 |
@@ -466,64 +477,54 @@ UI Core 状态快照可能在 `BuilderScreen` 构造期间生成。此时 Screen
 
 ## 模组与服务器配置
 
-在游戏内“模组 → RTSBuilding → 配置”保存的项目会立即写入配置并用于后续请求；手工编辑 TOML 时建议重启对应客户端、单人世界或专用服务器。
+先分清归属：客户端在“模组 → RTSBuilding → 配置”修改的是本机文件；RTS 齿轮的世界/服务器页只允许有服务器权限的玩家保存服务端设置。手工编辑 TOML 后重载或重启对应一侧。远端玩家修改自己的 client 文件不会改变多人规则。
 
-- **COMMON**：`config/rts_building/rtsbuilding-common.toml`。单人游戏读取本地文件；多人规则以服务器文件为准。
-- **CLIENT**：`config/rts_building/rtsbuilding-client.toml`。只影响本机画面、确认方式和开发显示。
-- **SERVER**：世界的 `serverconfig/rts_building/rtsbuilding-server.toml`（专用服务器位于当前世界目录）。只由服务端裁决。
+- **COMMON（迁移输入，不是运行时规则）**：`config/rtsbuilding-common.toml`。当前 COMMON spec 没有生效运行键；旧 COMMON 文件中的正旧值只在服务器缺少对应键时参与一次迁移。
+- **CLIENT**：`config/rtsbuilding-client.toml`，本机画面、确认方式和本地诊断。
+- **SERVER**：世界的 `serverconfig/rtsbuilding-server.toml`（专用服务器在当前世界目录），服务端裁决并同步给客户端。
+- **玩家数据**：会话、链接端点、工作流/任务、撤回历史和范围隐藏等在玩家/世界服务端数据中；主题、UI 草稿和个人界面状态是客户端本地状态。
 
-### 通用规则
-
-| 配置键 | 默认值（允许范围） | 作用 |
-|---|---:|---|
-| `enableSurvivalProgression` | `false` | 开启插件、生存平衡、家园与会话范围门。 |
-| `shareSurvivalProgressionWithTeams` | `false` | 通过 FTB Teams、OpenPAC party 或原版计分板队伍共享家园和插件。 |
-| `maxActionRadiusBlocks` | `128`（48–512） | 服务器允许的最终操作半径上限。 |
-| `enableBlueprints` | `true` | 启用蓝图库、本地上传和服务端蓝图放置。 |
-| `maxBlueprintBlocks` | `20000`（1–200000） | 单个导入、捕获或放置蓝图允许的非空气方块数。 |
-
-### 客户端配置
+### CLIENT：客户端文件键
 
 | 配置键 | 默认值 | 作用 |
 |---|---:|---|
-| `useBlockGhostPreview` | `false` | 放置确认前方块虚影。 |
-| `usePlaceBlockGhostAnimation` | `true` | 确认放置后的虚影动画。 |
-| `useDestroyBlockGhostAnimation` | `true` | 确认破坏后的虚影动画。 |
-| `useWireframePreview` | `false` | 放置确认前线框。 |
-| `usePlaceWireframeAnimation` | `false` | 确认放置后的线框动画。 |
-| `useDestroyWireframeAnimation` | `false` | 确认破坏后的线框动画。 |
-| `useRangeDestroySkeleton` | `true` | 非连锁范围破坏的骨架预览。 |
-| `showInventoryRtsButton` | `true` | 在原版背包顶部显示 RTS 入口按钮。 |
-| `requireKeyboardBatchConfirm` | `true` | 批量操作要求键盘最终确认。 |
-| `developerMode` | `false` | 显示开发场景入口并启用本地开发诊断输出。 |
+| `enableUiAnimations` | `true` | UI 悬停和选中等纯视觉过渡。 |
+| `useBlockGhostPreview` | `false` | 确认前的方块虚影。 |
+| `usePlaceBlockGhostAnimation` / `useDestroyBlockGhostAnimation` | `true` / `true` | 服务端确认放置/破坏后的虚影动画。 |
+| `useWireframePreview` | `false` | 确认前线框。 |
+| `usePlaceWireframeAnimation` / `useDestroyWireframeAnimation` | `false` / `false` | 确认放置/破坏后的线框动画。 |
+| `useRangeDestroySkeleton` | `true` | 非连锁范围破坏的骨架边框；连锁始终使用骨架。 |
+| `showInventoryRtsButton` | `true` | 原版背包顶部的 RTS 入口按钮。 |
+| `requireKeyboardBatchConfirm` | `true` | 批量操作要求可自定义确认键，默认 `Enter`。 |
+| `developerMode` | `false` | 开发场景入口和本地开发诊断。 |
+| `diagnostics.level` | `BASIC` | `OFF` 关闭、`BASIC` 记录有限生命周期、`VERBOSE` 增加细节；输出到 `logs/rtsbuilding/diagnostics-client.jsonl`。 |
 
-### 服务端运行限制
+### SERVER：有效运行键
 
 | 配置键 | 默认值（允许范围） | 作用 |
 |---|---:|---|
-| `mining.ultimineMaxBlocks` | `256`（1–4096） | 单次连锁请求最多收集的目标数。 |
-| `mining.areaMineMaxSize` | `36`（1–64） | 兼容用的范围挖掘单轴总上限；游戏内保存宽/高/深时会同步为三者最大值并夹到 64。 |
-| `mining.areaMineMaxVolume` | `46656`（1–262144） | 单次范围选择的宽×高×深上限。 |
-| `mining.areaMineMaxWidth` | `36`（1–256） | X 轴宽度上限。 |
-| `mining.areaMineMaxHeight` | `36`（1–256） | Y 轴高度上限。 |
-| `mining.areaMineMaxDepth` | `36`（1–256） | Z 轴深度上限。 |
-| `mining.areaMineMaxHarvestTier` | `UNLIMITED` | 范围挖掘可使用的插件采掘等级服务端封顶。 |
-| `mining.areaDestroyMaxTargets` | `98304`（1–262144） | 单个范围破坏请求接受的显式坐标数上限。 |
-| `mining.ultimineBlocksPerTick` | `32`（1–128） | 单个挖掘任务在一次调度切片中处理的批量目标上限。 |
-| `storage.ae2NetworkRefreshThrottle` | `10`（1–200） | AE2 昂贵网络快照之间的刷新周期数。 |
-| `storage.refinedStorageNetworkRefreshThrottle` | `10`（1–200） | Refined Storage 昂贵网络快照之间的刷新周期数。 |
-| `storage.pageCacheMaxPlayers` | `256`（1–4096） | 储存页面 LRU 缓存保留的玩家数。 |
-| `storage.defaultStoragePageSize` | `90`（1–4096） | 默认页面条目数；实际不会超过最大页大小。 |
-| `storage.maxStoragePageSize` | `180`（1–8192） | 客户端单次页面请求允许的最大条目数。 |
-| `placement.buildBatchBlocksPerTick` | `64`（1–512） | 每位玩家每 tick 处理的远程放置目标上限。 |
-| `placement.buildBatchMaxQueuedJobs` | `4`（1–32） | 每位玩家可排队的快速建造任务数。 |
-| `taskEngine.maxUnitsPerTick` | `256`（1–4096） | 所有玩家共享的每 tick 工作单位硬上限。 |
-| `taskEngine.maxUnitsPerSlice` | `32`（1–512） | 轮转到下一玩家前，单个玩家一次获得的工作单位。 |
-| `taskEngine.maxNanosPerTick` | `8000000`（250000–20000000） | Task Engine 每 tick 主线程协作时间预算，单位纳秒。 |
-| `interaction.remotePovBlockReach` | `4.0`（1.0–16.0） | 服务端重放远程动作时临时使用的交互距离。 |
-| `mining.dropScanRadius` | `1.25`（0.25–8.0） | 远程挖掘后吸收附近掉落物的扫描半径。 |
-| `placement.remoteBlockActionSoundsPerTick` | `16`（0–16） | 每位玩家每 tick 发送的远程方块动作音效上限；超出直接丢弃。 |
-| `fluid.internalFluidCapacityBuckets` | `100`（1–4096） | 进度数据不可用时内部流体缓冲的回退容量，单位桶。 |
+| `enableSurvivalProgression` / `shareSurvivalProgressionWithTeams` | `false` / `false` | 生存插件/家园/会话范围门；后者共享队伍家园和插件。 |
+| `maxActionRadiusBlocks` / `enableBlueprints` / `maxBlueprintBlocks` | `128`（48–512） / `true` / `20000`（1–200000） | 最终操作半径、蓝图开关、单蓝图非空气方块上限。 |
+| `mining.maxSelectionVolume` | `46656`（1–262144） | 范围选区唯一体积上限（宽×高×深）。 |
+| `mining.maxSelectionSizeX` / `mining.maxSelectionSizeY` / `mining.maxSelectionSizeZ` | `64` / `64` / `64`（各 1–`Integer.MAX_VALUE`） | 三个独立轴上限；体积和每个轴都必须通过。 |
+| `mining.ultimineMaxBlocks` / `mining.ultimineBlocksPerTick` | `256`（1–4096） / `32`（正整数） | 连锁目标总数、每个挖掘切片的处理数。 |
+| `mining.maxTreeBlocks` / `mining.areaMineMaxHarvestTier` | `8192`（1–262144） / `UNLIMITED` | 一键砍树连接方块上限；相连树木超过上限时整组拒绝，不截断。 |
+| `progression.homeSelectionRadiusBlocks` / `progression.homeRelocationCooldownDays` | `34`（1–`Integer.MAX_VALUE`） / `20`（0–`Integer.MAX_VALUE`） | RTS 家园选择半径、迁移冷却天数；0 关闭冷却。 |
+| `building.maxShapeDimension` / `building.maxShapeRadius` | `32` / `32`（各 1–`Integer.MAX_VALUE`） | 独立的直线/矩形/圆柱高度尺寸上限，以及圆/圆柱/球体半径上限。 |
+| `smartFill.maxBlocks` / `smartFill.defaultBlocks` | `1024` / `512`（各 1–8192，默认不得大于最大） | Smart Fill 方块数上限与默认值。 |
+| `smartFill.maxDiameter` / `smartFill.defaultDiameter` | `32` / `16`（各 3–256，默认不得大于最大） | Smart Fill 检测直径上限与默认值。 |
+| `storage.maxBatchBindingSelectionVolume` | `262144`（1–262144） | 批量绑定选区体积上限。 |
+| `storage.maxBatchBindingSizeX` / `storage.maxBatchBindingSizeY` / `storage.maxBatchBindingSizeZ` | `64` / `64` / `64`（正整数） | 批量绑定三个轴上限。 |
+| `funnel.pickupRadiusBlocks` / `workflows.maxActivePerPlayer` | `2.0`（0–32） / `8`（1–1024） | 漏斗拾取半径、每名玩家活动工作流数。 |
+| `history.maxEntriesPerStack` / `history.retentionSeconds` | `3`（正整数） / `600`（正整数） | 每组撤回历史条数、历史保留秒数。 |
+| `diagnostics.level` | `BASIC` | `OFF`/`BASIC`/`VERBOSE`；服务端生命周期、健康和持久化诊断。 |
+| `diagnostics.maxTraces` / `diagnostics.maxWorkflowLinks` / `diagnostics.maxTaskLinks` | `1024` / `2048` / `2048`（各正整数） | 结构化诊断的容量上限。 |
+
+以下 SERVER 键主要是文件设置，未必在普通游戏内控件中出现：`funnel.maxEntitiesPerTick=24`、`funnel.maxItemsPerTick=48`、`funnel.bufferMaxStacks=16`、`funnel.tickInterval=2`、`storage.dropCacheSoftCapacity=4096`、`storage.ae2NetworkRefreshThrottle=10`、`storage.refinedStorageNetworkRefreshThrottle=10`、`storage.maxLinkedStorages=200`（1–4096）、`storage.enableCrossDimensionStorage=true`、`storage.maxCrossDimensionAwakeChunks=32`（1–256）、`storage.pageCacheMaxPlayers=256`（正整数）、`storage.defaultStoragePageSize=90`（1–4096）、`storage.maxStoragePageSize=180`（1–8192）、`placement.buildBatchBlocksPerTick=64`、`placement.buildBatchMaxQueuedJobs=4`、`taskEngine.maxUnitsPerTick=256`、`taskEngine.maxUnitsPerSlice=32`、`taskEngine.maxNanosPerTick=8000000`（以上三个为正数范围）、`interaction.remotePovBlockReach=4.0`（1–16）、`mining.dropScanRadius=1.25`（0.25–8）、`placement.remoteBlockActionSoundsPerTick=16`（0–16）、`fluid.internalFluidCapacityBuckets=100`（1–4096），以及内部迁移键 `internal.configRevision=0`（不要手工编辑）。
+
+### 旧键迁移规则（不要当作当前限制）
+
+`mining.areaMineMaxSize`、`mining.areaMineMaxVolume`、`mining.areaMineMaxWidth`、`mining.areaMineMaxHeight`、`mining.areaMineMaxDepth` 和 `mining.areaDestroyMaxTargets` 的默认值是 `0` 哨兵，仅用于第一次迁移。新安装使用体积 `46656` 与三个轴 `64/64/64`；旧文件中的正轴值逐轴保留，缺失轴回退旧 size 或新默认 64；旧正体积优先于旧轴，旧 targets 只在没有其他线索时提供体积。若文件已经只有 `mining.maxSelectionVolume` 而没有轴，体积保留、三个轴新增为 64；canonical 轴键逐个优先。迁移写入后重复加载应保持不变。
 
 ## 现象到检查点
 
@@ -553,9 +554,44 @@ UI Core 状态快照可能在 `BuilderScreen` 构造期间生成。此时 Screen
 
 信息不足时，应先给安全且可逆的检查路径，再追问最关键的 1–3 项；不要一开始要求玩家上传全部模组列表。教程和附录无法确认原因时，应明确说明未知，不要把推测说成结论。
 
+## 当前候选的运行态速查
+
+### 原因码、短状态与下一步
+
+工作流面板展示的是服务端原因码；短状态不是“猜测”。
+
+| 原因码 | 玩家看到的短状态 | 可执行的下一步 |
+|---|---|---|
+| `RESOURCE_MISSING` | 等待材料 | 先补齐真实方块/工具；检查已链接端点和玩家主背包。当前打开的菜单、光标或悬停容器不会改变后台取料范围。 |
+| `TOOL_MISSING` | 缺少可用工具 | 放入真实可挖工具，检查耐久/采掘等级；不要只看预览图标。 |
+| `CHUNK_UNLOADED` | 等待区块 | 让目标区块保持加载后继续；若仍等待，记录目标维度与 trace。 |
+| `CONFIG_DISABLED` | 功能被服务器关闭 | 由 OP/单人所有者查看 SERVER 配置并保存；远端客户端不能用本地文件绕过。 |
+| `PERMISSION_DENIED` | 权限拒绝 | 检查 claim、维度、会话范围和目标方块权限；不要反复点击同一请求。 |
+| `QUEUE_FULL` | 队列已满 | 查看未完成工作流，取消不需要的非保护项或等待轮转；保护中的工作流不会被新请求静默顶掉。 |
+| `MANUAL_PAUSED` | 玩家已暂停 | 从同一工作流行恢复；资源等待和手动暂停是两种不同状态。 |
+| `EXECUTION_ERROR` | 执行失败 | 保留存档，按 trace → seq → op → workflow → task 提交客户端与服务端日志。 |
+| `CANCELLED` / `REPLACED` | 已取消 / 被新操作替换 | 这是服务端终态；新挖掘替换旧挖掘时会释放租约并写 tombstone，不应只凭 UI 消失判断。 |
+| `SUCCESS` / `SKIPPED` / `UNKNOWN` | 完成 / 跳过 / 未知 | `SKIPPED` 可能是目标已变化；`UNKNOWN` 不等于缺材料，带上关联 ID 请求进一步定位。 |
+
+### 设置、会话与 ACK
+
+客户端设置页先产生 draft，点击“应用”才写入 client 文件；主题、UI 状态和动画不会改变服务器任务。服务器页由权限检查、版本/范围校验和 revision 冲突检查保护，成功后保存 canonical 值并返回 ACK，再向客户端广播新的 server view；普通玩家或远端客户端的保存请求应被拒绝。打开 RTS 时服务端建立玩家/维度会话并记录锚点；后续每个动作都重新核对会话、维度和 ±X/±Z 操作范围，离开世界、换维度、死亡或断线应清理会话。收到 ACK 只代表设置写入，不代表旧任务已经终止。
+
+### 分页、条目 ID 与异步结果
+
+储存页由服务端快照构建：默认每页 `90` 条，客户端请求最多 `180` 条（由 `storage.defaultStoragePageSize`/`storage.maxStoragePageSize` 限制），响应带实际 `safePage`、`totalPages` 和总条目数。页码从 0 开始；不要把“当前页最后一项”当全局索引。客户端同时带 session/query/request 代际，旧查询或旧存储来源的晚到响应会被丢弃；切换来源、筛选、排序或维度时应回到第一页。工作流 `entryId` 是服务端稳定条目标识，详情、暂停、恢复、保护和删除都按 `entryId` 发请求；列表重排或消失不能把行索引复用到另一个任务。
+
+### 蓝图加载与取消
+
+蓝图库扫描、文件解析和捕获保存可异步进行，每次载入带 generation/file revision；新扫描、删除、切换文件夹或关闭窗口时先取消旧句柄，旧 generation 的晚到结果不能覆盖当前选择。预览/ghost 只是客户端显示，提交后服务端重新检查格式、非空气方块数、材料、权限、区块和旋转；大蓝图进入可持久化工作流。取消蓝图要点工作流的取消/删除动作，不能只清空本地 ghost；清除选择、取消放置和删除文件是三个不同动作。
+
+### 配置迁移与双版本证据边界
+
+新安装的范围限制是体积 `46656`、轴 `64/64/64`；旧正轴逐轴保留，只有 canonical volume 的旧过渡文件补齐 64 轴，旧键不会继续作为当前 UI 限制。真实物品提取、耐久/NBT/能力变化和 remainder 必须在服务端保留原 `ItemStack`，菜单切换只改变显示来源，不改变后台来源。下方版本段只说明 loader/API 目录差异；本附录中的语义和排障步骤需要分别在 NeoForge 1.21.1 与 Forge 1.20.1 实机验证，当前文本不声称已运行。
+
 ## 版本技术附录：Forge 1.20.1
 
-本版本线当前准备版本为 `1.1.7-beta1`；如测试包不稳定，请退回最近发布版本 `1.1.6-patch2`。本行是 Forge 1.20.1 移植，不要把 NeoForge 主线的事件/API 名称当作直接证据。
+本附录描述 Forge 1.20.1 线的任务、工作流和日志边界。版本号由发布收口阶段统一填写；这是 Forge 1.20.1 移植，不要把 NeoForge 事件/API 名称当作本行的直接证据，也不要用客户端 UI 消失代替服务端终态证据。
 
 ### 任务取消与排障
 

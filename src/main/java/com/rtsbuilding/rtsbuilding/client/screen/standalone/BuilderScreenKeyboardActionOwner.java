@@ -44,6 +44,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.client.screen.storage.LinkedStoragePanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
@@ -321,7 +322,7 @@ final class BuilderScreenKeyboardActionOwner {
             }
             if (screen.shapeController.isAwaitingBatchDestroyConfirm()
                     && ClientKeyMappings.CONFIRM_BATCH_DESTROY.matches(keyCode, scanCode)) {
-                screen.shapeController.tryConfirmPendingRangeDestroy();
+                screen.shapeController.tryConfirmPendingRangeDestroy(RtsTraceInputKind.KEYBOARD);
                 return true;
             }
             if (screen.shapeController.isAwaitingBatchPlaceConfirm()

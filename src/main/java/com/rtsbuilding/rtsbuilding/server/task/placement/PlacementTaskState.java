@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.task.placement;
 
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 
@@ -14,6 +15,8 @@ import java.util.Objects;
  * Session，也不能把其 mutable 字段当作跨 tick 状态源。</p>
  */
 public final class PlacementTaskState {
+    /** 普通建造/蓝图任务的完整目标表示上限，不是玩家当前操作的默认数量。 */
+    public static final int MAX_TARGETS = MiningLimits.MAX_VOLUME;
     private final CompoundTag definition;
     private final int workflowEntryId;
     private final int totalUnits;
@@ -45,7 +48,8 @@ public final class PlacementTaskState {
         Objects.requireNonNull(historyRecords, "historyRecords");
         if (definition.isEmpty()) throw new IllegalArgumentException("definition 不能为空");
         if (workflowEntryId < -1) throw new IllegalArgumentException("workflowEntryId 不能小于 -1");
-        if (totalUnits < 0 || cursorUnits < 0 || succeededUnits < 0 || failedUnits < 0) {
+        if (totalUnits < 0 || totalUnits > MAX_TARGETS
+                || cursorUnits < 0 || succeededUnits < 0 || failedUnits < 0) {
             throw new IllegalArgumentException("placement 计数不能为负数");
         }
         if (cursorUnits > totalUnits) throw new IllegalArgumentException("cursorUnits 不能超过 totalUnits");

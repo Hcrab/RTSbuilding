@@ -2,12 +2,10 @@ package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.FluidEntry;
-import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintMaterialUiState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -17,7 +15,6 @@ import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.fluids.FluidType;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -29,8 +26,19 @@ import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel
  */
 final class BlueprintMaterialInspector {
     private static final int WATER_BUCKET_THRESHOLD = 2;
+    private static final BlueprintMaterialAnalysisCache MATERIAL_ANALYSIS_CACHE =
+            new BlueprintMaterialAnalysisCache();
 
     private BlueprintMaterialInspector() {
+    }
+
+    static void clearCache() {
+        MATERIAL_ANALYSIS_CACHE.clear();
+    }
+
+    static void rememberAnalysis(com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint blueprint,
+            BlueprintMaterialAnalysis analysis) {
+        MATERIAL_ANALYSIS_CACHE.put(blueprint, analysis);
     }
 
     static String materialSummary(BlueprintEntry entry, ClientRtsController controller, BuildStats stats) {
@@ -195,52 +203,15 @@ final class BlueprintMaterialInspector {
         if (entry == null || entry.blueprint() == null) {
             return 0L;
         }
-        Map<ResourceLocation, Long> remainingItems = new LinkedHashMap<>();
+        Map<ResourceLocation, Long> availableItems = new java.util.LinkedHashMap<>();
         for (ResourceLocation id : entry.requiredItems().keySet()) {
             if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-                remainingItems.put(id, availableItemCount(controller, id.toString(), BuiltInRegistries.ITEM.get(id)));
+                availableItems.put(id, availableItemCount(controller, id.toString(), BuiltInRegistries.ITEM.get(id)));
             }
         }
         boolean waterReady = availableWaterBuckets(controller) >= WATER_BUCKET_THRESHOLD;
-        long remainingLava = availableFluidBuckets(controller, Fluids.LAVA);
-        long buildable = 0L;
-        for (var block : entry.blueprint().blocks()) {
-            if (block == null || block.isMissingBlock() || block.state() == null) {
-                continue;
-            }
-            if (block.state().getFluidState().is(FluidTags.WATER)) {
-                if (waterReady) {
-                    buildable++;
-                }
-                continue;
-            }
-            if (block.state().getFluidState().is(FluidTags.LAVA)) {
-                if (remainingLava > 0L) {
-                    remainingLava--;
-                    buildable++;
-                }
-                continue;
-            }
-            List<ResourceLocation> ids = RtsBlueprint.materialItemIds(block);
-            if (ids.isEmpty()) {
-                continue;
-            }
-            boolean ready = true;
-            for (ResourceLocation id : ids) {
-                if (remainingItems.getOrDefault(id, 0L) <= 0L) {
-                    ready = false;
-                    break;
-                }
-            }
-            if (!ready) {
-                continue;
-            }
-            for (ResourceLocation id : ids) {
-                remainingItems.put(id, remainingItems.getOrDefault(id, 0L) - 1L);
-            }
-            buildable++;
-        }
-        return buildable;
+        return analysisFor(entry).buildableBlockCount(
+                availableItems, waterReady, availableFluidBuckets(controller, Fluids.LAVA));
     }
 
     static boolean isCreativePlayer() {
@@ -338,23 +309,13 @@ final class BlueprintMaterialInspector {
         return amount / FluidType.BUCKET_VOLUME;
     }
 
-    private static FluidRequirement fluidRequirement(BlueprintEntry entry) {
-        if (entry == null || entry.blueprint() == null) {
-            return FluidRequirement.EMPTY;
-        }
-        int water = 0;
-        int lava = 0;
-        for (var block : entry.blueprint().blocks()) {
-            if (block == null || block.isMissingBlock() || block.state() == null) {
-                continue;
-            }
-            if (block.state().getFluidState().is(FluidTags.WATER)) {
-                water++;
-            } else if (block.state().getFluidState().is(FluidTags.LAVA)) {
-                lava++;
-            }
-        }
-        return new FluidRequirement(water, lava);
+    static FluidRequirement fluidRequirement(BlueprintEntry entry) {
+        return analysisFor(entry).fluidRequirement();
+    }
+
+    private static BlueprintMaterialAnalysis analysisFor(BlueprintEntry entry) {
+        return entry == null ? BlueprintMaterialAnalysis.empty()
+                : MATERIAL_ANALYSIS_CACHE.get(entry.blueprint());
     }
 
     private static long displayAvailable(long available, long required) {

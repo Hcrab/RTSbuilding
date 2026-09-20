@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service.destruction;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyPlanner;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
@@ -29,21 +30,40 @@ public final class RtsConvenienceDestroyService {
             RtsConvenienceDestroyMode mode, BlockPos anchor, Direction face,
             RtsConvenienceDestroySettings settings, byte toolSlot,
             String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled) {
+        return submit(player, mode, anchor, face, settings, toolSlot, toolItemId,
+                toolPrototype, toolProtectionEnabled, RtsOperationTraceContext.legacy("CONVENIENCE_DESTROY"));
+    }
+
+    public RtsConvenienceDestroyPlanner.Plan submit(ServerPlayer player,
+            RtsConvenienceDestroyMode mode, BlockPos anchor, Direction face,
+            RtsConvenienceDestroySettings settings, byte toolSlot,
+            String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled,
+            RtsOperationTraceContext trace) {
         if (player == null || anchor == null
                 || !RtsProgressionManager.canUse(player, RtsFeature.AREA_DESTROY)
                 || !RtsLinkedStorageResolver.canAccessWorldTarget(player, anchor)) {
             return rejected(player, RtsConvenienceDestroyPlanner.ResultCode.INVALID_TARGET, settings);
         }
         RtsConvenienceDestroyPlanner.Plan plan = RtsConvenienceDestroyPlanner.plan(
-                player.serverLevel(), mode, anchor, face, settings);
+                player.serverLevel(), mode, anchor, face, settings,
+                com.rtsbuilding.rtsbuilding.Config.areaMineSelectionLimit(),
+                com.rtsbuilding.rtsbuilding.Config.maxTreeBlocks());
         if (!plan.ready()) {
             return rejected(player, plan.code(), settings);
         }
-        ServiceRegistry.getInstance().mining().areaDestroy(
-                player, plan.targets(), toolSlot,
-                toolItemId == null ? "" : toolItemId,
-                toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
-                toolProtectionEnabled);
+        if (mode == RtsConvenienceDestroyMode.TREE_FELL) {
+            ServiceRegistry.getInstance().mining().destroyConnectedGroup(
+                    player, plan.targets(), toolSlot,
+                    toolItemId == null ? "" : toolItemId,
+                    toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                    toolProtectionEnabled, trace);
+        } else {
+            ServiceRegistry.getInstance().mining().areaDestroy(
+                    player, plan.targets(), toolSlot,
+                    toolItemId == null ? "" : toolItemId,
+                    toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                    toolProtectionEnabled, trace);
+        }
         return plan;
     }
 

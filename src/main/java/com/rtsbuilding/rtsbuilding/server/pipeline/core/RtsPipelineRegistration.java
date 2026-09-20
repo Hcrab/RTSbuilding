@@ -34,7 +34,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
  * <pre>{@code
  * MINE_SINGLE:
  *   ProgressionGate(REMOTE_BREAK) → SessionValidate → SessionDimension →
- *   StopPrevious → WorkflowStart → ToolBorrow → MiningExecute → UiRefresh
+ *   StopPrevious → TrackedPlacedRecovery → WorkflowStart → ToolBorrow → MiningExecute → UiRefresh
  *   [然后异步：tickActiveMining → finalizeMiningOperation 完成工作流，
  *    归还工具，并触发 COMPLETED 事件（真正完成，条目移除）]
  *
@@ -88,7 +88,7 @@ public final class RtsPipelineRegistration {
      * MINE_SINGLE —— 单方块远程挖掘。
      *
      * <p>标准管道流程：功能门控 → 会话 →
-     * 维度 → 停止前一个 → 启动工作流 → 借用工具 →
+     * 维度 → 停止前一个 → 已追踪瞬时回收 → 启动工作流 → 借用工具 →
      * 执行 → 刷新 UI。
      *
      * <p>工作流完成、工具归还和历史记录在方块实际被破坏后
@@ -106,6 +106,7 @@ public final class RtsPipelineRegistration {
                 .pipe(new SessionValidatePipe())
                 .pipe(new SessionDimensionPipe())
                 .pipe(new StopPreviousPipe(false))
+                .pipe(new TrackedPlacedRecoveryPipe())
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.MINE_SINGLE, RtsWorkflowPriority.NORMAL))
                 .pipe(new ToolBorrowPipe())
                 .pipe(new MiningExecutePipe())

@@ -23,7 +23,8 @@ class UiLegacySurfaceCleanupContractTest {
         assertFalse(Files.exists(legacyConstants));
         assertTrue(uiStateManager.contains(
                 "import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;"));
-        assertTrue(historyManager.contains("RtsHistoryConstants.SHAPE_HISTORY_LIMIT"));
+        assertTrue(historyManager.contains("RtsHistoryConstants#SHAPE_HISTORY_LIMIT"));
+        assertTrue(historyManager.contains("Config.historyMaxEntriesPerStack()"));
         assertFalse(historyManager.contains("BuilderScreenConstants"));
     }
 

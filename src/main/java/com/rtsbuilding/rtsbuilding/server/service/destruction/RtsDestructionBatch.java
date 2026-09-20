@@ -1,8 +1,14 @@
 package com.rtsbuilding.rtsbuilding.server.service.destruction;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyPayload;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsDiagnosticReason;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
+import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
+import com.rtsbuilding.rtsbuilding.server.history.HistoryBudget;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
@@ -12,6 +18,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionSliceResult;
 import com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskState;
+import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
@@ -38,9 +45,6 @@ import java.util.*;
  */
 public final class RtsDestructionBatch {
 
-    /** 单个 tick 中处理的最大破坏目标数，与范围放置 {@code BUILD_BATCH_MAX_BLOCKS_PER_TICK} 对齐。 */
-    private static final int DESTROY_MAX_BLOCKS_PER_TICK = 64;
-
     /** 快速建造破坏的最大排队作业数。 */
     public static final int DESTROY_MAX_QUEUED_JOBS = 4;
 
@@ -62,10 +66,24 @@ public final class RtsDestructionBatch {
     public static boolean enqueueDestroyBatch(ServerPlayer player, RtsStorageSession session,
             List<BlockPos> positions, byte toolSlot, boolean toolProtectionEnabled,
             int workflowEntryId) {
+        return enqueueDestroyBatch(player, session, positions, toolSlot, toolProtectionEnabled,
+                workflowEntryId, RtsOperationTraceContext.legacy("AREA_DESTROY"), false);
+    }
+
+    /**
+     * 服务端规划的树群按目标数量接纳；普通显式区域仍按范围体积和轴长接纳。
+     * trace 只保留与 NeoForge 管线相同的调用形状，Forge 的任务记录继续由现有实现负责。
+     */
+    public static boolean enqueueDestroyBatch(ServerPlayer player, RtsStorageSession session,
+            List<BlockPos> positions, byte toolSlot, boolean toolProtectionEnabled,
+            int workflowEntryId, RtsOperationTraceContext trace, boolean connectedGroup) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.AREA_DESTROY)) {
             return false;
         }
         if (session == null || positions == null || positions.isEmpty()) {
+            return false;
+        }
+        if (!RtsMiningRequestLimits.accepts(player, positions, connectedGroup)) {
             return false;
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
@@ -79,7 +97,7 @@ public final class RtsDestructionBatch {
 
         // 收集并验证目标
         Deque<BlockPos> targets = collectAreaDestroyTargets(player, positions, slot, linkedTool,
-                selectedToolRequested, creative);
+                selectedToolRequested, creative, workflowEntryId, session.mode.name(), trace);
         if (targets.isEmpty()) {
             return false;
         }
@@ -106,8 +124,8 @@ public final class RtsDestructionBatch {
     // =========================================================================
 
     /**
-     * Tick 处理器，从排队的破坏作业中处理最多 {@link #DESTROY_MAX_BLOCKS_PER_TICK}
-     * 个方块，实际处理量同时受全局任务数量预算与纳秒截止时间限制。
+     * Tick 处理器，从排队的破坏作业中处理最多由服务器配置决定的方块数，实际处理量同时受
+     * 全局任务数量预算与纳秒截止时间限制。
      *
      * <p>在处理前先尝试恢复挂起的破坏作业（{@link #tryResumePendingDestroyJobs}）。
      *
@@ -169,12 +187,15 @@ public final class RtsDestructionBatch {
 
         int beforeCursor = job.index;
         int beforeFailed = job.skippedWhileProcessing;
-        int limit = Math.max(0, Math.min(DESTROY_MAX_BLOCKS_PER_TICK, maxBlocks));
+        int limit = Math.max(0, Math.min(Config.buildBatchBlocksPerTick(), maxBlocks));
         int processed = 0;
         DestructionSliceResult.Outcome outcome = DestructionSliceResult.Outcome.CONTINUE;
         ServerLevel level = player.serverLevel();
         // 同一 slice 的掉落先合并进轻量缓存，避免每破坏一个方块都触发一次外部储存写入。
         List<BlockPos> dropsToAbsorb = new ArrayList<>();
+        List<CompoundTag> sliceHistory = new ArrayList<>();
+        HistoryBudget historyBudget = state.historyBudget();
+        boolean historyCapacityReported = state.historyCapacityReported();
 
         while (processed < limit && System.nanoTime() < deadlineNanos && job.hasNext()) {
             BlockPos target = job.next();
@@ -205,6 +226,16 @@ public final class RtsDestructionBatch {
                     level, target, state.creativeOperation());
             List<HistoryBlockRecord> neighborRecords = captureNeighborRecords(
                     level, target, state.creativeOperation());
+            List<CompoundTag> possibleHistory = encodePossibleHistory(preRecord, neighborRecords);
+            if (!historyBudget.canAppend(possibleHistory)) {
+                // 已经推进 cursor，但绝不先改世界再发现撤回预算不足。
+                job.skippedWhileProcessing++;
+                if (!historyCapacityReported) {
+                    reportHistoryCapacity(player);
+                    historyCapacityReported = true;
+                }
+                continue;
+            }
             var result = RtsMiningStateMachine.destroyMinedBlock(
                     player, session, target, job.toolSlot());
             if (!result.broken()) {
@@ -212,9 +243,16 @@ public final class RtsDestructionBatch {
                 continue;
             }
 
+            int recordsBefore = job.processedRecords.size();
             job.destroyedPositions.add(target);
             if (preRecord != null) job.processedRecords.add(preRecord);
             recordCollateralBlocks(level, job, neighborRecords, target);
+            List<CompoundTag> appendedHistory = job.processedRecords.subList(recordsBefore,
+                            job.processedRecords.size()).stream()
+                    .map(RtsDestructionBatch::encodeHistoryRecord)
+                    .toList();
+            sliceHistory.addAll(appendedHistory);
+            historyBudget = historyBudget.appended(appendedHistory);
             if (RtsMiningValidator.canAutoStoreDrops(player, session)) {
                 dropsToAbsorb.add(target);
             }
@@ -233,10 +271,9 @@ public final class RtsDestructionBatch {
 
         List<BlockPos> destroyed = new ArrayList<>(state.destroyedPositions());
         destroyed.addAll(job.destroyedPositions);
-        List<CompoundTag> history = new ArrayList<>(state.historyRecords());
-        job.processedRecords.stream()
-                .map(RtsDestructionBatch::encodeHistoryRecord)
-                .forEach(history::add);
+        List<CompoundTag> history = new ArrayList<>();
+        state.appendFrozenHistoryTo(history);
+        history.addAll(sliceHistory);
         int succeededDelta = job.destroyedPositions.size();
         int failedDelta = Math.max(0, job.skippedWhileProcessing - beforeFailed);
         int cursorDelta = Math.max(0, job.index - beforeCursor);
@@ -245,7 +282,7 @@ public final class RtsDestructionBatch {
                 state.succeededUnits() + succeededDelta,
                 job.skippedWhileProcessing,
                 destroyed,
-                history);
+                history, historyBudget, historyCapacityReported);
         return new DestructionSliceResult(
                 next, processed, cursorDelta, succeededDelta, failedDelta, outcome);
     }
@@ -281,8 +318,16 @@ public final class RtsDestructionBatch {
     }
 
     private static Deque<BlockPos> collectAreaDestroyTargets(ServerPlayer player, List<BlockPos> positions,
-            int toolSlot, ItemStack linkedTool, boolean selectedToolRequested, boolean creative) {
+            int toolSlot, ItemStack linkedTool, boolean selectedToolRequested, boolean creative,
+            int workflowEntryId, String mode, RtsOperationTraceContext trace) {
         if (player == null || positions == null || positions.isEmpty()) {
+            return new ArrayDeque<>();
+        }
+        if (positions.size() > C2SRtsAreaDestroyPayload.MAX_POSITIONS) {
+            RtsOperationDiagnostics.filteredTargets(
+                    player, trace, workflowEntryId, mode, RtsWorkflowType.AREA_DESTROY,
+                    RtsDiagnosticReason.TARGET_LIMIT_REACHED,
+                    positions.size() - C2SRtsAreaDestroyPayload.MAX_POSITIONS);
             return new ArrayDeque<>();
         }
         ServerLevel level = player.serverLevel();
@@ -293,26 +338,32 @@ public final class RtsDestructionBatch {
 
         LinkedHashSet<BlockPos> unique = new LinkedHashSet<>();
         List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
+        EnumMap<RtsDiagnosticReason, Integer> filtered = new EnumMap<>(RtsDiagnosticReason.class);
         ItemStack actualTool = RtsMiningValidator.resolveMiningTool(player, toolSlot, linkedTool);
         int maxRequiredLevel = RtsMiningValidator.rangeMiningMaxRequiredLevel(player, creative);
         for (BlockPos raw : sortedPositions) {
-            if (raw == null || unique.size() >= C2SRtsAreaDestroyPayload.MAX_POSITIONS) {
+            if (raw == null) {
+                increment(filtered, RtsDiagnosticReason.TARGET_INVALID);
                 continue;
             }
             BlockPos pos = raw.immutable();
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
+                increment(filtered, RtsDiagnosticReason.TARGET_INACCESSIBLE);
                 continue;
             }
             if (!RtsClaimProtectionService.canBreakBlock(player, pos, Direction.DOWN)) {
+                increment(filtered, RtsDiagnosticReason.CLAIM_DENIED);
                 continue;
             }
             BlockState state = level.getBlockState(pos);
             if (!RtsMiningValidator.isBreakableBlock(state)
                     || !RtsMiningValidator.hasValidDestroySpeed(state, level, pos)) {
+                increment(filtered, RtsDiagnosticReason.TARGET_UNBREAKABLE);
                 continue;
             }
             if (!creative && MiningSpeedCalculator.computeRemoteDestroyStep(
                     player, state, pos, toolSlot, linkedTool, selectedToolRequested) <= 0.0F) {
+                increment(filtered, RtsDiagnosticReason.DESTROY_SPEED_ZERO);
                 continue;
             }
             if (!RtsMiningValidator.canRangeMineWithTool(
@@ -320,15 +371,28 @@ public final class RtsDestructionBatch {
                 if (RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
                         state, actualTool, creative, maxRequiredLevel)) {
                     harvestTierBlockedPositions.add(pos);
+                    increment(filtered, RtsDiagnosticReason.HARVEST_TIER_TOO_LOW);
+                } else {
+                    increment(filtered, RtsDiagnosticReason.TOOL_CANNOT_HARVEST);
                 }
                 continue;
             }
-            unique.add(pos);
+            if (!unique.add(pos)) {
+                increment(filtered, RtsDiagnosticReason.TARGET_DUPLICATE);
+            }
         }
         if (!harvestTierBlockedPositions.isEmpty()) {
             RtsMiningNetworkHelper.notifyHarvestTierLimit(player, harvestTierBlockedPositions);
         }
+        filtered.forEach((reason, count) -> RtsOperationDiagnostics.filteredTargets(
+                player, trace, workflowEntryId, mode, RtsWorkflowType.AREA_DESTROY,
+                reason, count));
         return new ArrayDeque<>(unique);
+    }
+
+    /** 聚合筛选原因，避免在逐方块热路径中写日志。 */
+    private static void increment(EnumMap<RtsDiagnosticReason, Integer> counts, RtsDiagnosticReason reason) {
+        counts.merge(reason, 1, Integer::sum);
     }
 
     // =========================================================================
@@ -367,12 +431,38 @@ public final class RtsDestructionBatch {
         }
     }
 
+    /** 破坏前按最坏情况预留目标和所有可能连带邻居，避免破坏后才发现历史放不下。 */
+    private static List<CompoundTag> encodePossibleHistory(
+            HistoryBlockRecord before, List<HistoryBlockRecord> neighbors) {
+        List<CompoundTag> possible = new ArrayList<>(1 + neighbors.size());
+        if (before != null) possible.add(encodeHistoryRecord(before));
+        for (HistoryBlockRecord neighbor : neighbors) {
+            if (!neighbor.pos().equals(before == null ? null : before.pos())
+                    && neighbor.state() != null && !neighbor.state().isAir()) {
+                possible.add(encodeHistoryRecord(neighbor));
+            }
+        }
+        return possible;
+    }
+
+    private static void reportHistoryCapacity(ServerPlayer player) {
+        player.displayClientMessage(
+                net.minecraft.network.chat.Component.translatable("message.rtsbuilding.mining.history_capacity"),
+                true);
+    }
+
     private static CompoundTag encodeHistoryRecord(HistoryBlockRecord record) {
         CompoundTag tag = new CompoundTag();
         tag.putLong("pos", record.pos().asLong());
         tag.put("state", NbtUtils.writeBlockState(record.state()));
         if (record.blockEntityData() != null) {
             tag.put("blockEntity", record.blockEntityData().copy());
+        }
+        if (record.credentialBefore() != null) {
+            tag.put("credentialBefore", PlacedBlockTrackerData.encodeSnapshot(record.credentialBefore()));
+        }
+        if (record.credentialAfter() != null) {
+            tag.put("credentialAfter", PlacedBlockTrackerData.encodeSnapshot(record.credentialAfter()));
         }
         return tag;
     }
@@ -384,7 +474,22 @@ public final class RtsDestructionBatch {
         if (state.isAir()) throw new IllegalArgumentException("detached destruction history 方块状态无效");
         CompoundTag blockEntity = tag.contains("blockEntity", net.minecraft.nbt.Tag.TAG_COMPOUND)
                 ? tag.getCompound("blockEntity").copy() : null;
-        return new HistoryBlockRecord(BlockPos.of(tag.getLong("pos")), state, blockEntity);
+        PlacedBlockTrackerData.CredentialSnapshot credentialBefore = decodeCredential(
+                tag, "credentialBefore");
+        PlacedBlockTrackerData.CredentialSnapshot credentialAfter = decodeCredential(
+                tag, "credentialAfter");
+        return new HistoryBlockRecord(BlockPos.of(tag.getLong("pos")), state, blockEntity,
+                net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), null,
+                credentialBefore, credentialAfter);
+    }
+
+    private static PlacedBlockTrackerData.CredentialSnapshot decodeCredential(
+            CompoundTag tag, String key) {
+        if (!tag.contains(key)) return null;
+        if (!tag.contains(key, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+            throw new IllegalArgumentException("detached destruction history " + key + " 类型无效");
+        }
+        return PlacedBlockTrackerData.decodeSnapshot(tag.getCompound(key));
     }
 
     // =========================================================================

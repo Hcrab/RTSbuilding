@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.client.service.destruction.RtsDestroyPreviewP
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyPlanner;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceParameter;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceSettings;
@@ -90,7 +91,7 @@ final class QuickBuildConvenienceController {
                 : new ShapeDataRecords.GhostPreview(bounded, true, true, List.of());
     }
 
-    boolean submit(boolean destroyMode, BlockHitResult hit, int toolSlot) {
+    boolean submit(boolean destroyMode, BlockHitResult hit, int toolSlot, RtsTraceInputKind inputKind) {
         if (!isActive(destroyMode) || hit == null || controller == null) {
             return false;
         }
@@ -99,7 +100,7 @@ final class QuickBuildConvenienceController {
         if (!preview.ready()) {
             return true;
         }
-        controller.confirmConvenienceDestroy(commonMode(), hit, commonSettings(), toolSlot);
+        controller.confirmConvenienceDestroy(commonMode(), hit, commonSettings(), toolSlot, inputKind);
         previewPlanner.invalidate();
         return true;
     }

@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 普通、高级和范围破坏必须通过同一份有界且可复用的形状计划。
  */
+@org.junit.jupiter.api.extension.ExtendWith(com.rtsbuilding.rtsbuilding.test.ShapeConfigFixture.class)
 class ShapeGenerationPlanCacheTest {
     @Test
     void normalBuildClampsBeforeGeneratingAndPublishesInclusiveBounds() {

@@ -39,7 +39,7 @@ class RtsRemoteBlockSoundContractTest {
         String recoverySource = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/RtsPlacedRecoveryService.java"));
         String recoveryBody = methodBody(recoverySource,
-                "public static void breakPlaced");
+                "private static InstantRecoveryResult tryInstantRecovery(");
         assertTrue(recoveryBody.contains("BlockState state = level.getBlockState(targetPos);"),
                 "已记录放置方块回收应先捕获破坏前状态。");
         assertTrue(recoveryBody.contains("playRemoteBlockBreakSound(player, level, targetPos, state)"),

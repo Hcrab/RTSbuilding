@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.history;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import net.minecraft.core.Direction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
@@ -92,7 +93,7 @@ public class HistoryEntry {
     // ===== 过期检查 =====
 
     public boolean isExpired() {
-        return isExpired(DEFAULT_EXPIRY_MS);
+        return isExpired(Math.max(1L, (long) Config.historyRetentionSeconds()) * 1_000L);
     }
 
     public boolean isExpired(long expiryMs) {

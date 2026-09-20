@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.network;
 
 
+import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
@@ -36,6 +37,7 @@ import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsOperationTerminalPayload;
 import net.minecraft.client.Minecraft;
 
 public final class RtsClientNetworkHandlers {
@@ -161,6 +163,11 @@ public final class RtsClientNetworkHandlers {
     public static void handleHistorySync(S2CRtsHistorySyncPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> PlacementHistoryManager.syncHistoryState(
                 payload.undoSize(), payload.redoSize()));
+    }
+
+    public static void handleOperationTerminal(
+            S2CRtsOperationTerminalPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> RtsClientOperationDiagnostics.serverTerminal(payload));
     }
 
     public static void handleBlueprintStatus(S2CBlueprintStatusPayload payload, IPayloadContext context) {

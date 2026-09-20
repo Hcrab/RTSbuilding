@@ -40,8 +40,11 @@ public final class RtsProgressionManager {
     }
 
     public static int getUltimineLimit(ServerPlayer player) {
-        return DEFAULT_ULTIMINE_LIMIT;
+        return com.rtsbuilding.rtsbuilding.Config.ultimineMaxBlocks();
     }
+
+    public static int homeSelectionRadiusBlocks() { return Config.homeSelectionRadiusBlocks(); }
+    public static long homeRelocationCooldownTicks() { return Math.max(0L, (long) Config.homeRelocationCooldownDays()) * TICKS_PER_GAME_DAY; }
 
     public static boolean canBypassHomeRadius(ServerPlayer player) {
         return RtsPluginService.canBypassHomeRadius(player);

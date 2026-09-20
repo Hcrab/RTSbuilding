@@ -1,6 +1,10 @@
 package com.rtsbuilding.rtsbuilding.network.progression.handler;
 
 import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.config.RtsServerConfigChange;
+import com.rtsbuilding.rtsbuilding.common.config.RtsServerConfigUpdateRequest;
+import com.rtsbuilding.rtsbuilding.common.config.RtsServerConfigUpdateResult;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsBeginHomeSelectionPayload;
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsQuestDetectPayload;
@@ -35,8 +39,19 @@ public final class RtsProgressionNetworkHandlers {
             C2SRtsSetSurvivalProgressionPayload payload,
             IPayloadContext context) {
         context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer serverPlayer && serverPlayer.hasPermissions(2)) {
-                Config.setSurvivalProgressionEnabled(payload.enabled());
+            if (context.player() instanceof ServerPlayer serverPlayer
+                    && Config.canEditServerConfig(serverPlayer)) {
+                int revision = Config.currentServerSettings(true).revision();
+                RtsServerConfigUpdateResult result = Config.applyServerConfig(
+                        new RtsServerConfigUpdateRequest(revision, java.util.List.of(
+                                new RtsServerConfigChange(
+                                        RtsServerConfigChange.Key.ENABLE_SURVIVAL_PROGRESSION,
+                                        new RtsServerConfigChange.BooleanValue(payload.enabled())))),
+                        serverPlayer);
+                if (!result.succeeded()) {
+                    RtsbuildingMod.LOGGER.warn("RTS 生存进度配置未保存：{}", result.message());
+                    return;
+                }
                 serverPlayer.server.getPlayerList().getPlayers().forEach(player -> {
                     RtsPluginService.syncToPlayer(player);
                     RtsProgressionManager.syncToPlayer(player);

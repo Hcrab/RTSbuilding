@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.history;
 
 import com.rtsbuilding.rtsbuilding.common.RtsHistoryConstants;
+import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.core.BlockPos;
@@ -287,7 +288,11 @@ public final class ServerHistoryManager {
         BlockState state = level.getBlockState(pos);
         if (state.isAir()) return null;
         CompoundTag beData = includeBlockEntityData ? captureBlockEntityData(level, pos) : null;
-        return new HistoryBlockRecord(pos, state, beData);
+        PlacedBlockTrackerData.CredentialSnapshot credential =
+                PlacedBlockTrackerData.get(level).captureSnapshot(pos);
+        return new HistoryBlockRecord(
+                pos, state, beData, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(),
+                null, credential, null);
     }
 
     /** 建造前快照允许显式记录空气，从而区分“删除新方块”和“恢复被覆盖方块”。 */
@@ -298,7 +303,9 @@ public final class ServerHistoryManager {
         BlockState state = level.getBlockState(pos);
         CompoundTag beData = includeBlockEntityData && !state.isAir()
                 ? captureBlockEntityData(level, pos) : null;
-        return HistoryBlockRecord.placement(pos, state, beData, state);
+        PlacedBlockTrackerData.CredentialSnapshot credential =
+                PlacedBlockTrackerData.get(level).captureSnapshot(pos);
+        return HistoryBlockRecord.placement(pos, state, beData, state, null, credential, null);
     }
 
     // ======================================================================
@@ -313,7 +320,11 @@ public final class ServerHistoryManager {
             BlockState state = level.getBlockState(pos);
             if (state.isAir()) continue;
             CompoundTag beData = includeBlockEntityData ? captureBlockEntityData(level, pos) : null;
-            records.add(new HistoryBlockRecord(pos, state, beData));
+            PlacedBlockTrackerData.CredentialSnapshot credential =
+                    PlacedBlockTrackerData.get(level).captureSnapshot(pos);
+            records.add(new HistoryBlockRecord(
+                    pos, state, beData, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(),
+                    null, credential, null));
         }
         return records;
     }
@@ -327,9 +338,11 @@ public final class ServerHistoryManager {
             if (placed.isAir()) continue;
             CompoundTag afterData = includeAfterBlockEntityData
                     ? captureBlockEntityData(level, pos) : null;
+            PlacedBlockTrackerData.CredentialSnapshot credential =
+                    PlacedBlockTrackerData.get(level).captureSnapshot(pos);
             records.add(HistoryBlockRecord.placement(
                     pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), null,
-                    placed, afterData));
+                    placed, afterData, null, credential));
         }
         return records;
     }
@@ -353,7 +366,7 @@ public final class ServerHistoryManager {
     }
 
     private static void trimToLimit(ArrayDeque<HistoryEntry> stack) {
-        while (stack.size() > RtsHistoryConstants.SHAPE_HISTORY_LIMIT) {
+        while (stack.size() > com.rtsbuilding.rtsbuilding.Config.historyMaxEntriesPerStack()) {
             stack.removeFirst();
         }
     }

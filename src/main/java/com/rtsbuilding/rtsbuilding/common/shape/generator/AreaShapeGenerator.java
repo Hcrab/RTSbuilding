@@ -108,6 +108,12 @@ public abstract class AreaShapeGenerator {
         return Math.max(-max, Math.min(max, value));
     }
 
+    /** 调用方提供已经验证的生成预算，避免旧的 64 格限制截断合法挖掘长条。 */
+    protected static int clampOffset(int value, AreaShapeInput input) {
+        int max = input == null ? 0 : Math.max(0, input.maxOffset());
+        return Math.max(-max, Math.min(max, value));
+    }
+
     /**
      * 计算向量 (dx, dy, dz) 在指定轴上的投影（点积）。
      */

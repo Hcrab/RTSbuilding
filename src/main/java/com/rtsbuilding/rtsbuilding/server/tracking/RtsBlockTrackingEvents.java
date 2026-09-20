@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.service.RtsProgressRefresher;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningDropCapture;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedStorageBlockEventHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerLevel;
@@ -40,7 +41,8 @@ public final class RtsBlockTrackingEvents {
         if (!(event.getLevel() instanceof ServerLevel serverLevel)) {
             return;
         }
-        PlacedBlockTrackerData.get(serverLevel).mark(event.getPos());
+        PlacedBlockTrackerData.get(serverLevel).markPlaced(
+                event.getPos(), player.getUUID(), serverLevel.getBlockState(event.getPos()));
         serverLevel.getServer().execute(() -> RtsLinkedStorageBlockEventHandler.onLinkedStorageBlockPlaced(serverLevel, event.getPos()));
         // 手动放置方块后刷新放置工作流进度（更新进度条和重启所需方块数）
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
@@ -66,7 +68,8 @@ public final class RtsBlockTrackingEvents {
         }
         PlacedBlockTrackerData tracker = PlacedBlockTrackerData.get(serverLevel);
         for (BlockSnapshot snapshot : event.getReplacedBlockSnapshots()) {
-            tracker.mark(snapshot.getPos());
+            tracker.markPlaced(
+                    snapshot.getPos(), player.getUUID(), serverLevel.getBlockState(snapshot.getPos()));
             serverLevel.getServer().execute(() -> RtsLinkedStorageBlockEventHandler.onLinkedStorageBlockPlaced(serverLevel, snapshot.getPos()));
         }
         // 多方块放置后刷新放置工作流进度
@@ -92,6 +95,12 @@ public final class RtsBlockTrackingEvents {
             return;
         }
         if (!(event.getLevel() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        // Forge BreakEvent 发生在实际 removeBlock 前；瞬时回收成功后由回收服务按最终
+        // 世界状态统一提交，避免取消/异常路径提前清掉有效凭据或解绑链接方块。
+        if (RtsMiningDropCapture.isInstantRecoveryTarget(
+                (ServerPlayer) event.getPlayer(), serverLevel, event.getPos())) {
             return;
         }
         PlacedBlockTrackerData.get(serverLevel).clear(event.getPos());

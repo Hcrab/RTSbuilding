@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.task.persistence;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason;
 import com.rtsbuilding.rtsbuilding.server.task.TaskType;
 import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
@@ -32,7 +33,19 @@ public record TaskSnapshot(
         int cursorUnits,
         int succeededUnits,
         int failedUnits,
-        CompoundTag payload) {
+        CompoundTag payload,
+        RtsOperationReason reason,
+        String reasonDetail) {
+
+    /** 旧调用方/旧任务的兼容构造；没有结构化原因时明确为 UNKNOWN。 */
+    public TaskSnapshot(TaskId id, SubmissionId submissionId, UUID ownerId, String dimensionId,
+            TaskType type, TaskLifecycleState state, int workflowEntryId, TaskWaitKey waitKey,
+            long revision, long createdGameTime, long updatedGameTime, int totalUnits,
+            int cursorUnits, int succeededUnits, int failedUnits, CompoundTag payload) {
+        this(id, submissionId, ownerId, dimensionId, type, state, workflowEntryId, waitKey, revision,
+                createdGameTime, updatedGameTime, totalUnits, cursorUnits, succeededUnits, failedUnits,
+                payload, RtsOperationReason.UNKNOWN, "");
+    }
 
     public TaskSnapshot {
         Objects.requireNonNull(id, "id");
@@ -42,6 +55,9 @@ public record TaskSnapshot(
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(payload, "payload");
+        reason = reason == null ? RtsOperationReason.UNKNOWN : reason;
+        reasonDetail = reasonDetail == null ? "" : reasonDetail;
+        if (reasonDetail.length() > 1024) throw new IllegalArgumentException("reasonDetail 不能超过 1024 个字符");
         if (dimensionId.isBlank()) throw new IllegalArgumentException("dimensionId 不能为空");
         if (dimensionId.length() > 256) throw new IllegalArgumentException("dimensionId 不能超过 256 个字符");
         NbtStringLimits.requireWritable(dimensionId, "dimensionId");
@@ -82,8 +98,27 @@ public record TaskSnapshot(
 
     public TaskSnapshot nextRevision(TaskLifecycleState nextState, TaskWaitKey nextWaitKey,
             long gameTime, int nextCursor, int nextSucceeded, int nextFailed, CompoundTag nextPayload) {
+        RtsOperationReason nextReason = switch (nextState) {
+            case QUEUED, RUNNING -> RtsOperationReason.UNKNOWN;
+            case PAUSED -> RtsOperationReason.MANUAL_PAUSED;
+            case COMPLETED -> RtsOperationReason.SUCCESS;
+            case FAILED -> RtsOperationReason.EXECUTION_ERROR;
+            case CANCELLED -> RtsOperationReason.CANCELLED;
+            case WAITING_RESOURCE, WAITING_CHUNK, WAITING_PERSISTENCE -> reason;
+        };
+        String nextDetail = switch (nextState) {
+            case QUEUED, RUNNING, PAUSED, COMPLETED, FAILED, CANCELLED -> "";
+            case WAITING_RESOURCE, WAITING_CHUNK, WAITING_PERSISTENCE -> reasonDetail;
+        };
+        return nextRevision(nextState, nextWaitKey, gameTime, nextCursor, nextSucceeded,
+                nextFailed, nextPayload, nextReason, nextDetail);
+    }
+
+    public TaskSnapshot nextRevision(TaskLifecycleState nextState, TaskWaitKey nextWaitKey,
+            long gameTime, int nextCursor, int nextSucceeded, int nextFailed,
+            CompoundTag nextPayload, RtsOperationReason nextReason, String nextReasonDetail) {
         return new TaskSnapshot(id, submissionId, ownerId, dimensionId, type, nextState,
                 workflowEntryId, nextWaitKey, revision + 1L, createdGameTime, gameTime,
-                totalUnits, nextCursor, nextSucceeded, nextFailed, nextPayload);
+                totalUnits, nextCursor, nextSucceeded, nextFailed, nextPayload, nextReason, nextReasonDetail);
     }
 }

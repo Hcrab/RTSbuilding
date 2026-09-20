@@ -49,6 +49,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.storage.StorageBatchSelectionSe
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
+import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsWorkflowDetailPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsResumePlacementPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsWorkflowPanel;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
@@ -57,6 +58,7 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
@@ -160,6 +162,7 @@ public BuilderScreen(ClientRtsController controller) {
                 this.quickBuildPanel,
                 this.cullingPanel,
                 this.workflowPanel,
+                this.workflowDetailPanel,
                 this.resumePlacementPanel,
                 this.blueprintResumePanel);
         this.scrollRouter = new BuilderScreenScrollRouter(
@@ -181,6 +184,7 @@ public BuilderScreen(ClientRtsController controller) {
         this.uiStateManager.registerWindowPanel("blueprint_materials", this.blueprintMaterialWindowPanel);
         this.uiStateManager.registerWindowPanel("range_culling", this.cullingPanel);
         this.uiStateManager.registerWindowPanel("workflow", this.workflowPanel);
+        this.uiStateManager.registerWindowPanel("workflow_details", this.workflowDetailPanel);
         this.uiStateManager.registerWindowPanel("resume_placement", this.resumePlacementPanel);
         this.uiStateManager.registerWindowPanel("blueprint_resume", this.blueprintResumePanel);
         // QuickBuildPanel 初始化时会通过 UI Core 快照读取形状填充文案和尺寸状态。
@@ -203,6 +207,7 @@ public BuilderScreen(ClientRtsController controller) {
         this.quickBuildPanel.init(this, this.controller);
         this.cullingPanel.init(this, this.controller);
         this.workflowPanel.init(this, this.controller);
+        this.workflowDetailPanel.init(this, this.controller);
         this.resumePlacementPanel.init(this, this.controller);
         this.blueprintResumePanel.init(this, this.controller);
         this.linkedStoragePanel.init(this, this.controller);
@@ -326,6 +331,10 @@ public RtsResumePlacementPanel getResumePlacementPanel() {
 
 public RtsBlueprintResumePanel getBlueprintResumePanel() {
         return this.blueprintResumePanel;
+    }
+
+public RtsWorkflowDetailPanel getWorkflowDetailPanel() {
+        return this.workflowDetailPanel;
     }
 
 public double getCurrentMouseX() {
@@ -502,7 +511,13 @@ static boolean hasRecipeViewerLoaded() {
     public boolean isAdvancedShapeMode() { return this.windowActionOwner.isAdvancedShapeMode(); }
     public boolean isRoundShapeVertical(BuildShape shape) { return this.windowActionOwner.isRoundShapeVertical(shape); }
     public String activeQuickBuildShapeLabel() { return this.windowActionOwner.activeQuickBuildShapeLabel(); }
-    public boolean handleQuickBuildRangeDestroyClick(double mouseX, double mouseY) { return this.windowActionOwner.handleQuickBuildRangeDestroyClick(mouseX, mouseY); }
+    public boolean handleQuickBuildRangeDestroyClick(double mouseX, double mouseY) {
+        return this.windowActionOwner.handleQuickBuildRangeDestroyClick(mouseX, mouseY);
+    }
+    public boolean handleQuickBuildRangeDestroyClick(
+            double mouseX, double mouseY, RtsTraceInputKind inputKind) {
+        return this.windowActionOwner.handleQuickBuildRangeDestroyClick(mouseX, mouseY, inputKind);
+    }
     public void setQuickBuildMode(QuickBuildMode mode) { this.windowActionOwner.setQuickBuildMode(mode); }
     public int getUltimineLimit() { return this.windowActionOwner.getUltimineLimit(); }
     public boolean isAreaMineHeightPreview() { return this.windowActionOwner.isAreaMineHeightPreview(); }

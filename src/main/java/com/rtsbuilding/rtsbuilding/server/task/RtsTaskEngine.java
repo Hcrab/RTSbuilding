@@ -1,7 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.task;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.destruction.RtsDestructionBatch;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
@@ -11,6 +13,8 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlueprintTickPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -132,6 +136,34 @@ public final class RtsTaskEngine {
             if (snapshot.state().waiting()) waiting.merge(snapshot.type(), 1, Integer::sum);
         }
         return new TaskDiagnostics(java.util.Map.copyOf(active), java.util.Map.copyOf(waiting));
+    }
+
+    /** 诊断层按玩家/工作流读取稳定 TaskSnapshot；调用方不得据此改变业务决策。 */
+    public java.util.Optional<com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot>
+            diagnosticTaskSnapshot(net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
+        if (player == null || workflowEntryId < 0
+                || !com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE.isStarted()) {
+            return java.util.Optional.empty();
+        }
+        return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator().query().findByWorkflow(
+                        player.getUUID(),
+                        player.serverLevel().dimension().location().toString(),
+                        workflowEntryId);
+    }
+
+    /** 服务端健康日志使用的聚合队列计数，不暴露具体任务或目标。 */
+    public QueueDiagnostics queueDiagnostics() {
+        int runnable = 0;
+        int waiting = 0;
+        if (com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE.isStarted()) {
+            for (var snapshot : com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                    .coordinator().query().snapshots()) {
+                if (snapshot.state().runnable()) runnable++;
+                else if (snapshot.state().waiting()) waiting++;
+            }
+        }
+        return new QueueDiagnostics(runnable + scheduler.activeTaskCount(), waiting);
     }
 
     public void detachPlayer(UUID playerId) {
@@ -273,7 +305,23 @@ public final class RtsTaskEngine {
             net.minecraft.server.level.ServerPlayer player,
             net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension,
             int workflowEntryId) {
+        return cancelWorkflowTask(player, dimension, workflowEntryId, RtsOperationReason.CANCELLED);
+    }
+
+    /**
+     * 收口工作流并保留调用方的明确终态原因。
+     * REPLACED 仅由可见槽位自动淘汰使用；普通删除仍沿用 CANCELLED。
+     */
+    public boolean cancelWorkflowTask(
+            net.minecraft.server.level.ServerPlayer player,
+            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension,
+            int workflowEntryId,
+            RtsOperationReason terminalReason) {
         if (player == null || dimension == null || workflowEntryId < 0) return false;
+        RtsOperationReason resolvedReason = terminalReason == null
+                ? RtsOperationReason.CANCELLED : terminalReason;
+        String reasonDetail = resolvedReason == RtsOperationReason.REPLACED
+                ? "replaced_by_newer_workflow" : "";
         boolean currentDimension = player.serverLevel().dimension().equals(dimension);
         WorkflowTaskKey key = new WorkflowTaskKey(
                 player.getUUID(), dimension, workflowEntryId);
@@ -311,22 +359,31 @@ public final class RtsTaskEngine {
                 cancelled = durable.type() == TaskType.PLACEMENT
                         ? durableRuntime.transitionPlacementSnapshot(durable,
                                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
-                                player.serverLevel().getGameTime())
+                                player.serverLevel().getGameTime(), resolvedReason, reasonDetail)
                         : durable.type() == TaskType.MINING
                                 ? durableRuntime.transitionMiningSnapshot(durable,
                                         com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
-                                        player.serverLevel().getGameTime())
+                                        player.serverLevel().getGameTime(), resolvedReason, reasonDetail)
                                 : durableRuntime.transitionDestructionSnapshot(durable,
                                         com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
-                                        player.serverLevel().getGameTime());
+                                        player.serverLevel().getGameTime(), resolvedReason, reasonDetail);
             } catch (RuntimeException malformedMining) {
                 cancelled = durable.nextRevision(
                         com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
                         null, player.serverLevel().getGameTime(), durable.cursorUnits(),
-                        durable.succeededUnits(), durable.failedUnits(), durable.payload());
+                        durable.succeededUnits(), durable.failedUnits(), durable.payload(),
+                        resolvedReason, reasonDetail);
             }
             coordinator.replace(cancelled);
             coordinator.requestTombstone(cancelled.id(), cancelled.updatedGameTime());
+            try {
+                RtsServerTraceRegistry.externalTaskTerminal(
+                        cancelled,
+                        resolvedReason == RtsOperationReason.REPLACED ? "REPLACED" : "CANCELLED",
+                        resolvedReason.diagnosticId());
+            } catch (RuntimeException diagnosticFailure) {
+                RtsbuildingMod.LOGGER.debug("RTS external task terminal diagnostic failed", diagnosticFailure);
+            }
             durableCancelled = true;
         }
         var session = ServiceRegistry.getInstance().session().getIfPresent(player);
@@ -672,15 +729,27 @@ public final class RtsTaskEngine {
      */
     public boolean hasDurableTaskForWorkflow(
             net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
-        if (player == null || workflowEntryId < 0) return false;
+        return findDurableTaskForWorkflow(player, workflowEntryId).isPresent();
+    }
+
+    /** 槽位替换前确认实际仍占用容量；终态UI残留不能为新任务提供额外准入名额。 */
+    public boolean hasActiveDurableTaskForWorkflow(
+            net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
+        return findDurableTaskForWorkflow(player, workflowEntryId)
+                .filter(snapshot -> !snapshot.state().terminal()).isPresent();
+    }
+
+    private java.util.Optional<com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot>
+            findDurableTaskForWorkflow(
+                    net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
+        if (player == null || workflowEntryId < 0) return java.util.Optional.empty();
         return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator()
                 .query()
                 .findByWorkflow(
                         player.getUUID(),
                         player.serverLevel().dimension().location().toString(),
-                        workflowEntryId)
-                .isPresent();
+                        workflowEntryId);
     }
 
     public boolean submitPlacementJob(net.minecraft.server.level.ServerPlayer player,
@@ -690,7 +759,7 @@ public final class RtsTaskEngine {
                 .coordinator();
         reconcileHiddenDurableWorkflows(player, coordinator);
         if (job.quickBuild() && !makeRoomForDurableTaskFamily(
-                player, coordinator, TaskType.PLACEMENT, Config.buildBatchMaxQueuedJobs(),
+                player, coordinator, job.workflowEntryId(), TaskType.PLACEMENT, Config.buildBatchMaxQueuedJobs(),
                 RtsTaskEngine::occupiesQuickBuildSlot)) {
             player.displayClientMessage(
                     net.minecraft.network.chat.Component.translatable(
@@ -732,34 +801,54 @@ public final class RtsTaskEngine {
     private boolean makeRoomForDurableTaskFamily(
             net.minecraft.server.level.ServerPlayer player,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator,
+            int workflowEntryId,
             TaskType taskType,
             int limit,
             java.util.function.Predicate<com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot>
                     occupiesFamilySlot) {
         String dimensionId = player.serverLevel().dimension().location().toString();
-        while (true) {
-            var queued = coordinator.query().ownedBy(player.getUUID()).stream()
-                    .filter(snapshot -> snapshot.type() == taskType)
-                    .filter(snapshot -> !snapshot.state().terminal())
-                    .filter(snapshot -> snapshot.dimensionId().equals(dimensionId))
-                    .filter(occupiesFamilySlot)
-                    .toList();
-            if (queued.size() < limit) return true;
+        var workflowEngine = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance();
+        int replacedEntryId = workflowEngine.consumeAdmissionReplacement(player, workflowEntryId);
+        var queued = coordinator.query().ownedBy(player.getUUID()).stream()
+                .filter(snapshot -> snapshot.type() == taskType)
+                .filter(snapshot -> !snapshot.state().terminal())
+                .filter(snapshot -> snapshot.dimensionId().equals(dimensionId))
+                .filter(occupiesFamilySlot)
+                .toList();
+        if (queued.size() < limit) return true;
 
-            var workflowEngine = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance();
-            var replaceable = queued.stream()
-                    .filter(snapshot -> {
-                        var entry = workflowEngine.findEntryByPlayer(player, snapshot.workflowEntryId());
-                        return entry == null || !entry.protectedWorkflow();
-                    })
-                    .min(java.util.Comparator
-                            .comparingLong(com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot::createdGameTime)
-                            .thenComparing(com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot::id))
-                    .orElse(null);
-            if (replaceable == null) return false;
-
-            cancelDurableSnapshot(player, coordinator, replaceable);
+        var alreadyReplaced = findDurableTaskForWorkflow(player, replacedEntryId).orElse(null);
+        if (alreadyReplaced != null && alreadyReplaced.type() == taskType
+                && alreadyReplaced.state()
+                        == com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED
+                && alreadyReplaced.reason() == RtsOperationReason.REPLACED
+                && occupiesFamilySlot.test(alreadyReplaced)) {
+            RtsServerTraceRegistry.durableAdmissionEvent(
+                    player, taskType, limit, queued.size(), "REUSED_WORKFLOW_REPLACEMENT");
+            return true;
         }
+        var replaceable = queued.stream()
+                .filter(snapshot -> {
+                    var entry = workflowEngine.findEntryByPlayer(player, snapshot.workflowEntryId());
+                    return entry == null || !entry.protectedWorkflow();
+                })
+                .min(java.util.Comparator
+                        .comparingLong(com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot::createdGameTime)
+                        // 同 tick 的提交顺序由工作流编号保留，不能按随机任务 ID 淘汰。
+                        .thenComparingInt(com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot::workflowEntryId)
+                        .thenComparing(com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot::id))
+                .orElse(null);
+        if (replaceable == null) {
+            RtsServerTraceRegistry.durableAdmissionEvent(
+                    player, taskType, limit, queued.size(), "QUEUE_FULL_PROTECTED");
+            return false;
+        }
+
+        RtsServerTraceRegistry.durableAdmissionEvent(
+                player, taskType, limit, queued.size(), "REPLACED_OLDEST_UNPROTECTED");
+        cancelDurableSnapshot(player, coordinator, replaceable);
+        // 下调上限不批量取消既有任务；主线程内只换一条，同族总数不会增加。
+        return true;
     }
 
     /**
@@ -792,16 +881,20 @@ public final class RtsTaskEngine {
             net.minecraft.server.level.ServerPlayer player,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot) {
-        if (snapshot.workflowEntryId() >= 0
-                && cancelWorkflowTask(player, player.serverLevel().dimension(), snapshot.workflowEntryId())) {
-            return;
+        if (snapshot.workflowEntryId() >= 0) {
+            var replacementToken = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine
+                    .getInstance().from(player, snapshot.workflowEntryId()).orElse(null);
+            if (replacementToken != null) {
+                replacementToken.cancelWithReason(RtsOperationReason.REPLACED);
+            }
         }
         var current = coordinator.query().get(snapshot.id()).orElse(null);
         if (current == null || current.state().terminal()) return;
         var cancelled = current.nextRevision(
                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
                 null, player.serverLevel().getGameTime(), current.cursorUnits(),
-                current.succeededUnits(), current.failedUnits(), current.payload());
+                current.succeededUnits(), current.failedUnits(), current.payload(),
+                RtsOperationReason.REPLACED, "replaced_by_newer_task");
         coordinator.replace(cancelled);
         coordinator.requestTombstone(cancelled.id(), cancelled.updatedGameTime());
     }
@@ -824,7 +917,7 @@ public final class RtsTaskEngine {
                 .coordinator();
         reconcileHiddenDurableWorkflows(player, coordinator);
         if (!makeRoomForDurableTaskFamily(
-                player, coordinator, TaskType.DESTRUCTION,
+                player, coordinator, job.workflowEntryId(), TaskType.DESTRUCTION,
                 RtsDestructionBatch.DESTROY_MAX_QUEUED_JOBS, ignored -> true)) return false;
         DestructionTaskPayload payload = new DestructionTaskPayload(
                 player.getUUID(), player.serverLevel().dimension(), job.workflowEntryId(),
@@ -1043,6 +1136,8 @@ public final class RtsTaskEngine {
                 }
                 case WAITING_RESOURCE -> {
                     if (!status.suspended()) token.suspend();
+                    // 旧蓝图 TaskRecord 没有细分原因时保持 UNKNOWN，不把任意等待猜成缺材料。
+                    token.setReason(RtsOperationReason.UNKNOWN, "workflow_waiting", java.util.List.of());
                 }
                 case QUEUED, RUNNING -> {
                     if (status.paused()) token.unpause();
@@ -1095,11 +1190,17 @@ public final class RtsTaskEngine {
                     // 终态旧任务只收口已有投影，绝不能复活后淘汰更新的可见工作流。
                     if (token != null) {
                         projectDurableProgress(token, snapshot);
+                        token.setReason(snapshot.state()
+                                == com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.COMPLETED
+                                ? (snapshot.reason() == RtsOperationReason.UNKNOWN ? RtsOperationReason.SUCCESS : snapshot.reason())
+                                : (snapshot.reason() == RtsOperationReason.UNKNOWN ? RtsOperationReason.CANCELLED : snapshot.reason()),
+                                snapshot.reasonDetail(), java.util.List.of());
                         if (snapshot.state()
                                 == com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.COMPLETED) {
-                            token.complete();
+                            token.completeWithReason(snapshot.reason(), snapshot.reasonDetail());
                         } else {
-                            token.cancel();
+                            token.cancelWithReason(snapshot.reason() == RtsOperationReason.UNKNOWN
+                                    ? RtsOperationReason.CANCELLED : snapshot.reason());
                         }
                     }
                     coordinator.requestTombstone(snapshot.id(), snapshot.updatedGameTime());
@@ -1128,8 +1229,8 @@ public final class RtsTaskEngine {
                     restored = token != null;
                 }
                 if (token == null) {
-                    // 面板已被全部保护条目占满时，无法显示的新旧任务本身并未被钉住。
-                    // 它不能作为隐藏工作流继续运行或占住后续任务容量。
+                    // 合法已接纳任务的恢复不受新容量限制；这里只清理确实无法重建的坏投影。
+                    // 失败任务不能作为隐藏工作流继续运行或占住后续任务容量。
                     if (cancelWorkflowTask(player, snapshot.workflowEntryId())) {
                         RtsbuildingMod.LOGGER.warn(
                                 "[TaskEngine] 已终止无法恢复可见投影的隐藏任务 {}（工作流 #{}）",
@@ -1147,16 +1248,22 @@ public final class RtsTaskEngine {
                 switch (snapshot.state()) {
                     case PAUSED -> {
                         if (!progress.paused()) token.pause();
+                        token.setReason(RtsOperationReason.MANUAL_PAUSED, "", java.util.List.of());
                     }
                     case WAITING_RESOURCE, WAITING_CHUNK, WAITING_PERSISTENCE -> {
                         if (!progress.suspended()) token.suspend();
+                        token.setReason(snapshot.reason(), snapshot.reasonDetail(), durableMissingItems(snapshot));
                     }
                     case QUEUED, RUNNING -> {
                         if (progress.paused()) token.unpause();
                         if (progress.suspended()) token.resume();
+                        if (token.getProgress().reason() != RtsOperationReason.UNKNOWN) {
+                            token.setReason(RtsOperationReason.UNKNOWN, "", java.util.List.of());
+                        }
                     }
-                    case COMPLETED -> token.complete();
-                    case FAILED, CANCELLED -> token.cancel();
+                    case COMPLETED -> token.completeWithReason(snapshot.reason(), snapshot.reasonDetail());
+                    case FAILED, CANCELLED -> token.cancelWithReason(snapshot.reason() == RtsOperationReason.UNKNOWN
+                            ? RtsOperationReason.CANCELLED : snapshot.reason());
                 }
                 projectedDurableStates.put(snapshot.id(), snapshot.revision());
             }
@@ -1282,6 +1389,21 @@ public final class RtsTaskEngine {
 
     public record TaskDiagnostics(Map<TaskType, Integer> activeByType,
             Map<TaskType, Integer> waitingByType) {
+    }
+
+    /** 从冻结 definition 重建必要的缺料 ID；数量/组件仍由执行器实时判断。 */
+    private static java.util.List<String> durableMissingItems(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot) {
+        if (snapshot.reason() != RtsOperationReason.RESOURCE_MISSING || snapshot.type() != TaskType.PLACEMENT) {
+            return java.util.List.of();
+        }
+        net.minecraft.nbt.CompoundTag definition = snapshot.payload().contains("definition", net.minecraft.nbt.Tag.TAG_COMPOUND)
+                ? snapshot.payload().getCompound("definition") : snapshot.payload();
+        String itemId = definition.getString("itemId");
+        return itemId == null || itemId.isBlank() ? java.util.List.of() : java.util.List.of(itemId);
+    }
+
+    public record QueueDiagnostics(int runnable, int waiting) {
     }
 
     /** UI 可读取的等待放置票据；TaskId + revision 用于拒绝过期扫描结果。 */

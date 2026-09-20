@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.context;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.mining.MiningExecutePipe;
@@ -212,6 +213,13 @@ public class MiningContext extends PipelineContext {
             return this;
         }
 
+        /** 附加网络 trace；该字段只供诊断，不参与管线业务判断。 */
+        public Builder operationTrace(RtsOperationTraceContext trace) {
+            args.put(PipelineContext.ARG_OPERATION_TRACE.name(),
+                    trace == null ? RtsOperationTraceContext.legacy("UNKNOWN") : trace);
+            return this;
+        }
+
         /** 连锁挖掘操作的请求限制。 */
         public Builder requestedLimit(int limit) {
             args.put(UltimineExecutePipe.ARG_REQUESTED_LIMIT.name(), limit);
@@ -275,6 +283,12 @@ public class MiningContext extends PipelineContext {
         /** AREA_DESTROY 的位置列表。 */
         public Builder positions(List<BlockPos> positions) {
             args.put(UltimineExecutePipe.ARG_POSITIONS.name(), positions);
+            return this;
+        }
+
+        /** 仅服务端连通组规划器设置；客户端显式坐标请求始终使用体积规则。 */
+        public Builder connectedGroup(boolean connectedGroup) {
+            args.put(UltimineExecutePipe.ARG_CONNECTED_GROUP.name(), connectedGroup);
             return this;
         }
 

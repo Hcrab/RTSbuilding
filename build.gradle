@@ -337,6 +337,10 @@ dependencies {
 // See https://docs.gradle.org/current/dsl/org.gradle.language.jvm.tasks.ProcessResources.html
 tasks.named('processResources', ProcessResources).configure {
     dependsOn tasks.named('verifyPinyinDictionary')
+    // 独立配置生命周期测试必须有独立模板 namespace，不能被普通 GameTest 一起发现。
+    from('src/main/resources/data/rtsbuilding/structures/gametest/empty.nbt') {
+        into 'data/rtsbuilding_config_test/structures/gametest'
+    }
 
     var replaceProperties = [
             minecraft_version: minecraft_version, minecraft_version_range: minecraft_version_range,

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceSettings;
@@ -26,8 +27,8 @@ final class QuickBuildPreferenceState {
     private QuickBuildUiConvenienceSettings convenienceSettings =
             QuickBuildUiConvenienceSettings.DEFAULT;
     private boolean overwrite;
-    private int smartFillMaxBlocks = SmartFillLimits.DEFAULT_BLOCKS;
-    private int smartFillDiameter = SmartFillLimits.DEFAULT_DIAMETER;
+    private int smartFillMaxBlocks = configuredDefaultBlocks();
+    private int smartFillDiameter = configuredDefaultDiameter();
     private final EnumMap<BuildShape, Boolean> advanced =
             new EnumMap<BuildShape, Boolean>(BuildShape.class);
     private final EnumMap<BuildShape, Boolean> vertical =
@@ -110,7 +111,7 @@ final class QuickBuildPreferenceState {
     void smartFillMaxBlocks(int value) {
         smartFillMaxBlocks = Math.max(
                 SmartFillLimits.MIN_BLOCKS,
-                Math.min(SmartFillLimits.MAX_BLOCKS, value));
+                Math.min(configuredMaxBlocks(), value));
     }
 
     int smartFillDiameter() {
@@ -120,7 +121,7 @@ final class QuickBuildPreferenceState {
     void smartFillDiameter(int value) {
         smartFillDiameter = Math.max(
                 SmartFillLimits.MIN_DIAMETER,
-                Math.min(SmartFillLimits.MAX_DIAMETER, value));
+                Math.min(configuredMaxDiameter(), value));
     }
 
     boolean advanced(BuildShape shape) {
@@ -163,5 +164,41 @@ final class QuickBuildPreferenceState {
 
     private static BuildShape normalize(BuildShape shape) {
         return shape == null ? BuildShape.BLOCK : shape;
+    }
+
+    private static int configuredMaxBlocks() {
+        try {
+            return Math.max(SmartFillLimits.MIN_BLOCKS,
+                    Math.min(SmartFillLimits.HARD_MAX_BLOCKS, Config.smartFillMaxBlocks()));
+        } catch (RuntimeException ignored) {
+            return SmartFillLimits.MAX_BLOCKS;
+        }
+    }
+
+    private static int configuredDefaultBlocks() {
+        try {
+            return Math.max(SmartFillLimits.MIN_BLOCKS,
+                    Math.min(configuredMaxBlocks(), Config.smartFillDefaultBlocks()));
+        } catch (RuntimeException ignored) {
+            return SmartFillLimits.DEFAULT_BLOCKS;
+        }
+    }
+
+    private static int configuredMaxDiameter() {
+        try {
+            return Math.max(SmartFillLimits.MIN_DIAMETER,
+                    Math.min(SmartFillLimits.HARD_MAX_DIAMETER, Config.smartFillMaxDiameter()));
+        } catch (RuntimeException ignored) {
+            return SmartFillLimits.MAX_DIAMETER;
+        }
+    }
+
+    private static int configuredDefaultDiameter() {
+        try {
+            return Math.max(SmartFillLimits.MIN_DIAMETER,
+                    Math.min(configuredMaxDiameter(), Config.smartFillDefaultDiameter()));
+        } catch (RuntimeException ignored) {
+            return SmartFillLimits.DEFAULT_DIAMETER;
+        }
     }
 }

@@ -59,7 +59,7 @@ public final class RtsSmartFillService {
                 new SmartFillPlanner.Limits(
                         payload.maxBlocks(),
                         payload.detectionDiameter(),
-                        SmartFillLimits.HARD_MAX_BLOCKS,
+                        com.rtsbuilding.rtsbuilding.Config.smartFillMaxBlocks(),
                         SmartFillLimits.QUERY_BUDGET),
                 pos -> SmartFillCandidateClassifier.classify(player.serverLevel(), pos));
         if (!plan.canSubmit()) {
@@ -114,9 +114,9 @@ public final class RtsSmartFillService {
     }
 
     private static boolean validParameters(int blocks, int diameter) {
-        return blocks >= SmartFillLimits.MIN_BLOCKS && blocks <= SmartFillLimits.MAX_BLOCKS
+        return blocks >= SmartFillLimits.MIN_BLOCKS && blocks <= com.rtsbuilding.rtsbuilding.Config.smartFillMaxBlocks()
                 && diameter >= SmartFillLimits.MIN_DIAMETER
-                && diameter <= SmartFillLimits.MAX_DIAMETER;
+                && diameter <= com.rtsbuilding.rtsbuilding.Config.smartFillMaxDiameter();
     }
 
     private static boolean validInteractionGeometry(C2SRtsConfirmSmartFillPayload payload) {
@@ -176,4 +176,3 @@ public final class RtsSmartFillService {
             boolean queued) {
     }
 }
-

@@ -28,7 +28,8 @@ public final class RtsPageHandlers {
                         payload.ascending(),
                         payload.pageSize(),
                         payload.pinyinSearchEnabled(),
-                        payload.localizedSearchMatches());
+                        payload.localizedSearchMatches(),
+                        payload.sessionId(), payload.queryId(), payload.requestId());
             }
         });
     }

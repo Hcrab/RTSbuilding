@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.history;
 
+import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExtractor;
@@ -21,6 +22,7 @@ import net.minecraftforge.items.IItemHandler;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -63,6 +65,7 @@ public final class HistoryExecutor {
             if (!level.isLoaded(pos)) continue;
             if (!RtsClaimProtectionService.canPlaceBlock(player, pos)) continue;
             if (!level.getBlockState(pos).equals(record.afterState())) continue;
+            if (!matchesCredential(level, pos, record, record.credentialAfter())) continue;
 
             ItemStack consumed = ItemStack.EMPTY;
             if (!creative) {
@@ -74,6 +77,7 @@ public final class HistoryExecutor {
                 continue;
             }
             if (creative) restoreBlockEntity(level, pos, record.blockEntityData());
+            restoreCredential(level, pos, record.credentialBefore());
             completed.add(pos);
         }
         if (!creative) refreshStorage(player);
@@ -93,10 +97,12 @@ public final class HistoryExecutor {
             // 撤回建造沿用操作后 BlockState 校验；方块实体落地后可能自行规范化 NBT，
             // 不能因此让正常的箱子、机器等永久失去撤回能力。
             if (!level.getBlockState(pos).equals(record.afterState())) continue;
+            if (!matchesCredential(level, pos, record, record.credentialAfter())) continue;
             BlockState current = level.getBlockState(pos);
             if (!current.equals(record.state())
                     && !level.setBlock(pos, record.state(), Block.UPDATE_ALL | Block.UPDATE_CLIENTS)) continue;
             restoreBlockEntity(level, pos, record.blockEntityData());
+            restoreCredential(level, pos, record.credentialBefore());
             completed.add(pos);
         }
         return completed;
@@ -114,6 +120,7 @@ public final class HistoryExecutor {
             BlockPos pos = record.pos();
             if (!level.isLoaded(pos)) continue;
             if (!matchesSnapshot(level, pos, record.state(), record.blockEntityData())) continue;
+            if (!matchesCredential(level, pos, record, record.credentialBefore())) continue;
 
             if (entry.getOperation() == HistoryOperation.CREATIVE_BREAK) {
                 if (!RtsClaimProtectionService.canBreakBlock(
@@ -128,6 +135,7 @@ public final class HistoryExecutor {
             if (!current.equals(record.afterState())
                     && !level.setBlock(pos, record.afterState(), Block.UPDATE_ALL | Block.UPDATE_CLIENTS)) continue;
             restoreBlockEntity(level, pos, record.afterBlockEntityData());
+            restoreCredential(level, pos, record.credentialAfter());
             completed.add(pos);
         }
         return completed;
@@ -144,6 +152,14 @@ public final class HistoryExecutor {
         return expectedBlockEntityData.equals(current);
     }
 
+    /** 新历史要求当前 tracker 仍是同一代；旧无凭据历史保持原兼容语义。 */
+    private static boolean matchesCredential(
+            ServerLevel level, BlockPos pos, HistoryBlockRecord record,
+            PlacedBlockTrackerData.CredentialSnapshot expected) {
+        if (record.credentialBefore() == null && record.credentialAfter() == null) return true;
+        return Objects.equals(PlacedBlockTrackerData.get(level).captureSnapshot(pos), expected);
+    }
+
     /** 生存建造撤回：只移除仍与本批结果完全一致的方块并返还材料。 */
     private static Set<BlockPos> breakSurvivalPlacement(
             ServerPlayer player, List<HistoryBlockRecord> records) {
@@ -155,8 +171,10 @@ public final class HistoryExecutor {
             if (!RtsClaimProtectionService.canBreakBlock(player, pos, net.minecraft.core.Direction.UP)) continue;
             BlockState current = level.getBlockState(pos);
             if (!current.equals(record.afterState())) continue;
+            if (!matchesCredential(level, pos, record, record.credentialAfter())) continue;
             if (!level.setBlock(pos, Blocks.AIR.defaultBlockState(),
                     Block.UPDATE_ALL | Block.UPDATE_CLIENTS)) continue;
+            restoreCredential(level, pos, record.credentialBefore());
             refundItem(player, new ItemStack(record.afterState().getBlock().asItem()), pos);
             completed.add(pos);
         }
@@ -217,6 +235,13 @@ public final class HistoryExecutor {
         if (blockEntity == null) return;
         blockEntity.load(blockEntityData);
         blockEntity.setChanged();
+    }
+
+    /** 历史事务只在世界写入成功后恢复原快照；不会用当前操作者 UUID 重新认领。 */
+    private static void restoreCredential(
+            ServerLevel level, BlockPos pos,
+            PlacedBlockTrackerData.CredentialSnapshot snapshot) {
+        PlacedBlockTrackerData.get(level).restoreSnapshot(pos, snapshot);
     }
 
     private static void refreshStorage(ServerPlayer player) {

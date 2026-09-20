@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.uicore.workflow.WorkflowUiRow;
 import com.rtsbuilding.rtsbuilding.uicore.workflow.WorkflowUiState;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /** 工作流浮窗的 preview-only 确定性快照，不模拟服务端执行。 */
@@ -44,11 +45,17 @@ final class WorkflowPreviewFixtures {
                                      boolean paused, boolean protectedWorkflow, boolean blueprint) {
         String label = language == null ? type
                 : language.text("screen.rtsbuilding.workflow.type." + type);
-        if (suspended && language != null) {
-            label = language.format("screen.rtsbuilding.workflow.suspended", label);
-        }
+        String statusKey = paused
+                ? "screen.rtsbuilding.workflow.status.paused"
+                : suspended
+                        ? "screen.rtsbuilding.workflow.status.need_items"
+                        : "screen.rtsbuilding.workflow.status.running";
+        String status = language == null ? statusKey : language.text(statusKey);
+        List<String> details = Collections.singletonList(
+                language == null ? status : language.format(
+                        "screen.rtsbuilding.workflow.detail.status", status));
         return new WorkflowUiRow(id, type, label, completed + "/" + total,
                 completed, total, 0, total - completed, suspended, paused,
-                protectedWorkflow, blueprint);
+                protectedWorkflow, blueprint, status, details);
     }
 }

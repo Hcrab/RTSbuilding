@@ -1,11 +1,12 @@
 package com.rtsbuilding.rtsbuilding.server.task.destruction;
 
 import com.rtsbuilding.rtsbuilding.server.data.RtsDimensionKeys;
+import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
+import com.rtsbuilding.rtsbuilding.server.history.HistoryRecordCodec;
 import com.rtsbuilding.rtsbuilding.server.task.DestructionTaskPayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -16,7 +17,7 @@ import java.util.List;
 
 /** DestructionTaskPayload 的有界、版本化 NBT 编解码器。 */
 public final class DestructionTaskCodec {
-    public static final int SCHEMA_VERSION = 2;
+    public static final int SCHEMA_VERSION = 3;
 
     private DestructionTaskCodec() {
     }
@@ -39,9 +40,7 @@ public final class DestructionTaskCodec {
         tag.putInt("failed", state.failedUnits());
         tag.putLongArray("destroyed",
                 state.destroyedPositions().stream().mapToLong(BlockPos::asLong).toArray());
-        ListTag history = new ListTag();
-        state.historyRecords().forEach(history::add);
-        tag.put("history", history);
+        HistoryRecordCodec.encode(tag, "history", "historyPositions", state.historyRecords());
         return tag;
     }
 
@@ -62,6 +61,11 @@ public final class DestructionTaskCodec {
         requireType(tag, "failed", Tag.TAG_INT);
         requireType(tag, "destroyed", Tag.TAG_LONG_ARRAY);
         requireType(tag, "history", Tag.TAG_LIST);
+        if (tag.getInt("schema") >= 3) {
+            requireType(tag, "historyPositions", Tag.TAG_LONG_ARRAY);
+            requireType(tag, HistoryRecordCodec.STATES_KEY, Tag.TAG_LIST);
+            requireType(tag, HistoryRecordCodec.STATE_INDICES_KEY, Tag.TAG_INT_ARRAY);
+        }
 
         ResourceLocation dimensionId = ResourceLocation.tryParse(tag.getString("dimension"));
         if (dimensionId == null || !dimensionId.toString().equals(tag.getString("dimension"))) {
@@ -74,23 +78,32 @@ public final class DestructionTaskCodec {
         if (targets.isEmpty()) throw new IllegalArgumentException("destruction targets 不能为空");
         List<BlockPos> destroyed = decodePositions(tag.getLongArray("destroyed"),
                 targets.size(), "destroyed");
-        ListTag encodedHistory = (ListTag) tag.get("history");
-        if (!encodedHistory.isEmpty() && encodedHistory.getElementType() != Tag.TAG_COMPOUND) {
-            throw new IllegalArgumentException("destruction history 元素类型无效");
-        }
-        long maxHistory = (long) targets.size() * DestructionTaskState.MAX_HISTORY_RECORDS_PER_TARGET;
-        if (encodedHistory.size() > maxHistory) {
-            throw new IllegalArgumentException("destruction history 超过有界上限");
-        }
-        List<CompoundTag> history = new ArrayList<>(encodedHistory.size());
-        for (int i = 0; i < encodedHistory.size(); i++) {
-            CompoundTag record = encodedHistory.getCompound(i);
+        List<CompoundTag> history = HistoryRecordCodec.decode(
+                tag, "history", "historyPositions",
+                (int) Math.min(Integer.MAX_VALUE,
+                        (long) targets.size() * DestructionTaskState.MAX_HISTORY_RECORDS_PER_TARGET),
+                tag.getInt("schema") >= 3);
+        for (CompoundTag record : history) {
             requireType(record, "pos", Tag.TAG_LONG);
             requireType(record, "state", Tag.TAG_COMPOUND);
             if (record.contains("blockEntity") && !record.contains("blockEntity", Tag.TAG_COMPOUND)) {
                 throw new IllegalArgumentException("destruction history blockEntity 类型无效");
             }
-            history.add(record.copy());
+            if (record.contains("block_entity") && !record.contains("block_entity", Tag.TAG_COMPOUND)) {
+                throw new IllegalArgumentException("destruction history block_entity 类型无效");
+            }
+            if (record.contains("afterBlockEntity")
+                    && !record.contains("afterBlockEntity", Tag.TAG_COMPOUND)) {
+                throw new IllegalArgumentException("destruction history afterBlockEntity 类型无效");
+            }
+            if (record.contains("after_block_entity")
+                    && !record.contains("after_block_entity", Tag.TAG_COMPOUND)) {
+                throw new IllegalArgumentException("destruction history after_block_entity 类型无效");
+            }
+            validateCredential(record, "credentialBefore");
+            validateCredential(record, "credentialAfter");
+            validateCredential(record, "credential_before");
+            validateCredential(record, "credential_after");
         }
 
         int workflow = tag.getInt("workflow");
@@ -122,5 +135,13 @@ public final class DestructionTaskCodec {
         if (!tag.contains(key, type)) {
             throw new IllegalArgumentException("destruction payload 字段类型无效: " + key);
         }
+    }
+
+    private static void validateCredential(CompoundTag record, String key) {
+        if (!record.contains(key)) return;
+        if (!record.contains(key, Tag.TAG_COMPOUND)) {
+            throw new IllegalArgumentException("destruction history " + key + " 类型无效");
+        }
+        PlacedBlockTrackerData.decodeSnapshot(record.getCompound(key));
     }
 }

@@ -43,6 +43,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildMode;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.storage.LinkedStoragePanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
@@ -121,7 +122,7 @@ final class BuilderScreenKeyboardSessionOwner {
             if (screen.cameraInput.isLeftMiningActive()
                     && screen.cameraInput.isKeyboardMining()
                     && ClientKeyMappings.ACTION_BREAK.matches(keyCode, scanCode)) {
-                screen.cameraInput.stopActiveMining();
+                screen.cameraInput.stopActiveMining(RtsMiningStopOrigin.KEY_RELEASE);
                 return true;
             }
             if (screen.cameraInput.updateCameraVerticalHeldState(keyCode, scanCode, false)) {
@@ -174,7 +175,7 @@ final class BuilderScreenKeyboardSessionOwner {
             if (mode == null || (screen.controller.getMode() == mode && screen.controller.isFunnelEnabled() == funnelEnabled)) {
                 return false;
             }
-            screen.cameraInput.stopActiveMining();
+            screen.cameraInput.stopActiveMining(RtsMiningStopOrigin.MODE_SWITCH);
             screen.shapeController.clearShapeBuildSession();
             screen.controller.setMode(mode);
             screen.controller.setFunnelEnabled(funnelEnabled);

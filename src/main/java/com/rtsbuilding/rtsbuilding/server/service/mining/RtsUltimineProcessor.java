@@ -360,7 +360,13 @@ public final class RtsUltimineProcessor {
             return 0;
         }
 
-        // 限定范围
+        // 服务端拒绝完整超限请求；客户端预览的限幅不能变成服务器静默截断。
+        if (!new com.rtsbuilding.rtsbuilding.common.mining.MiningSelectionBounds(
+                Math.min(minX, maxX), Math.max(minX, maxX), Math.min(minY, maxY), Math.max(minY, maxY),
+                Math.min(minZ, maxZ), Math.max(minZ, maxZ)).fits(RtsMiningValidator.areaMineSelectionLimit())) {
+            return 0;
+        }
+        // 限定范围（此时仅处理合法请求的数值归一化）
         AreaMineLimitBox limitBox = limitAreaMineBox(minX, maxX, minY, maxY, minZ, maxZ);
         int clampedMinX = limitBox.minX();
         int clampedMaxX = limitBox.maxX();
@@ -433,9 +439,12 @@ public final class RtsUltimineProcessor {
         int safeMinZ = Math.min(minZ, maxZ);
         int safeMaxZ = Math.max(minZ, maxZ);
 
-        int width = Math.max(1, Math.min(safeMaxX - safeMinX + 1, RtsMiningValidator.areaMineMaxWidth()));
-        int height = Math.max(1, Math.min(safeMaxY - safeMinY + 1, RtsMiningValidator.areaMineMaxHeight()));
-        int depth = Math.max(1, Math.min(safeMaxZ - safeMinZ + 1, RtsMiningValidator.areaMineMaxDepth()));
+        int width = (int) Math.max(1L, Math.min((long) RtsMiningValidator.areaMineMaxWidth(),
+                (long) safeMaxX - safeMinX + 1L));
+        int height = (int) Math.max(1L, Math.min((long) RtsMiningValidator.areaMineMaxHeight(),
+                (long) safeMaxY - safeMinY + 1L));
+        int depth = (int) Math.max(1L, Math.min((long) RtsMiningValidator.areaMineMaxDepth(),
+                (long) safeMaxZ - safeMinZ + 1L));
         int maxVolume = Math.max(1, RtsMiningValidator.areaMineMaxVolume());
 
         while ((long) width * height * depth > maxVolume) {
@@ -471,21 +480,15 @@ public final class RtsUltimineProcessor {
         if (player == null || positions == null || positions.isEmpty()) {
             return new ArrayDeque<>();
         }
+        if (!RtsMiningRequestLimits.accepts(player, positions)) {
+            return new ArrayDeque<>();
+        }
         ServerLevel level = player.serverLevel();
         // 从上往下逐层破坏：按Y降序排列
         List<BlockPos> sortedPositions = new ArrayList<>(positions);
         sortedPositions.sort(Comparator.<BlockPos>comparingInt(BlockPos::getY).reversed());
-        int maxExplicitTargets = Math.min(
-                RtsMiningValidator.areaDestroyMaxTargets(),
-                RtsMiningValidator.areaMineMaxVolume());
-        AreaMineLimitBox explicitLimit = explicitAreaDestroyFitsSoftEnvelopeForCaps(
-                positions,
-                RtsMiningValidator.areaMineMaxWidth(),
-                RtsMiningValidator.areaMineMaxHeight(),
-                RtsMiningValidator.areaMineMaxDepth(),
-                maxExplicitTargets)
-                        ? null
-                        : limitExplicitAreaDestroyBox(sortedPositions);
+        int maxExplicitTargets = RtsMiningValidator.areaMineMaxVolume();
+        AreaMineLimitBox explicitLimit = null;
         int maxRequiredLevel = RtsMiningValidator.rangeMiningMaxRequiredLevel(player, creative);
         ItemStack actualTool = RtsMiningValidator.resolveMiningTool(player, toolSlot, linkedTool);
         List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
@@ -493,7 +496,7 @@ public final class RtsUltimineProcessor {
         int outsideSessionRangeTargets = 0;
         LinkedHashSet<BlockPos> unique = new LinkedHashSet<>();
         for (BlockPos raw : sortedPositions) {
-            if (raw == null || unique.size() >= maxExplicitTargets) {
+            if (raw == null) {
                 continue;
             }
             BlockPos pos = raw.immutable();
@@ -627,9 +630,9 @@ public final class RtsUltimineProcessor {
             return true;
         }
         return count <= Math.max(1, maxTargets)
-                && (maxX - minX + 1) <= Math.max(1, maxWidth) + 1
-                && (maxY - minY + 1) <= Math.max(1, maxHeight) + 1
-                && (maxZ - minZ + 1) <= Math.max(1, maxDepth) + 1;
+                && ((long) maxX - minX + 1L) <= (long) Math.max(1, maxWidth) + 1L
+                && ((long) maxY - minY + 1L) <= (long) Math.max(1, maxHeight) + 1L
+                && ((long) maxZ - minZ + 1L) <= (long) Math.max(1, maxDepth) + 1L;
     }
 
     private static AreaMineLimitBox limitExplicitAreaDestroyBox(List<BlockPos> positions) {

@@ -39,13 +39,13 @@ class SurvivalPluginGateContractTest {
     void survivalToggleResynchronizesPluginsAndRejectedActionsExplainWhy() throws Exception {
         String handler = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/network/progression/handler/RtsProgressionNetworkHandlers.java"));
-        String controller = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsController.java"));
+        String interactionOwner = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsInteractionOwner.java"));
         String gate = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/pipeline/validation/ProgressionGatePipe.java"));
 
         assertTrue(handler.contains("RtsPluginService.syncToPlayer(player)"));
-        assertTrue(controller.contains("RtsClientPacketGateway.sendRequestPlugins()"));
+        assertTrue(interactionOwner.contains("RtsClientPacketGateway.sendRequestPlugins()"));
         assertTrue(gate.contains("message.rtsbuilding.plugin_required"));
         assertTrue(gate.contains("displayClientMessage"));
     }
@@ -56,7 +56,7 @@ class SurvivalPluginGateContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/progression/RtsProgressionManager.java"));
         String limitMethod = methodBody(manager, "public static int getUltimineLimit");
 
-        assertTrue(limitMethod.contains("return DEFAULT_ULTIMINE_LIMIT"));
+        assertTrue(limitMethod.contains("return com.rtsbuilding.rtsbuilding.Config.ultimineMaxBlocks()"));
         assertFalse(limitMethod.contains("derive(player)"));
     }
 

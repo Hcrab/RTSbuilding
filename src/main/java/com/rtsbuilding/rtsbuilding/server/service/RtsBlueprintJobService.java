@@ -8,7 +8,8 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
-import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
+import com.rtsbuilding.rtsbuilding.server.service.placement.ConstructionMaterialSources;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -213,14 +214,10 @@ public final class RtsBlueprintJobService {
 
     private static long countMaterial(ServerPlayer player, ResourceLocation itemId) {
         if (itemId == null || !BuiltInRegistries.ITEM.containsKey(itemId)) return 0;
-        ItemStack template = new ItemStack(BuiltInRegistries.ITEM.get(itemId));
-        long available = 0;
-        available = RtsCountUtil.saturatedAdd(available,
-                ServiceRegistry.getInstance().transfer().countLinkedItemsMatching(player,
-                        stack -> ItemStack.isSameItemSameTags(stack, template)));
-        available = RtsCountUtil.saturatedAdd(available,
-                RtsProgressRefresher.countItemsInPlayerInventory(player, template));
-        return available;
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (session == null) return 0;
+        return ConstructionMaterialSources.countItem(
+                player, session, BuiltInRegistries.ITEM.get(itemId));
     }
 
     /**

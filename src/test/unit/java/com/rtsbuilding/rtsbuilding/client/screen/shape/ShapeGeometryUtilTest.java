@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@org.junit.jupiter.api.extension.ExtendWith(com.rtsbuilding.rtsbuilding.test.ShapeConfigFixture.class)
 class ShapeGeometryUtilTest {
     @Test
     void rangeDestroyUsesConfiguredSpanWithoutExpandingNormalBuildCap() {

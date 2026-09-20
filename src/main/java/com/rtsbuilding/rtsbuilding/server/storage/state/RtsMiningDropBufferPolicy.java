@@ -12,10 +12,26 @@ public final class RtsMiningDropBufferPolicy {
     }
 
     public static int remainingCapacity(int bufferedItems) {
-        return Math.max(0, MAX_BUFFERED_ITEMS - bufferedItems);
+        return remainingCapacity(bufferedItems, configuredCapacity());
     }
 
     public static boolean isFull(int bufferedItems, int stackCount) {
-        return bufferedItems >= MAX_BUFFERED_ITEMS || stackCount >= MAX_STACKS;
+        return isFull(bufferedItems, stackCount, configuredCapacity(), MAX_STACKS);
+    }
+    public static int remainingCapacity(int bufferedItems, int maxBufferedItems) {
+        int capacity = Math.max(1, maxBufferedItems);
+        if (bufferedItems >= capacity) return 0;
+        return capacity - Math.max(0, bufferedItems);
+    }
+    public static boolean isFull(int bufferedItems, int stackCount, int maxBufferedItems, int maxStacks) {
+        return bufferedItems >= Math.max(1, maxBufferedItems) || stackCount >= Math.max(1, maxStacks);
+    }
+    /** 持久化恢复使用物理硬上限，不因本次配置调低而丢弃已接纳的栈。 */
+    public static boolean canRestorePersistedStack(int currentStackCount) {
+        return currentStackCount >= 0 && currentStackCount < MAX_STACKS;
+    }
+    private static int configuredCapacity() {
+        try { return com.rtsbuilding.rtsbuilding.Config.dropCacheSoftCapacity(); }
+        catch (IllegalStateException ignored) { return MAX_BUFFERED_ITEMS; }
     }
 }

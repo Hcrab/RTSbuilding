@@ -121,8 +121,10 @@ public final class RtsRemoteMenuCompat {
 
     private static boolean isInstanceOf(Object instance, String className) {
         try {
-            return Class.forName(className).isInstance(instance);
-        } catch (ClassNotFoundException | LinkageError ignored) {
+            ClassLoader loader = instance == null ? RtsRemoteMenuCompat.class.getClassLoader()
+                    : instance.getClass().getClassLoader();
+            return Class.forName(className, false, loader).isInstance(instance);
+        } catch (ClassNotFoundException | SecurityException | LinkageError ignored) {
             return false;
         }
     }

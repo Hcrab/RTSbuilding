@@ -14,9 +14,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 
 /**
- * 管理单个玩家的固定大小工作流槽位池。
+ * 管理单个玩家按服务端配置接纳新任务的工作流槽位池。
  *
- * <p>每个玩家最多有 {@link #MAX_SLOTS} 个工作流槽位。条目以优先级顺序存储：
+ * <p>默认容量为 {@link #MAX_SLOTS}；下调容量不会删除既有任务。条目以优先级顺序存储：
  * 高优先级条目排在低优先级条目之前。相同优先级内保持 FIFO 插入顺序。
  * 当条目被移除时，后面的条目会向前移动——
  * 但不可变的 {@link RtsWorkflowEntry#id()} 在索引偏移后仍然有效。</p>
@@ -27,6 +27,11 @@ public final class RtsWorkflowSlotManager {
 
     /** 每个玩家的最大并发工作流条目数。 */
     public static final int MAX_SLOTS = 8;
+
+    private static int configuredCapacity() {
+        try { return Math.max(1, com.rtsbuilding.rtsbuilding.Config.maxActiveWorkflowsPerPlayer()); }
+        catch (IllegalStateException ignored) { return MAX_SLOTS; }
+    }
 
     /**
      * {@link #entries} 和 {@link #entryIndex} 的读写锁。
@@ -61,7 +66,7 @@ public final class RtsWorkflowSlotManager {
     public boolean isFull() {
         rwLock.readLock().lock();
         try {
-            return entries.size() >= MAX_SLOTS;
+            return entries.size() >= configuredCapacity();
         } finally {
             rwLock.readLock().unlock();
         }
@@ -117,10 +122,18 @@ public final class RtsWorkflowSlotManager {
      * @return 新创建的条目，若已达上限则返回 {@code null}
      */
     public @Nullable RtsWorkflowEntry addEntry(RtsWorkflowPriority priority) {
+        return addEntry(priority, configuredCapacity());
+    }
+
+    /**
+     * 在引擎本次接纳事务的容量内分配条目。
+     * 下调配置后允许一换一，但不能扩大既有任务总数；引擎必须在移除旧项前冻结此上限。
+     */
+    public @Nullable RtsWorkflowEntry addEntry(RtsWorkflowPriority priority, int admissionLimit) {
         rwLock.writeLock().lock();
         try {
             // 内联检查：writeLock 已独占，无需再调 isFull() 获取 readLock
-            if (entries.size() >= MAX_SLOTS) return null;
+            if (entries.size() >= Math.max(1, admissionLimit)) return null;
             RtsWorkflowEntry entry = new RtsWorkflowEntry(nextId++);
             entry.setPriority(priority);
             // 按优先级插入：找到第一个优先级严格更低的条目位置
@@ -145,13 +158,13 @@ public final class RtsWorkflowSlotManager {
      * <p>这个入口只负责恢复“显示投影”，不会创建或修改真实任务。条目 ID 必须沿用
      * TaskStore 中保存的 workflowEntryId，否则暂停、保护和取消操作会指向错误任务。</p>
      *
-     * @return {@code true} 表示恢复成功；ID 冲突或槽位已满时返回 {@code false}
+     * @return {@code true} 表示恢复成功；空条目或 ID 冲突时返回 {@code false}，不受新接纳容量限制
      */
     public boolean addRestoredEntry(RtsWorkflowEntry entry) {
         if (entry == null || !entry.isOccupied()) return false;
         rwLock.writeLock().lock();
         try {
-            if (entries.size() >= MAX_SLOTS || entryIndex.containsKey(entry.id())) {
+            if (entryIndex.containsKey(entry.id())) {
                 return false;
             }
             int insertIndex = entries.size();

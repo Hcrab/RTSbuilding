@@ -77,7 +77,7 @@ class RtsCreateValueSettingsForgeContractTest {
         String packets = source("network/create/RtsCreateValueSettingsPackets.java");
 
         assertTrue(registrar.contains("RtsCreateValueSettingsPackets.register(registrar)"));
-        assertTrue(registrar.contains("PROTOCOL_VERSION = \"2\""));
+        assertTrue(registrar.contains("RtsNetworkProtocol.VERSION"));
         assertTrue(packets.contains("C2SRtsCreateValueSettingsPayload.TYPE"));
         assertTrue(packets.contains("RtsCreateValueSettingsNetworkHandler::handle"));
 

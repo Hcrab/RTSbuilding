@@ -9,6 +9,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ShapeSelectionLimiterTest {
     @Test
+    void volumeOnlyClampKeepsLongThinSelection() {
+        ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
+                BuildShape.BOX,
+                Direction.UP,
+                Direction.UP,
+                BlockPos.ZERO,
+                new BlockPos(511, 0, 0),
+                0,
+                false);
+
+        ShapeBuildTypes.Input limited = ShapeSelectionLimiter.clampDimensionsAndVolume(input, 512);
+
+        assertTrue(limited.pointB().getX() - limited.pointA().getX() + 1 == 512);
+        assertTrue(ShapeSelectionLimiter.envelopeVolume(limited) <= 512L);
+    }
+
+    @Test
     void rectilinearSelectionIsShrunkBeforeGeometryWhenVolumeIsTooLarge() {
         ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
                 BuildShape.BOX,

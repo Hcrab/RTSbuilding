@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.undo;
 
 import com.rtsbuilding.rtsbuilding.common.RtsHistoryConstants;
+import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryCapacityPolicy;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryEntry;
@@ -15,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -95,6 +97,23 @@ class HistoryModelTest {
         CompoundTag leakedAfterCopy = record.afterBlockEntityData();
         leakedAfterCopy.putInt("Items", 321);
         assertEquals(8, record.afterBlockEntityData().getInt("Items"));
+    }
+
+    @Test
+    void optionalCredentialSnapshotsTravelWithBeforeAndAfterHistory() {
+        PlacedBlockTrackerData.CredentialSnapshot before =
+                new PlacedBlockTrackerData.CredentialSnapshot(
+                        UUID.randomUUID(), new net.minecraft.resources.ResourceLocation("minecraft", "stone"),
+                        3L, PlacedBlockTrackerData.CredentialKind.V2);
+        PlacedBlockTrackerData.CredentialSnapshot after =
+                new PlacedBlockTrackerData.CredentialSnapshot(
+                        UUID.randomUUID(), new net.minecraft.resources.ResourceLocation("minecraft", "dirt"),
+                        4L, PlacedBlockTrackerData.CredentialKind.V2);
+        HistoryBlockRecord record = new HistoryBlockRecord(
+                BlockPos.ZERO, null, null, null, null, before, after);
+
+        assertEquals(before, record.credentialBefore());
+        assertEquals(after, record.credentialAfter());
     }
 
     private static HistoryBlockRecord record(BlockPos pos) {

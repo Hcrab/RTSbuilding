@@ -30,7 +30,7 @@ public class CircleShapeGenerator extends AreaShapeGenerator {
         // 计算半径并限制最大值
         double radius = Math.sqrt((dx * (double) dx) + (dz * (double) dz));
         int r = Math.max(0, (int) Math.round(radius));
-        r = Math.min(r, 64);
+        r = Math.min(r, input.maxOffset());
 
         int outer2 = r * r;
         int inner = Math.max(0, r - 1);

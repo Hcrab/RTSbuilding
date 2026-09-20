@@ -15,15 +15,22 @@ class RtsPlacedRecoveryBypassContractTest {
     void trackedRecoveryMustBypassHarvestToolAndSilkTouchWithoutSwallowingBlock() throws Exception {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/RtsPlacedRecoveryService.java"));
+        String capture = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/mining/RtsMiningDropCapture.java"));
 
-        assertTrue(source.contains("getCloneItemStack(level, pos, state)"));
-        assertTrue(source.contains("ForgeHooks.onBlockBreakEvent("));
-        assertTrue(source.contains("level.destroyBlock(pos, false, player)"));
-        assertTrue(source.contains("if (recoveredBlock.isEmpty())"));
-        assertTrue(source.contains("tracker.mark(targetPos);"));
-        assertFalse(source.contains("Items.NETHERITE_PICKAXE"));
-        assertFalse(source.contains("SILK_TOUCH"));
-        assertFalse(source.contains("player.gameMode.destroyBlock(pos)"));
+        assertTrue(source.contains("RtsClaimProtectionService.canBreakBlock("));
+        assertTrue(source.contains("RtsMiningDropCapture.captureInstantRecovery("));
+        assertTrue(source.contains("ItemStack internalTool = createInternalSilkTouchTool(level);"));
+        assertTrue(source.contains("TemporaryContextSwitcher.withTemporaryMainHandItem("));
+        assertTrue(source.contains("player.gameMode.destroyBlock(targetPos)"));
+        assertTrue(source.contains("if (state.equals(level.getBlockState(targetPos)))"));
+        assertTrue(source.contains("tracker.clear(targetPos);"));
+        assertFalse(source.contains("getCloneItemStack(level, pos, state)"));
+        assertTrue(capture.contains("PlayerEvent.HarvestCheck"));
+        assertTrue(capture.contains("event.setCanHarvest(true)"));
+        assertTrue(capture.contains("targetState.equals(event.getTargetBlock())"));
+        assertTrue(capture.contains("event.getEntity() != context.player"));
+        assertFalse(capture.contains("AABB"));
 
         String trackingSource = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/tracking/RtsBlockTrackingEvents.java"));

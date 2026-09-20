@@ -25,7 +25,6 @@ import java.util.List;
  * <p>此 Pipe 按顺序处理以下关注点：</p>
  * <ol>
  *   <li>验证世界目标访问——如果玩家无法到达目标则失败。</li>
- *   <li>尝试已放置方块恢复——如果恢复成功则跳过管道。</li>
  *   <li>创造模式快速路径——立即破坏方块，记录历史。</li>
  *   <li>生存模式设置——从共享数据读取借用工具租约，配置会话
  *       状态，并调用 {@link RtsMiningStateMachine#beginRemoteMining}。</li>
@@ -35,7 +34,7 @@ import java.util.List;
  * <ul>
  *   <li>{@code "pos"} —— {@link BlockPos} 目标位置</li>
  *   <li>{@code "face"} —— {@link Direction} 挖掘面（可为空）</li>
- *   <li>{@code "allowPlacedBlockRecovery"} —— {@code boolean}（可选，默认 false）</li>
+ *   <li>{@code "allowPlacedBlockRecovery"} —— 由前置 recovery pipe 消费（可选，默认 false）</li>
  *   <li>{@code "toolProtectionEnabled"} —— {@code boolean}（可选，默认 true）</li>
  * </ul>
  *
@@ -73,7 +72,6 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
         BlockPos pos = mctx.getPos();
         Direction face = mctx.getFace();
         int toolSlot = RtsMiningValidator.clampHotbarSlot(mctx.getToolSlot());
-        boolean allowPlacedBlockRecovery = mctx.isAllowPlacedBlockRecovery();
         boolean toolProtectionEnabled = mctx.isToolProtectionEnabled();
 
         // ── 1. 验证世界目标访问 ──────────────────────────────
@@ -84,13 +82,7 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
             return PipelineResult.failure("Claim protection denied block break at " + pos.toShortString());
         }
 
-        // ── 2. 已放置方块恢复 ─────────────────────────────────────
-        if (allowPlacedBlockRecovery
-                && RtsMiningValidator.tryRecoverPlacedBlock(player, session, pos, face)) {
-            return PipelineResult.skip("Placed block recovered, no mining needed");
-        }
-
-        // ── 3. 创造模式快速路径 ───────────────────────────────────
+        // ── 2. 创造模式快速路径 ───────────────────────────────────
         if (player.isCreative()) {
             Direction actualFace = face == null ? Direction.DOWN : face;
             // 创造破坏必须在修改世界前捕获完整 BlockState 与方块实体 NBT。

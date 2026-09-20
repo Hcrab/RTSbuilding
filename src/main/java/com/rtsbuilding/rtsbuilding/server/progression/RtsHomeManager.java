@@ -26,7 +26,7 @@ final class RtsHomeManager {
         }
         int chunkX = player.blockPosition().getX() >> 4;
         int chunkZ = player.blockPosition().getZ() >> 4;
-        HOME_SELECTIONS.put(player.getUUID(), new HomeSelection(player.serverLevel().dimension(), chunkX, chunkZ));
+        HOME_SELECTIONS.put(player.getUUID(), new HomeSelection(player.serverLevel().dimension(), (chunkX << 4) + 8, (chunkZ << 4) + 8));
     }
 
     static void endHomeSelection(ServerPlayer player) {
@@ -44,10 +44,9 @@ final class RtsHomeManager {
         if (selection == null || pos == null || !selection.dimension().equals(player.serverLevel().dimension())) {
             return false;
         }
-        int chunkX = pos.getX() >> 4;
-        int chunkZ = pos.getZ() >> 4;
-        return Math.abs(chunkX - selection.centerChunkX()) <= 1
-                && Math.abs(chunkZ - selection.centerChunkZ()) <= 1;
+        int radius = com.rtsbuilding.rtsbuilding.Config.homeSelectionRadiusBlocks();
+        return Math.abs((long) pos.getX() - selection.centerBlockX()) <= radius
+                && Math.abs((long) pos.getZ() - selection.centerBlockZ()) <= radius;
     }
 
     static HomeAnchor personalHome(ServerPlayer player) {
@@ -107,7 +106,9 @@ final class RtsHomeManager {
         if (home == null || !home.dimension().equals(player.serverLevel().dimension())) {
             return false;
         }
-        return isWithinHomeOpeningChunks(home.pos(), player.blockPosition());
+        int radius = com.rtsbuilding.rtsbuilding.Config.homeSelectionRadiusBlocks();
+        return Math.abs((long) home.pos().getX() - player.blockPosition().getX()) <= radius
+                && Math.abs((long) home.pos().getZ() - player.blockPosition().getZ()) <= radius;
     }
 
     static boolean isWithinHomeOpeningChunks(BlockPos homePos, BlockPos playerPos) {
@@ -139,7 +140,7 @@ final class RtsHomeManager {
             return 0L;
         }
         long elapsed = Math.max(0L, player.serverLevel().getGameTime() - home.setGameTime());
-        return Math.max(0L, RtsProgressionManager.HOME_RELOCATION_COOLDOWN_TICKS - elapsed);
+        return Math.max(0L, RtsProgressionManager.homeRelocationCooldownTicks() - elapsed);
     }
 
     static long remainingHomeCooldownDays(ServerPlayer player) {
@@ -174,6 +175,6 @@ final class RtsHomeManager {
         return true;
     }
 
-    private record HomeSelection(ResourceKey<Level> dimension, int centerChunkX, int centerChunkZ) {
+    private record HomeSelection(ResourceKey<Level> dimension, int centerBlockX, int centerBlockZ) {
     }
 }

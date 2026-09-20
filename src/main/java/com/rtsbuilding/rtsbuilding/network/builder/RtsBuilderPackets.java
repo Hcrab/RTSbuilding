@@ -74,9 +74,19 @@ public final class RtsBuilderPackets {
                 RtsMiningHandlers::handleMine);
 
         registrar.playToServer(
+                C2SRtsMineTracePayload.TYPE,
+                C2SRtsMineTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleMineTrace);
+
+        registrar.playToServer(
                 C2SRtsUltiminePayload.TYPE,
                 C2SRtsUltiminePayload.STREAM_CODEC,
                 RtsMiningHandlers::handleUltimine);
+
+        registrar.playToServer(
+                C2SRtsUltimineTracePayload.TYPE,
+                C2SRtsUltimineTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleUltimineTrace);
 
         registrar.playToServer(
                 C2SRtsAreaMinePayload.TYPE,
@@ -84,14 +94,34 @@ public final class RtsBuilderPackets {
                 RtsMiningHandlers::handleAreaMine);
 
         registrar.playToServer(
+                C2SRtsAreaMineTracePayload.TYPE,
+                C2SRtsAreaMineTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleAreaMineTrace);
+
+        registrar.playToServer(
                 C2SRtsAreaDestroyPayload.TYPE,
                 C2SRtsAreaDestroyPayload.STREAM_CODEC,
                 RtsMiningHandlers::handleAreaDestroy);
 
         registrar.playToServer(
+                C2SRtsAreaDestroyTracePayload.TYPE,
+                C2SRtsAreaDestroyTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleAreaDestroyTrace);
+
+        registrar.playToServer(
+                C2SRtsAreaDestroyFragmentPayload.TYPE,
+                C2SRtsAreaDestroyFragmentPayload.STREAM_CODEC,
+                RtsMiningHandlers::handleAreaDestroyFragment);
+
+        registrar.playToServer(
                 C2SRtsConvenienceDestroyPayload.TYPE,
                 C2SRtsConvenienceDestroyPayload.STREAM_CODEC,
                 RtsMiningHandlers::handleConvenienceDestroy);
+
+        registrar.playToServer(
+                C2SRtsConvenienceDestroyTracePayload.TYPE,
+                C2SRtsConvenienceDestroyTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleConvenienceDestroyTrace);
 
         registrar.playToServer(
                 C2SRtsConfirmSmartFillPayload.TYPE,
@@ -176,6 +206,11 @@ public final class RtsBuilderPackets {
         registrar.playToClient(
                 S2CRtsBlueprintResumeScanPayload.TYPE,
                 S2CRtsBlueprintResumeScanPayload.STREAM_CODEC,
+                ClientPayloadDispatcher::dispatchBuilder);
+
+        registrar.playToClient(
+                S2CRtsOperationTerminalPayload.TYPE,
+                S2CRtsOperationTerminalPayload.STREAM_CODEC,
                 ClientPayloadDispatcher::dispatchBuilder);
 
         // ===== Undo =====

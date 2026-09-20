@@ -6,10 +6,14 @@ import com.rtsbuilding.rtsbuilding.common.RtsCreativeTabs;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.RtsItems;
 import com.rtsbuilding.rtsbuilding.common.RtsMenuTypes;
+import com.rtsbuilding.rtsbuilding.common.config.RtsServerConfigRawSnapshot;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsAsyncJsonlWriter;
 import com.rtsbuilding.rtsbuilding.network.RtsForgePayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerHealthDiagnostics;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry;
 import com.rtsbuilding.rtsbuilding.server.feedback.RtsDamageFeedbackManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
@@ -51,8 +55,13 @@ import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import net.minecraftforge.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 
 /**
@@ -79,9 +88,11 @@ public final class RtsbuildingMod {
         RtsCreativeTabs.register(modEventBus);
         RtsForgePayloadRegistrar.register();
         MinecraftForge.EVENT_BUS.register(this);
+        // COMMON 原文先于 Forge ConfigSpec 注册保存，避免框架默认值冒充旧自定义值。
+        Config.captureRawCommonConfig(readRawCommonSnapshot());
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, Config.CLIENT_SPEC);
-        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, Config.SERVER_SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, Config.SERVER_CONFIG_SPEC);
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap
                         .registerConfigUi(ModLoadingContext.get()));
@@ -96,26 +107,38 @@ public final class RtsbuildingMod {
     }
 
     private void onConfigLoading(ModConfigEvent.Loading event) {
-        migrateServerConfigIfNeeded(event.getConfig());
+        // SERVER 原文已由 spec 适配器在 correction 前截获；这里不能在 loader 线程迁移或写盘。
     }
 
     private void onConfigReloading(ModConfigEvent.Reloading event) {
-        migrateServerConfigIfNeeded(event.getConfig());
-    }
-
-    private void migrateServerConfigIfNeeded(ModConfig config) {
-        if (config != null && config.getSpec() == Config.SERVER_SPEC && Config.migrateLegacyServerDefaults()) {
-            LOGGER.info("已迁移 RTSBuilding 旧版服务端默认值。");
-        }
+        // ConfigWatcher 可能运行在 watcher 线程；迁移统一延后到 ServerStarting/ServerTick。
     }
 
     @SubscribeEvent
     public void onServerStarting(final ServerStartingEvent event) {
+        // 同一客户端切换到第二个单人存档时，模组构造函数不会再次运行；重新捕获本机 COMMON 原文。
+        Config.captureRawCommonConfig(readRawCommonSnapshot());
+        if (Config.consumePendingLegacyServerMigration()) {
+            LOGGER.info("已迁移 RTSBuilding 旧版服务端默认值。");
+        }
         try {
             TaskPersistenceRuntime.INSTANCE.start(event.getServer());
         } catch (RuntimeException failure) {
             LOGGER.error("读取 durable task 仓库失败，服务端将 fail-closed 停止启动", failure);
             throw failure;
+        }
+    }
+
+    private static RtsServerConfigRawSnapshot readRawCommonSnapshot() {
+        Path primary = FMLPaths.CONFIGDIR.get().resolve("rtsbuilding-common.toml");
+        Path legacy = FMLPaths.CONFIGDIR.get().resolve("rts_building").resolve("rtsbuilding-common.toml");
+        Path path = legacy;
+        try {
+            path = Files.exists(primary) ? primary : legacy;
+            return new RtsServerConfigRawSnapshot(path.toString(), Files.exists(path) ? Files.readString(path) : "", false);
+        } catch (IOException | SecurityException failure) {
+            LOGGER.warn("无法在 ConfigSpec 注册前读取 COMMON 原始配置: {}", path, failure);
+            return new RtsServerConfigRawSnapshot(path.toString(), "", true);
         }
     }
 
@@ -149,6 +172,8 @@ public final class RtsbuildingMod {
 
         @SubscribeEvent
         static void onServerStarted(final ServerStartedEvent event) {
+            RtsServerTraceRegistry.reset();
+            RtsServerHealthDiagnostics.reset();
             RtsEffectAccumulator.INSTANCE.resetForServerStart();
             RtsCameraManager.cleanupOrphanCameras(event.getServer());
             SaveScheduler.INSTANCE.cleanupLegacyFiles(event.getServer());
@@ -193,6 +218,9 @@ public final class RtsbuildingMod {
             RtsStoragePageRequestCoalescer.clearAll();
             RtsEffectAccumulator.INSTANCE.clearAll();
             RtsDeveloperMetrics.clearAll();
+            RtsServerTraceRegistry.reset();
+            RtsServerHealthDiagnostics.reset();
+            RtsAsyncJsonlWriter.flush(Duration.ofSeconds(2));
             if (durableFailure != null) {
                 throw durableFailure;
             }

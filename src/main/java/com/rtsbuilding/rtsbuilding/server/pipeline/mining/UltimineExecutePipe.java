@@ -86,6 +86,9 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
             new TypedKey<>("positions", (Class) List.class);
     public static final TypedKey<Boolean> ARG_TOOL_PROTECTION_ENABLED =
             new TypedKey<>("toolProtectionEnabled", Boolean.class);
+    /** 服务端规划的树群使用目标数量限制，不套用范围选区的轴长限制。 */
+    public static final TypedKey<Boolean> ARG_CONNECTED_GROUP =
+            new TypedKey<>("connectedGroup", Boolean.class);
 
     public static final TypedKey<RtsToolLease> KEY_TOOL_LEASE = ToolBorrowPipe.KEY_TOOL_LEASE;
     public static final TypedKey<Boolean> KEY_SELECTED_TOOL_REQUESTED = ToolBorrowPipe.KEY_SELECTED_TOOL_REQUESTED;
@@ -226,7 +229,9 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
                         mctx.player(), session, positions,
                         (byte) RtsMiningValidator.clampHotbarSlot(mctx.getToolSlot()),
                         mctx.isToolProtectionEnabled(),
-                        mctx.hasWorkflowEntryId() ? mctx.getWorkflowEntryId() : -1);
+                        mctx.hasWorkflowEntryId() ? mctx.getWorkflowEntryId() : -1,
+                        com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics.effectiveTrace(mctx),
+                        Boolean.TRUE.equals(mctx.getArg(ARG_CONNECTED_GROUP)));
 
                 if (enqueued && mctx.hasWorkflowEntryId()) {
                     int totalTargets = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE

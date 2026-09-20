@@ -39,6 +39,7 @@ class MiningTaskCodecTest {
         assertEquals(Direction.NORTH, decoded.state().face());
         assertEquals(List.of(new BlockPos(4, 5, 6)), decoded.state().remainingTargets());
         assertEquals(true, decoded.state().creativeOperation());
+        assertEquals(state.historyRecords(), decoded.state().historyRecords());
     }
 
     @Test
@@ -64,6 +65,24 @@ class MiningTaskCodecTest {
                 () -> new MiningTaskPayload(UUID.randomUUID(), dimension, 3, state));
     }
 
+    @Test
+    void schemaTwoInlineHistoryWithoutCredentialsRemainsReadable() {
+        CompoundTag legacy = validTag();
+        legacy.putInt("schema", 2);
+        legacy.remove("history_positions");
+        legacy.remove("history_states");
+        legacy.remove("history_state_indices");
+        CompoundTag history = new CompoundTag();
+        history.putLong("pos", BlockPos.ZERO.asLong());
+        CompoundTag state = new CompoundTag();
+        state.putString("Name", "minecraft:stone");
+        history.put("state", state);
+        legacy.put("history", new net.minecraft.nbt.ListTag());
+        legacy.getList("history", net.minecraft.nbt.Tag.TAG_COMPOUND).add(history);
+
+        assertEquals(1, MiningTaskCodec.decode(legacy).state().historyRecords().size());
+    }
+
     private static CompoundTag validTag() {
         MiningTaskState state = new MiningTaskState(
                 MiningTaskState.Mode.BATCH, -1, List.of(new BlockPos(0, 0, 0)),
@@ -77,7 +96,15 @@ class MiningTaskCodecTest {
     private static CompoundTag historyTag() {
         CompoundTag history = new CompoundTag();
         history.putLong("pos", 1L);
-        history.put("state", new CompoundTag());
+        CompoundTag state = new CompoundTag();
+        state.putString("Name", "minecraft:stone");
+        history.put("state", state);
+        CompoundTag credential = new CompoundTag();
+        credential.putString("block", "minecraft:stone");
+        credential.putUUID("owner", UUID.randomUUID());
+        credential.putLong("generation", 4L);
+        credential.putByte("kind", (byte) 0);
+        history.put("credential_before", credential);
         return history;
     }
 }

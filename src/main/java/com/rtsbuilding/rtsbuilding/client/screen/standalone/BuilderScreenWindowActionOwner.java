@@ -40,6 +40,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildMode;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
@@ -205,6 +206,11 @@ final class BuilderScreenWindowActionOwner {
         }
 
     boolean handleQuickBuildRangeDestroyClick(double mouseX, double mouseY) {
+        return handleQuickBuildRangeDestroyClick(mouseX, mouseY, RtsTraceInputKind.UNKNOWN);
+    }
+
+    boolean handleQuickBuildRangeDestroyClick(
+            double mouseX, double mouseY, RtsTraceInputKind inputKind) {
             if (!screen.isQuickBuildRangeDestroyMode() || screen.isQuickBuildRangeDestroyChainMode() || !screen.isWorldArea(mouseX, mouseY)) {
                 return false;
             }
@@ -212,7 +218,7 @@ final class BuilderScreenWindowActionOwner {
                 InteractionTypes.InteractionTarget target =
                         screen.cursorPicker.pickInteractionTarget(false);
                 return target == null || target.blockHit() == null
-                        || screen.quickBuildPanel.submitConvenienceDestroy(target.blockHit());
+                        || screen.quickBuildPanel.submitConvenienceDestroy(target.blockHit(), inputKind);
             }
             if (screen.isAdvancedShapeMode()
                     && screen.shapeController.clickAdvancedRangeDestroyHandle(
@@ -224,12 +230,12 @@ final class BuilderScreenWindowActionOwner {
                 if (Config.isKeyboardBatchConfirmEnabled()) {
                     return true;
                 }
-                return screen.shapeController.tryConfirmPendingRangeDestroy();
+                return screen.shapeController.tryConfirmPendingRangeDestroy(inputKind);
             }
             InteractionTypes.InteractionTarget target = screen.cursorPicker.pickInteractionTarget(false);
             if (target != null && target.blockHit() != null) {
                 screen.shapeController.selectRangeDestroyShape(
-                        target.blockHit(), mouseY, target.rayDir());
+                        target.blockHit(), mouseY, target.rayDir(), inputKind);
                 return true;
             }
             return true;

@@ -50,8 +50,8 @@ class RtsSoundSettingsContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/sound/RtsBlockActionSoundPlayer.java"));
         String payload = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/network/builder/S2CRtsBlockActionSoundPayload.java"));
-        String controller = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsController.java"));
+        String interactionOwner = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsInteractionOwner.java"));
 
         assertTrue(player.contains("isRtsSoundsEnabled()"));
         assertTrue(player.contains("!payload.breakAction()")
@@ -61,6 +61,7 @@ class RtsSoundSettingsContractTest {
         assertTrue(player.contains("getRtsBlockSoundsPerTick()"));
         assertFalse(player.contains("Queue") || player.contains("pending"));
         assertTrue(payload.contains("boolean breakAction"));
-        assertTrue(controller.contains("isRtsSoundsEnabled() && this.damageSoundEnabled"));
+        assertTrue(interactionOwner.contains(
+                "RtsClientUiStateStore.isRtsSoundsEnabled() && controller.damageSoundEnabled"));
     }
 }

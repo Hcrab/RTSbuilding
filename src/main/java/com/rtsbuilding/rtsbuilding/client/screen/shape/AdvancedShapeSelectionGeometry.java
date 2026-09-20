@@ -50,8 +50,8 @@ public final class AdvancedShapeSelectionGeometry {
             BlockPos min = box.min();
             BlockPos max = box.max();
             BlockPos pointB = mergeAxis(max, min, normalAxis);
-            int heightOffset = coordinate(max, normalAxis)
-                    - coordinate(min, normalAxis);
+            int heightOffset = ShapeGeometryPlaneSupport.toInt(
+                    (long) coordinate(max, normalAxis) - coordinate(min, normalAxis));
             return new ShapeBuildTypes.Session(
                     previous.shape(),
                     previous.planeFace(),
@@ -72,7 +72,7 @@ public final class AdvancedShapeSelectionGeometry {
                 min,
                 pointB,
                 ShapeBuildTypes.Phase.READY_CONFIRM,
-                max.getY() - min.getY(),
+                ShapeGeometryPlaneSupport.toInt((long) max.getY() - min.getY()),
                 previous.boxHeightMouseBaseY());
     }
 
@@ -109,7 +109,7 @@ public final class AdvancedShapeSelectionGeometry {
         }
         return pointB == null || pointA == null
                 ? 0
-                : pointB.getY() - pointA.getY();
+                : ShapeGeometryPlaneSupport.toInt((long) pointB.getY() - pointA.getY());
     }
 
     private static boolean usesPlaneNormalHeight(BuildShape shape) {
@@ -122,17 +122,17 @@ public final class AdvancedShapeSelectionGeometry {
             int offset) {
         return switch (axis) {
             case X -> new BlockPos(
-                    origin.getX() + offset,
+                    ShapeGeometryPlaneSupport.toInt((long) origin.getX() + offset),
                     origin.getY(),
                     origin.getZ());
             case Y -> new BlockPos(
                     origin.getX(),
-                    origin.getY() + offset,
+                    ShapeGeometryPlaneSupport.toInt((long) origin.getY() + offset),
                     origin.getZ());
             case Z -> new BlockPos(
                     origin.getX(),
                     origin.getY(),
-                    origin.getZ() + offset);
+                    ShapeGeometryPlaneSupport.toInt((long) origin.getZ() + offset));
         };
     }
 
@@ -191,13 +191,13 @@ public final class AdvancedShapeSelectionGeometry {
         return new RtsCullingBox(
                 0,
                 new BlockPos(
-                        center.getX() - safeRadius,
-                        center.getY() - safeRadius,
-                        center.getZ() - safeRadius),
+                        ShapeGeometryPlaneSupport.toInt((long) center.getX() - safeRadius),
+                        ShapeGeometryPlaneSupport.toInt((long) center.getY() - safeRadius),
+                        ShapeGeometryPlaneSupport.toInt((long) center.getZ() - safeRadius)),
                 new BlockPos(
-                        center.getX() + safeRadius,
-                        center.getY() + safeRadius,
-                        center.getZ() + safeRadius));
+                        ShapeGeometryPlaneSupport.toInt((long) center.getX() + safeRadius),
+                        ShapeGeometryPlaneSupport.toInt((long) center.getY() + safeRadius),
+                        ShapeGeometryPlaneSupport.toInt((long) center.getZ() + safeRadius)));
     }
 
     private static int planeRadius(
@@ -207,26 +207,26 @@ public final class AdvancedShapeSelectionGeometry {
         Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(
                 BuildShape.CIRCLE,
                 face);
-        int dx = point.getX() - center.getX();
-        int dy = point.getY() - center.getY();
-        int dz = point.getZ() - center.getZ();
-        int a = ShapeGeometryUtil.dotDelta(dx, dy, dz, axes[0]);
-        int b = ShapeGeometryUtil.dotDelta(dx, dy, dz, axes[1]);
+        long dx = (long) point.getX() - center.getX();
+        long dy = (long) point.getY() - center.getY();
+        long dz = (long) point.getZ() - center.getZ();
+        long a = dx * axes[0].getStepX() + dy * axes[0].getStepY() + dz * axes[0].getStepZ();
+        long b = dx * axes[1].getStepX() + dy * axes[1].getStepY() + dz * axes[1].getStepZ();
         return Math.max(
                 0,
-                (int) Math.round(Math.sqrt(
-                        a * (double) a + b * (double) b)));
+                ShapeGeometryPlaneSupport.toInt(Math.round(Math.sqrt(
+                        a * (double) a + b * (double) b))));
     }
 
     private static int spatialRadius(BlockPos center, BlockPos point) {
-        int dx = point.getX() - center.getX();
-        int dy = point.getY() - center.getY();
-        int dz = point.getZ() - center.getZ();
+        long dx = (long) point.getX() - center.getX();
+        long dy = (long) point.getY() - center.getY();
+        long dz = (long) point.getZ() - center.getZ();
         return Math.max(
                 0,
-                (int) Math.round(Math.sqrt(
+                ShapeGeometryPlaneSupport.toInt(Math.round(Math.sqrt(
                         dx * (double) dx
                                 + dy * (double) dy
-                                + dz * (double) dz)));
+                                + dz * (double) dz))));
     }
 }

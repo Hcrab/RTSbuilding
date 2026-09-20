@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.common.destruction;
 
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
+import com.rtsbuilding.rtsbuilding.common.mining.SelectionVolumeLimit;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.tags.BlockTags;
@@ -28,11 +30,11 @@ import java.util.Set;
  */
 public final class RtsConvenienceDestroyPlanner {
     public static final int MIN_BOX_SIZE = 1;
-    public static final int MAX_BOX_SIZE = 64;
-    public static final int MAX_BOX_HEIGHT = 128;
-    public static final int MAX_VOLUME = 32_768;
+    public static final int MAX_BOX_SIZE = Integer.MAX_VALUE;
+    public static final int MAX_BOX_HEIGHT = Integer.MAX_VALUE;
+    public static final int MAX_VOLUME = MiningLimits.MAX_VOLUME;
     public static final int MIN_TREE_BLOCKS = 1;
-    public static final int MAX_TREE_BLOCKS = 8_192;
+    public static final int MAX_TREE_BLOCKS = MiningLimits.MAX_TREE_BLOCKS;
 
     public enum ResultCode {
         READY,
@@ -61,15 +63,30 @@ public final class RtsConvenienceDestroyPlanner {
 
     public static Plan plan(LevelReader level, RtsConvenienceDestroyMode mode,
             BlockPos anchor, Direction hitFace, RtsConvenienceDestroySettings rawSettings) {
+        return plan(level, mode, anchor, hitFace, rawSettings, SelectionVolumeLimit.defaults(),
+                Math.min(sanitize(rawSettings).treeMaxBlocks(), MAX_TREE_BLOCKS));
+    }
+
+    public static Plan plan(LevelReader level, RtsConvenienceDestroyMode mode,
+            BlockPos anchor, Direction hitFace, RtsConvenienceDestroySettings rawSettings, int maxVolume) {
+        return plan(level, mode, anchor, hitFace, rawSettings,
+                new SelectionVolumeLimit(MiningLimits.clampVolume(maxVolume), Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE),
+                Math.min(sanitize(rawSettings).treeMaxBlocks(), MAX_TREE_BLOCKS));
+    }
+
+    public static Plan plan(LevelReader level, RtsConvenienceDestroyMode mode,
+            BlockPos anchor, Direction hitFace, RtsConvenienceDestroySettings rawSettings,
+            SelectionVolumeLimit selectionLimit, int maxTreeBlocks) {
         if (level == null || mode == null || anchor == null) {
             return rejected(ResultCode.INVALID_TARGET, 0);
         }
         Direction safeFace = hitFace == null ? Direction.UP : hitFace;
         RtsConvenienceDestroySettings settings = sanitize(rawSettings);
+        SelectionVolumeLimit limit = selectionLimit == null ? SelectionVolumeLimit.defaults() : selectionLimit;
         return switch (mode) {
-            case REPEAT_BOX -> planRepeatBox(level, anchor, safeFace, settings);
-            case CHUNK_QUARRY -> planChunk(level, anchor, settings);
-            case TREE_FELL -> planTree(level, anchor, settings.treeMaxBlocks());
+            case REPEAT_BOX -> planRepeatBox(level, anchor, safeFace, settings, limit);
+            case CHUNK_QUARRY -> planChunk(level, anchor, settings, limit);
+            case TREE_FELL -> planTree(level, anchor, Math.min(settings.treeMaxBlocks(), Math.max(1, maxTreeBlocks)));
         };
     }
 
@@ -86,10 +103,10 @@ public final class RtsConvenienceDestroyPlanner {
     }
 
     private static Plan planRepeatBox(LevelReader level, BlockPos anchor, Direction face,
-            RtsConvenienceDestroySettings settings) {
+            RtsConvenienceDestroySettings settings, SelectionVolumeLimit limit) {
         long volume = (long) settings.sizeX() * settings.sizeY() * settings.sizeZ();
-        if (volume > MAX_VOLUME) {
-            return rejected(ResultCode.OVER_LIMIT, safeInt(volume));
+        if (!limit.fits(settings.sizeX(), settings.sizeY(), settings.sizeZ())) {
+            return rejected(ResultCode.OVER_LIMIT, safeInt(Math.max(volume, limit.maxVolume() + 1L)));
         }
 
         int[] xBounds = axisBounds(anchor.getX(), settings.sizeX(), face, Direction.Axis.X);
@@ -104,7 +121,7 @@ public final class RtsConvenienceDestroyPlanner {
     }
 
     private static Plan planChunk(LevelReader level, BlockPos anchor,
-            RtsConvenienceDestroySettings settings) {
+            RtsConvenienceDestroySettings settings, SelectionVolumeLimit limit) {
         ChunkPos chunk = new ChunkPos(anchor);
         int minY = Math.max(level.getMinBuildHeight(), anchor.getY() - settings.chunkDown());
         int maxY = Math.min(level.getMaxBuildHeight() - 1, anchor.getY() + settings.chunkUp());
@@ -112,7 +129,7 @@ public final class RtsConvenienceDestroyPlanner {
             return rejected(ResultCode.INVALID_TARGET, 0);
         }
         long volume = 16L * 16L * (maxY - minY + 1L);
-        if (volume > MAX_VOLUME) {
+        if (!limit.fits(16, maxY - minY + 1L, 16)) {
             return rejected(ResultCode.OVER_LIMIT, safeInt(volume));
         }
         return collectBox(level,
@@ -273,4 +290,3 @@ public final class RtsConvenienceDestroyPlanner {
         }
     }
 }
-

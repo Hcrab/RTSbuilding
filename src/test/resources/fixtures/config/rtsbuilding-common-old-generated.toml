@@ -1,0 +1,6 @@
+# Forge ConfigSpec generated COMMON file from the pre-server-world-rule schema.
+enableSurvivalProgression = true
+shareSurvivalProgressionWithTeams = false
+maxActionRadiusBlocks = 192
+enableBlueprints = true
+maxBlueprintBlocks = 32000

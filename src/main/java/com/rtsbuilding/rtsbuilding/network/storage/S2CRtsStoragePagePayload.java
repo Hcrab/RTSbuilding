@@ -50,7 +50,15 @@ public record S2CRtsStoragePagePayload(
         List<String> guiBindingItemIds,
         boolean funnelEnabled,
         List<String> funnelBufferItemIds,
-        List<Long> funnelBufferCounts) implements CustomPacketPayload {
+        List<Long> funnelBufferCounts,
+        int requestedPage,
+        int requestedPageSize,
+        int effectivePageSize,
+        long globalIndex,
+        long sessionId,
+        long queryId,
+        long requestId,
+        long serverDataRevision) implements CustomPacketPayload {
     public static final byte RECENT_ITEM_PLACED = 0;
     public static final byte RECENT_ITEM_USED = 1;
     public static final byte RECENT_ITEM_CRAFTED = 2;
@@ -58,7 +66,7 @@ public record S2CRtsStoragePagePayload(
     public static final byte RECENT_FLUID_USED = 4;
     public static final byte RECENT_FLUID_CRAFTED = 5;
 
-    public static final Type<S2CRtsStoragePagePayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_storage_page"), S2CRtsStoragePagePayload.class);
+    public static final Type<S2CRtsStoragePagePayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_storage_page_v2"), S2CRtsStoragePagePayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsStoragePagePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
@@ -68,14 +76,11 @@ public record S2CRtsStoragePagePayload(
                 for (Long packedPos : payload.linkedPositions()) {
                     buf.writeLong(packedPos == null ? 0L : packedPos.longValue());
                 }
-                int linkedDetailSize = Math.min(
-                        payload.linkedPositions().size(),
-                        Math.min(payload.linkedDimensions().size(),
-                                Math.min(payload.linkedNames().size(),
-                                        Math.min(payload.linkedModes().size(),
-                                                Math.min(payload.linkedPriorities().size(),
-                                                        Math.min(payload.linkedIconItemIds().size(),
-                                                                payload.linkedWorldAvailable().size()))))));
+                requireAligned("linked storage details", payload.linkedPositions().size(),
+                        payload.linkedDimensions().size(), payload.linkedNames().size(),
+                        payload.linkedModes().size(), payload.linkedPriorities().size(),
+                        payload.linkedIconItemIds().size(), payload.linkedWorldAvailable().size());
+                int linkedDetailSize = payload.linkedPositions().size();
                 buf.writeVarInt(linkedDetailSize);
                 for (int i = 0; i < linkedDetailSize; i++) {
                     buf.writeUtf(payload.linkedDimensions().get(i) == null ? "" : payload.linkedDimensions().get(i), 128);
@@ -101,22 +106,25 @@ public record S2CRtsStoragePagePayload(
                     buf.writeUtf(category, 128);
                 }
 
-                int size = Math.min(payload.itemStacks().size(), payload.counts().size());
+                requireAligned("item entries", payload.itemStacks().size(), payload.counts().size());
+                int size = payload.itemStacks().size();
                 buf.writeVarInt(size);
                 for (int i = 0; i < size; i++) {
                     com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, payload.itemStacks().get(i));
                     buf.writeVarLong(payload.counts().get(i));
                 }
 
-                int totalItemSize = Math.min(payload.totalItemIds().size(), payload.totalItemCounts().size());
+                requireAligned("total item entries", payload.totalItemIds().size(), payload.totalItemCounts().size());
+                int totalItemSize = payload.totalItemIds().size();
                 buf.writeVarInt(totalItemSize);
                 for (int i = 0; i < totalItemSize; i++) {
                     buf.writeUtf(payload.totalItemIds().get(i), 128);
                     buf.writeVarLong(payload.totalItemCounts().get(i));
                 }
 
-                int fluidSize = Math.min(payload.fluidIds().size(),
-                        Math.min(payload.fluidAmounts().size(), payload.fluidCapacities().size()));
+                requireAligned("fluid entries", payload.fluidIds().size(), payload.fluidAmounts().size(),
+                        payload.fluidCapacities().size());
+                int fluidSize = payload.fluidIds().size();
                 buf.writeVarInt(fluidSize);
                 for (int i = 0; i < fluidSize; i++) {
                     buf.writeUtf(payload.fluidIds().get(i), 128);
@@ -124,11 +132,9 @@ public record S2CRtsStoragePagePayload(
                     buf.writeVarLong(payload.fluidCapacities().get(i));
                 }
 
-                int recentSize = Math.min(
-                        payload.recentIds().size(),
-                        Math.min(
-                                payload.recentAmounts().size(),
-                                Math.min(payload.recentCapacities().size(), payload.recentKinds().size())));
+                requireAligned("recent entries", payload.recentIds().size(), payload.recentAmounts().size(),
+                        payload.recentCapacities().size(), payload.recentKinds().size());
+                int recentSize = payload.recentIds().size();
                 buf.writeVarInt(recentSize);
                 for (int i = 0; i < recentSize; i++) {
                     buf.writeUtf(payload.recentIds().get(i), 128);
@@ -161,12 +167,22 @@ public record S2CRtsStoragePagePayload(
                 }
 
                 buf.writeBoolean(payload.funnelEnabled());
-                int funnelBufferSize = Math.min(payload.funnelBufferItemIds().size(), payload.funnelBufferCounts().size());
+                requireAligned("funnel buffer entries", payload.funnelBufferItemIds().size(),
+                        payload.funnelBufferCounts().size());
+                int funnelBufferSize = payload.funnelBufferItemIds().size();
                 buf.writeVarInt(funnelBufferSize);
                 for (int i = 0; i < funnelBufferSize; i++) {
                     buf.writeUtf(payload.funnelBufferItemIds().get(i), 128);
                     buf.writeVarLong(payload.funnelBufferCounts().get(i));
                 }
+                buf.writeVarInt(payload.requestedPage());
+                buf.writeVarInt(payload.requestedPageSize());
+                buf.writeVarInt(payload.effectivePageSize());
+                buf.writeVarLong(payload.globalIndex());
+                buf.writeVarLong(payload.sessionId());
+                buf.writeVarLong(payload.queryId());
+                buf.writeVarLong(payload.requestId());
+                buf.writeVarLong(payload.serverDataRevision());
             },
             (buf) -> {
                 boolean linked = buf.readBoolean();
@@ -268,6 +284,14 @@ public record S2CRtsStoragePagePayload(
                     funnelBufferItemIds.add(buf.readUtf(128));
                     funnelBufferCounts.add(buf.readVarLong());
                 }
+                int requestedPage = buf.readVarInt();
+                int requestedPageSize = buf.readVarInt();
+                int effectivePageSize = buf.readVarInt();
+                long globalIndex = buf.readVarLong();
+                long sessionId = buf.readVarLong();
+                long queryId = buf.readVarLong();
+                long requestId = buf.readVarLong();
+                long serverDataRevision = buf.readVarLong();
                 return new S2CRtsStoragePagePayload(
                         linked,
                         linkedName,
@@ -306,11 +330,29 @@ public record S2CRtsStoragePagePayload(
                         guiBindingItemIds,
                         funnelEnabled,
                         funnelBufferItemIds,
-                        funnelBufferCounts);
+                        funnelBufferCounts,
+                        requestedPage,
+                        requestedPageSize,
+                        effectivePageSize,
+                        globalIndex,
+                        sessionId,
+                        queryId,
+                        requestId,
+                        serverDataRevision);
             });
 
     @Override
     public @NotNull Type<? extends CustomPacketPayload> type() {
         return TYPE;
+    }
+
+    /** 成对列表必须在写包前保持同一边界，禁止用 min 静默丢掉尾部数据。 */
+    private static void requireAligned(String field, int expected, int... actual) {
+        for (int size : actual) {
+            if (size != expected) {
+                throw new IllegalArgumentException(field + " list sizes differ: expected "
+                        + expected + ", got " + size);
+            }
+        }
     }
 }

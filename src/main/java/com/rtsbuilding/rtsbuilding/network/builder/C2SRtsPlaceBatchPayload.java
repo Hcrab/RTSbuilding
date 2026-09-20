@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 
 import net.minecraft.core.BlockPos;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
@@ -31,16 +32,24 @@ public record C2SRtsPlaceBatchPayload(
         double rayDirX,
         double rayDirY,
         double rayDirZ) implements CustomPacketPayload {
-    public static final int MAX_POSITIONS = 32768;
+    /** 批量建造的完整目标表示边界；编码不能静默裁掉后半部分。 */
+    public static final int MAX_POSITIONS = MiningLimits.MAX_VOLUME;
 
     public static final Type<C2SRtsPlaceBatchPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_place_batch"), C2SRtsPlaceBatchPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsPlaceBatchPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
-                int size = Math.min(payload.clickedPositions().size(), MAX_POSITIONS);
+                List<BlockPos> payloadPositions = payload.clickedPositions() == null
+                        ? List.of() : payload.clickedPositions();
+                if (payloadPositions.size() > MAX_POSITIONS) {
+                    throw new IllegalArgumentException(
+                            "RTS place batch target count exceeds implementation limit: "
+                                    + payloadPositions.size() + " > " + MAX_POSITIONS);
+                }
+                int size = payloadPositions.size();
                 buf.writeVarInt(size);
                 for (int i = 0; i < size; i++) {
-                    buf.writeBlockPos(payload.clickedPositions().get(i));
+                    buf.writeBlockPos(payloadPositions.get(i));
                 }
                 buf.writeByte(payload.face());
                 buf.writeDouble(payload.hitOffsetX());

@@ -3,10 +3,12 @@ package com.rtsbuilding.rtsbuilding.uicore.quickbuild;
 /** 便捷破坏设置的 Java 8 纯值快照。 */
 public final class QuickBuildUiConvenienceSettings {
     public static final int BOX_MIN = 1;
-    public static final int BOX_MAX = 64;
-    public static final int HEIGHT_MAX = 128;
+    // UI 仅保存玩家输入；业务体积由主程序共享规划器验证，不在纯 UI 层复制另一套轴上限。
+    public static final int BOX_MAX = Integer.MAX_VALUE;
+    public static final int HEIGHT_MAX = Integer.MAX_VALUE;
     public static final int TREE_MIN = 1;
-    public static final int TREE_MAX = 8_192;
+    // 与任务目标表达容量对齐；服务器配置仍以自身 maxTreeBlocks 决定最终准入。
+    public static final int TREE_MAX = 262_144;
     public static final QuickBuildUiConvenienceSettings DEFAULT =
             new QuickBuildUiConvenienceSettings(3, 3, 3, 0, 15, 256);
 

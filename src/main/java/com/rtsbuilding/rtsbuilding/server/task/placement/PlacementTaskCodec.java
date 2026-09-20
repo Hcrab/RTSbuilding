@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.task.placement;
 
 import com.rtsbuilding.rtsbuilding.server.data.RtsDimensionKeys;
+import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.task.PlacementTaskPayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
@@ -17,7 +18,8 @@ import java.util.List;
 /** PlacementTaskPayload 的有界、版本化 NBT 编解码器。 */
 public final class PlacementTaskCodec {
     public static final int SCHEMA_VERSION = 3;
-    public static final int MAX_TARGETS = 32_768;
+    /** 由任务状态与范围选择共用的完整目标表示边界。 */
+    public static final int MAX_TARGETS = PlacementTaskState.MAX_TARGETS;
 
     private PlacementTaskCodec() {
     }
@@ -106,6 +108,10 @@ public final class PlacementTaskCodec {
                         || !record.contains("after", Tag.TAG_COMPOUND)) {
                     throw new IllegalArgumentException("placement history record 不完整");
                 }
+                validateCredential(record, "credentialBefore");
+                validateCredential(record, "credentialAfter");
+                validateCredential(record, "credential_before");
+                validateCredential(record, "credential_after");
                 decodedHistory.add(record.copy());
             }
             history = List.copyOf(decodedHistory);
@@ -125,5 +131,13 @@ public final class PlacementTaskCodec {
         if (targets != totalUnits || targets > MAX_TARGETS) {
             throw new IllegalArgumentException("placement definition 目标数量与 total 不一致或越界");
         }
+    }
+
+    private static void validateCredential(CompoundTag record, String key) {
+        if (!record.contains(key)) return;
+        if (!record.contains(key, Tag.TAG_COMPOUND)) {
+            throw new IllegalArgumentException("placement history " + key + " 类型无效");
+        }
+        PlacedBlockTrackerData.decodeSnapshot(record.getCompound(key));
     }
 }

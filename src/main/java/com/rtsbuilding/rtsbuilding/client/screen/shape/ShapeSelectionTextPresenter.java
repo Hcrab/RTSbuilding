@@ -108,6 +108,15 @@ public final class ShapeSelectionTextPresenter {
             Status status,
             Supplier<String> confirmKeyLabel,
             Translator translator) {
+        return pendingStatusText(status, confirmKeyLabel, translator, null);
+    }
+
+    /** READY_CONFIRM 的几何计划超限时，明确告诉玩家为何暂不能确认。 */
+    public static String pendingStatusText(
+            Status status,
+            Supplier<String> confirmKeyLabel,
+            Translator translator,
+            ShapeGenerationStatus generationStatus) {
         if (status == null || !status.quickBuildOpen()) {
             return "";
         }
@@ -142,9 +151,11 @@ public final class ShapeSelectionTextPresenter {
             case NEED_THIRD_POINT -> translator.text(status.destroyMode()
                     ? "screen.rtsbuilding.shape_status.destroy_step_height"
                     : "screen.rtsbuilding.shape_status.step_height");
-            case READY_CONFIRM -> translator.text(
-                    confirmStatusKey(shape, status.destroyMode()),
-                    confirmKeyLabel == null ? "" : confirmKeyLabel.get());
+            case READY_CONFIRM -> generationStatus == ShapeGenerationStatus.TOO_LARGE
+                    ? translator.text("screen.rtsbuilding.shape_status.too_large")
+                    : translator.text(
+                            confirmStatusKey(shape, status.destroyMode()),
+                            confirmKeyLabel == null ? "" : confirmKeyLabel.get());
         };
     }
 

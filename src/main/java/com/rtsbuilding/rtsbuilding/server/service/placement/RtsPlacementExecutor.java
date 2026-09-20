@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
 import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason;
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
@@ -11,11 +12,10 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.SoundService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
-import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
+import com.rtsbuilding.rtsbuilding.server.task.placement.PlacementExecutionResult;
 import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import net.minecraft.core.BlockPos;
@@ -121,6 +121,102 @@ public final class RtsPlacementExecutor {
 
         return placeWithStorageItem(player, session, level, clickedPos, face, hit, interactionPos, rayContext,
                 rotateSteps, statePreset, skipIfOccupied, forcePlace, itemId, itemPrototype, refreshStoragePage);
+    }
+
+    /** 为 detached 批处理提供结构化失败原因；实际世界事务仍只执行一次。 */
+    public static PlacementExecutionResult placeSelectedWithReason(ServerPlayer player, RtsStorageSession session,
+            BlockPos clickedPos, Direction face, double hitX, double hitY, double hitZ, byte rotateSteps,
+            String statePreset, boolean forcePlace, boolean skipIfOccupied, String itemId,
+            ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
+            double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild, boolean forceEmptyHand,
+            boolean refreshStoragePage, boolean sendRemoteHint) {
+        if (player == null || !RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
+            return PlacementExecutionResult.failed(RtsOperationReason.CONFIG_DISABLED, "remote_place_disabled");
+        }
+        if (session == null || clickedPos == null || face == null) {
+            return PlacementExecutionResult.failed(RtsOperationReason.PERMISSION_DENIED, "placement_context_missing");
+        }
+        if (!player.serverLevel().hasChunkAt(clickedPos)) {
+            return PlacementExecutionResult.waiting(RtsOperationReason.CHUNK_UNLOADED,
+                    "chunk_unloaded:" + clickedPos, List.of());
+        }
+        if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, clickedPos)) {
+            return PlacementExecutionResult.failed(RtsOperationReason.PERMISSION_DENIED, "target_inaccessible");
+        }
+        if (itemId != null && !itemId.isBlank()) {
+            ResourceLocation id = ResourceLocation.tryParse(itemId);
+            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+                return PlacementExecutionResult.failed(RtsOperationReason.EXECUTION_ERROR, "invalid_item:" + itemId);
+            }
+            Item item = BuiltInRegistries.ITEM.get(id);
+            ItemStack preferred = RtsPlacementExtractor.sanitizePrototype(itemId, itemPrototype);
+            ItemStack protectionStack = preferred.isEmpty() ? new ItemStack(item) : preferred.copyWithCount(1);
+            boolean selectedPlacesBlock = item instanceof BlockItem
+                    || RtsBackpackCompat.isBackpackItem(protectionStack);
+            if (!RtsClaimProtectionService.canInteractBlock(
+                    player, clickedPos, face, InteractionHand.MAIN_HAND, protectionStack)) {
+                return PlacementExecutionResult.failed(RtsOperationReason.PERMISSION_DENIED,
+                        "interaction_denied:" + clickedPos);
+            }
+            if (selectedPlacesBlock && !RtsClaimProtectionService.canPlaceBlock(
+                    player, placementTargetPos(player.serverLevel(), clickedPos, face))) {
+                return PlacementExecutionResult.failed(RtsOperationReason.PERMISSION_DENIED,
+                        "placement_denied:" + clickedPos);
+            }
+            if (skipIfOccupied && selectedPlacesBlock
+                    && (!player.serverLevel().hasChunkAt(clickedPos)
+                    || !player.serverLevel().getBlockState(clickedPos).canBeReplaced())) {
+                return PlacementExecutionResult.skipped("target_occupied:" + clickedPos);
+            }
+            if (!player.isCreative()) {
+                long available = preferred.isEmpty()
+                        ? ConstructionMaterialSources.countItem(player, session, item)
+                        : ConstructionMaterialSources.countMatching(player, session, preferred);
+                if (available <= 0) {
+                    return PlacementExecutionResult.waiting(RtsOperationReason.RESOURCE_MISSING,
+                            "missing:" + itemId + " needed=1 available=0 sources="
+                                    + ConstructionMaterialSources.sourceKinds(player, session), List.of(itemId));
+                }
+            }
+        } else {
+            ItemStack mainHand = forceEmptyHand ? ItemStack.EMPTY : player.getMainHandItem().copy();
+            if (!RtsClaimProtectionService.canInteractBlock(
+                    player, clickedPos, face, InteractionHand.MAIN_HAND, mainHand)) {
+                return PlacementExecutionResult.failed(RtsOperationReason.PERMISSION_DENIED,
+                        "interaction_denied:" + clickedPos);
+            }
+            if (!forceEmptyHand && mainHand.getItem() instanceof BlockItem
+                    && !RtsClaimProtectionService.canPlaceBlock(
+                    player, placementTargetPos(player.serverLevel(), clickedPos, face))) {
+                return PlacementExecutionResult.failed(RtsOperationReason.PERMISSION_DENIED,
+                        "placement_denied:" + clickedPos);
+            }
+            if (!forceEmptyHand && skipIfOccupied && mainHand.getItem() instanceof BlockItem
+                    && (!player.serverLevel().hasChunkAt(clickedPos)
+                    || !player.serverLevel().getBlockState(clickedPos).canBeReplaced())) {
+                return PlacementExecutionResult.skipped("target_occupied:" + clickedPos);
+            }
+        }
+        boolean keepGoing = placeSelectedInternal(player, session, clickedPos, face, hitX, hitY, hitZ,
+                rotateSteps, statePreset, forcePlace, skipIfOccupied, itemId, itemPrototype,
+                rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ, quickBuild,
+                forceEmptyHand, refreshStoragePage, sendRemoteHint);
+        if (keepGoing) return PlacementExecutionResult.success();
+        if (itemId != null && !itemId.isBlank() && !player.isCreative()) {
+            ResourceLocation id = ResourceLocation.tryParse(itemId);
+            Item item = id == null ? null : BuiltInRegistries.ITEM.get(id);
+            ItemStack preferred = RtsPlacementExtractor.sanitizePrototype(itemId, itemPrototype);
+            long available = item == null ? 0
+                    : preferred.isEmpty()
+                    ? ConstructionMaterialSources.countItem(player, session, item)
+                    : ConstructionMaterialSources.countMatching(player, session, preferred);
+            if (available <= 0) {
+                return PlacementExecutionResult.waiting(RtsOperationReason.RESOURCE_MISSING,
+                        "missing:" + itemId + " needed=1 available=0 sources="
+                                + ConstructionMaterialSources.sourceKinds(player, session), List.of(itemId));
+            }
+        }
+        return PlacementExecutionResult.failed(RtsOperationReason.EXECUTION_ERROR, "placement_failed:" + clickedPos);
     }
 
     private static boolean placeWithForcedEmptyHand(ServerPlayer player, RtsStorageSession session, ServerLevel level,
@@ -304,15 +400,13 @@ public final class RtsPlacementExecutor {
             Vec3 interactionPos, TemporaryContextSwitcher.RayContext rayContext, byte rotateSteps, String statePreset,
             boolean skipIfOccupied,
             boolean forcePlace, String itemId, ItemStack itemPrototype, boolean refreshStoragePage) {
-        List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        boolean includePlayerMainInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
+        ConstructionMaterialSources.Resolved materialSources = ConstructionMaterialSources.resolve(player, session);
         boolean creativeSource = player.isCreative();
-        if (activeLinked.isEmpty() && !includePlayerMainInventory && !creativeSource) {
+        if (!ConstructionMaterialSources.hasPotentialSource(player, session)) {
             return false;
         }
 
-        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
-        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+        List<IItemHandler> insertHandlers = materialSources.insertHandlers();
 
         ResourceLocation id = ResourceLocation.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
@@ -338,11 +432,7 @@ public final class RtsPlacementExecutor {
                 return true;
             }
         }
-        ItemStack extracted = creativeSource
-                ? RtsPlacementExtractor.creativeStack(item, preferredStack)
-                : includePlayerMainInventory
-                        ? RtsPlacementExtractor.extractSelectedFromNetwork(extractHandlers, player, item, preferredStack)
-                        : RtsPlacementExtractor.extractSelectedFromLinkedCached(player, extractHandlers, item, preferredStack);
+        ItemStack extracted = ConstructionMaterialSources.extractOne(player, session, item, preferredStack);
         if (extracted.isEmpty()) {
             RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
             return false;
@@ -431,7 +521,8 @@ public final class RtsPlacementExecutor {
         if (placedPos != null) {
             RtsPlacementHelper.rotatePlacedBlock(level, placedPos, rotateSteps);
             RtsPlacementHelper.applyPlacementStatePreset(level, placedPos, statePreset);
-            PlacedBlockTrackerData.get(level).mark(placedPos);
+            PlacedBlockTrackerData.get(level).markPlaced(
+                    placedPos, player.getUUID(), level.getBlockState(placedPos));
             if (selectedPlacesBlock) {
                 RtsPlacementSound.playRemotePlacedBlockAnimation(player, placedPos);
                 RtsPlacementSound.playRemotePlacedBlockSound(player, level, placedPos);
@@ -467,7 +558,8 @@ public final class RtsPlacementExecutor {
             ItemStack sourceSnapshot, boolean sourcePlacesBlock) {
         BlockPos placedPos = RtsPlacementHelper.detectPlacedPos(level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent);
         if (placedPos != null) {
-            PlacedBlockTrackerData.get(level).mark(placedPos);
+            PlacedBlockTrackerData.get(level).markPlaced(
+                    placedPos, player.getUUID(), level.getBlockState(placedPos));
             if (sourcePlacesBlock) {
                 RtsPlacementSound.playRemotePlacedBlockAnimation(player, placedPos);
                 RtsPlacementSound.playRemotePlacedBlockSound(player, level, placedPos);

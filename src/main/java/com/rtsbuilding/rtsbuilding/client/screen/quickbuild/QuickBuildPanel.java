@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
@@ -7,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyPlanner;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiAction;
@@ -189,9 +191,10 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return this.convenience.ghostPreview(isDestroyModeActive());
     }
 
-    public boolean submitConvenienceDestroy(BlockHitResult hit) {
+    public boolean submitConvenienceDestroy(
+            BlockHitResult hit, com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind inputKind) {
         return this.convenience.submit(
-                isDestroyModeActive(), hit, this.screen.getSelectedToolSlot());
+                isDestroyModeActive(), hit, this.screen.getSelectedToolSlot(), inputKind);
     }
 
     String convenienceDimensionLabel() {
@@ -247,8 +250,16 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         }
     }
 
-    private static int sanitizeChainLimit(int value) {
-        return Mth.clamp(value, ULTIMINE_MIN_LIMIT, ULTIMINE_MAX_LIMIT);
+    int chainMaximum() {
+        try {
+            return MiningLimits.clampChainLimit(Config.ultimineMaxBlocks());
+        } catch (IllegalStateException ignored) {
+            return MiningLimits.DEFAULT_CHAIN_LIMIT;
+        }
+    }
+
+    private int sanitizeChainLimit(int value) {
+        return Mth.clamp(value, ULTIMINE_MIN_LIMIT, chainMaximum());
     }
 
     public boolean isSmartFillMode() {

@@ -13,10 +13,11 @@ public final class SmartFillLimits {
     public static final int MIN_DIAMETER = 3;
     public static final int MAX_DIAMETER = 32;
     public static final int DEFAULT_DIAMETER = 16;
+    /** 服务端扫描允许的配置化硬边界；MAX_DIAMETER 保留旧 UI 默认上限语义。 */
+    public static final int HARD_MAX_DIAMETER = 256;
     public static final int HARD_MAX_BLOCKS = 8192;
     public static final int QUERY_BUDGET = 250_000;
 
     private SmartFillLimits() {
     }
 }
-

@@ -9,6 +9,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsMineProgressPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsPlaceAnimationPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsOperationTerminalPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressBatchPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
@@ -41,6 +42,14 @@ public final class ClientPayloadDispatcher {
     private static final boolean IS_CLIENT = FMLEnvironment.dist == Dist.CLIENT;
 
     private ClientPayloadDispatcher() {
+    }
+
+    public static void dispatchServerConfig(
+            com.rtsbuilding.rtsbuilding.network.config.S2CRtsServerConfigResultPayload payload,
+            com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext context) {
+        if (!IS_CLIENT) return;
+        context.enqueueWork(() -> com.rtsbuilding.rtsbuilding.client.network.RtsClientServerConfigNetwork
+                .receive(payload.data()));
     }
 
     // ======================================================================
@@ -106,6 +115,8 @@ public final class ClientPayloadDispatcher {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleBlueprintResumeScan(p, ctx);
         } else if (payload instanceof S2CRtsHistorySyncPayload p) {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleHistorySync(p, ctx);
+        } else if (payload instanceof S2CRtsOperationTerminalPayload p) {
+            com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleOperationTerminal(p, ctx);
         }
     }
 

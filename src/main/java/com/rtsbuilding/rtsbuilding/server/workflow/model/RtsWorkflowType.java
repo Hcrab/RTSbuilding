@@ -10,28 +10,28 @@ package com.rtsbuilding.rtsbuilding.server.workflow.model;
 public enum RtsWorkflowType {
 
     /** 单方块远程挖掘。 */
-    MINE_SINGLE,
+    MINE_SINGLE(1),
 
     /** 连锁（ultimine）批量挖掘。 */
-    ULTIMINE,
+    ULTIMINE(2),
 
     /** 在定义的 3D 体积内进行区域挖掘操作。 */
-    AREA_MINE,
+    AREA_MINE(3),
 
     /** 快速建造预览中的形状摧毁操作。 */
-    AREA_DESTROY,
+    AREA_DESTROY(4),
 
     /** 单方块远程放置。 */
-    PLACE_SINGLE,
+    PLACE_SINGLE(5),
 
     /** 多方块批量放置（交互式逐位置放置）。 */
-    PLACE_BATCH,
+    PLACE_BATCH(6),
 
     /** 快速建造（预解析状态）形状放置。 */
-    QUICK_BUILD,
+    QUICK_BUILD(7),
 
     /** 蓝图文件远程放置构建。 */
-    BLUEPRINT_BUILD,
+    BLUEPRINT_BUILD(8),
 
     /**
      * 独立的停止挖掘操作（之后不会启动新的挖掘）。
@@ -40,5 +40,13 @@ public enum RtsWorkflowType {
      * 与 {@code StopPreviousPipe} 内部的隐式停止不同，
      * 这是由用户发起的停止。</p>
      */
-    STOP_MINING
+    STOP_MINING(9);
+
+    private final int wireId;
+    RtsWorkflowType(int wireId) { this.wireId = wireId; }
+    public int wireId() { return wireId; }
+    public static RtsWorkflowType fromWireId(int wireId) {
+        for (RtsWorkflowType type : values()) if (type.wireId == wireId) return type;
+        return null;
+    }
 }

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.history;
 
+import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.state.BlockState;
@@ -21,7 +22,9 @@ public record HistoryBlockRecord(
         BlockState state,
         @Nullable CompoundTag blockEntityData,
         BlockState afterState,
-        @Nullable CompoundTag afterBlockEntityData) {
+        @Nullable CompoundTag afterBlockEntityData,
+        @Nullable PlacedBlockTrackerData.CredentialSnapshot credentialBefore,
+        @Nullable PlacedBlockTrackerData.CredentialSnapshot credentialAfter) {
 
     public HistoryBlockRecord {
         pos = pos.immutable();
@@ -41,22 +44,29 @@ public record HistoryBlockRecord(
         return afterBlockEntityData == null ? null : afterBlockEntityData.copy();
     }
 
+    /** 兼容既有调用；旧载荷没有凭据字段时保持 null 语义。 */
+    public HistoryBlockRecord(
+            BlockPos pos, BlockState state, @Nullable CompoundTag blockEntityData,
+            BlockState afterState, @Nullable CompoundTag afterBlockEntityData) {
+        this(pos, state, blockEntityData, afterState, afterBlockEntityData, null, null);
+    }
+
     /**
      * 便捷构造器，提供向后兼容???
      */
     public HistoryBlockRecord(BlockPos pos, BlockState state) {
-        this(pos, state, null, Blocks.AIR.defaultBlockState(), null);
+        this(pos, state, null, Blocks.AIR.defaultBlockState(), null, null, null);
     }
 
     public HistoryBlockRecord(BlockPos pos, BlockState state, @Nullable CompoundTag blockEntityData) {
-        this(pos, state, blockEntityData, Blocks.AIR.defaultBlockState(), null);
+        this(pos, state, blockEntityData, Blocks.AIR.defaultBlockState(), null, null, null);
     }
 
     /** 兼容既有调用：未提供操作后 NBT 时按无快照处理。 */
     public HistoryBlockRecord(
             BlockPos pos, BlockState state, @Nullable CompoundTag blockEntityData,
             BlockState afterState) {
-        this(pos, state, blockEntityData, afterState, null);
+        this(pos, state, blockEntityData, afterState, null, null, null);
     }
 
     /** 创造建造历史：保存操作前快照和操作后的校验状态。 */
@@ -71,6 +81,18 @@ public record HistoryBlockRecord(
             BlockPos pos, BlockState beforeState, @Nullable CompoundTag beforeBlockEntityData,
             BlockState afterState, @Nullable CompoundTag afterBlockEntityData) {
         return new HistoryBlockRecord(
-                pos, beforeState, beforeBlockEntityData, afterState, afterBlockEntityData);
+                pos, beforeState, beforeBlockEntityData, afterState, afterBlockEntityData,
+                null, null);
+    }
+
+    /** 创造建造历史的完整构造，额外冻结放置凭据的前后快照。 */
+    public static HistoryBlockRecord placement(
+            BlockPos pos, BlockState beforeState, @Nullable CompoundTag beforeBlockEntityData,
+            BlockState afterState, @Nullable CompoundTag afterBlockEntityData,
+            @Nullable PlacedBlockTrackerData.CredentialSnapshot credentialBefore,
+            @Nullable PlacedBlockTrackerData.CredentialSnapshot credentialAfter) {
+        return new HistoryBlockRecord(
+                pos, beforeState, beforeBlockEntityData, afterState, afterBlockEntityData,
+                credentialBefore, credentialAfter);
     }
 }

@@ -185,7 +185,7 @@ public final class RtsCameraManager {
         int centerChunkX = playerPos.getX() >> 4;
         int centerChunkZ = playerPos.getZ() >> 4;
         Vec3 anchor = new Vec3((centerChunkX << 4) + 8.0D, player.getY(), (centerChunkZ << 4) + 8.0D);
-        double maxRadius = RtsProgressionManager.HOME_SELECTION_RADIUS_BLOCKS;
+        double maxRadius = RtsProgressionManager.homeSelectionRadiusBlocks();
 
         float yaw = snapQuarter(player.getYRot());
         float pitch = 70.0F;

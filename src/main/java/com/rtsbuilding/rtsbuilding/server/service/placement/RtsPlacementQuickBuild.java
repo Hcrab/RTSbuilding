@@ -1,14 +1,14 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
 import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason;
+import com.rtsbuilding.rtsbuilding.server.task.placement.PlacementExecutionResult;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
-import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
@@ -173,19 +173,14 @@ public final class RtsPlacementQuickBuild {
         List<IItemHandler> insertHandlers = List.of();
         // 完全改为使用储存空间的方块进行放置
         {
-            List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-            boolean includePlayerMainInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
+            ConstructionMaterialSources.Resolved materialSources = ConstructionMaterialSources.resolve(player, session);
             boolean creativeSource = player.isCreative();
-            if (activeLinked.isEmpty() && !includePlayerMainInventory && !creativeSource) {
+            if (!ConstructionMaterialSources.hasPotentialSource(player, session)) {
                 return false;
             }
-            List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
-            insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
-            extracted = creativeSource
-                    ? RtsPlacementExtractor.creativeStack(plan.item(), plan.templateStack())
-                    : includePlayerMainInventory
-                            ? RtsPlacementExtractor.extractSelectedFromNetwork(extractHandlers, player, plan.item(), plan.templateStack())
-                            : RtsPlacementExtractor.extractSelectedFromLinked(extractHandlers, plan.item(), plan.templateStack());
+            insertHandlers = materialSources.insertHandlers();
+            extracted = ConstructionMaterialSources.extractOne(
+                    player, session, plan.item(), plan.templateStack());
             if (extracted.isEmpty()) {
                 return false;
             }
@@ -207,11 +202,60 @@ public final class RtsPlacementQuickBuild {
             BlockPlacer.applyQuickBuildBlockEntity(level, targetPos, placementStack, placedState, player);
         }
         // 完全改为使用储存空间的方块进行放置，不再从主手扣除
-        BlockPlacer.trackPlaced(level, targetPos);
+        BlockPlacer.trackPlaced(level, targetPos, player);
         RtsPlacementSound.playRemotePlacedBlockAnimation(player, targetPos);
         RtsPlacementSound.playRemotePlacedBlockSound(player, level, targetPos);
         ServiceRegistry.getInstance().page().recordRecentItem(session, plan.itemId(), S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
         return true;
+    }
+
+    /** 快速路径的结构化结果；占位冲突仍是可继续的 skip，不是资源等待。 */
+    public static PlacementExecutionResult placeStateBatchEntryWithReason(
+            ServerPlayer player, RtsStorageSession session, BlockPos targetPos,
+            StatePlacementPlan plan, boolean creativeOverwrite) {
+        if (player == null || !RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
+            return PlacementExecutionResult.failed(RtsOperationReason.CONFIG_DISABLED, "remote_place_disabled");
+        }
+        if (session == null || targetPos == null || plan == null) {
+            return PlacementExecutionResult.failed(RtsOperationReason.PERMISSION_DENIED, "placement_context_missing");
+        }
+        if (!player.serverLevel().hasChunkAt(targetPos)) {
+            return PlacementExecutionResult.waiting(RtsOperationReason.CHUNK_UNLOADED,
+                    "chunk_unloaded:" + targetPos, List.of());
+        }
+        if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, targetPos)) {
+            return PlacementExecutionResult.failed(RtsOperationReason.PERMISSION_DENIED, "target_inaccessible");
+        }
+        if (!RtsClaimProtectionService.canPlaceBlock(player, targetPos)) {
+            return PlacementExecutionResult.failed(RtsOperationReason.PERMISSION_DENIED,
+                    "target_inaccessible:" + targetPos);
+        }
+        boolean creativePlacement = creativeOverwrite && player.isCreative();
+        if (!canPlaceStateAt(player.serverLevel(), player, targetPos, plan.state(), creativePlacement)) {
+            BlockState current = player.serverLevel().getBlockState(targetPos);
+            if (!creativePlacement && !current.isAir() && !current.canBeReplaced()) {
+                return PlacementExecutionResult.skipped("target_occupied:" + targetPos);
+            }
+            return PlacementExecutionResult.failed(RtsOperationReason.EXECUTION_ERROR,
+                    "target_cannot_place:" + targetPos);
+        }
+        if (!player.isCreative() && ConstructionMaterialSources.countMatching(
+                player, session, plan.templateStack()) <= 0) {
+            return PlacementExecutionResult.waiting(RtsOperationReason.RESOURCE_MISSING,
+                    "missing:" + plan.itemId() + " needed=1 available=0 sources="
+                            + ConstructionMaterialSources.sourceKinds(player, session), List.of(plan.itemId()));
+        }
+        boolean keepGoing = placeStateBatchEntry(player, session, targetPos, plan, creativeOverwrite);
+        if (keepGoing) return PlacementExecutionResult.success();
+        long stillAvailable = ConstructionMaterialSources.countMatching(
+                player, session, plan.templateStack());
+        if (stillAvailable <= 0) {
+            return PlacementExecutionResult.waiting(RtsOperationReason.RESOURCE_MISSING,
+                    "missing:" + plan.itemId() + " needed=1 available=0 sources="
+                            + ConstructionMaterialSources.sourceKinds(player, session), List.of(plan.itemId()));
+        }
+        return PlacementExecutionResult.failed(RtsOperationReason.EXECUTION_ERROR,
+                "placement_failed:" + targetPos);
     }
 
     static boolean canPlaceStateAt(ServerLevel level, ServerPlayer player, BlockPos targetPos, BlockState state) {

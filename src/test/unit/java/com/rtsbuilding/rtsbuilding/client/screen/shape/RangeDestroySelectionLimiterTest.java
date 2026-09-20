@@ -72,6 +72,17 @@ class RangeDestroySelectionLimiterTest {
     }
 
     @Test
+    void longThinSelectionRequiresBothVolumeAndExplicitAxisAllowance() {
+        RangeDestroySelectionLimiter.Limits limits =
+                new RangeDestroySelectionLimiter.Limits(60, 1, 1, 60);
+        RtsCullingBox longThin = new RtsCullingBox(8, BlockPos.ZERO, new BlockPos(59, 0, 0));
+        assertTrue(RangeDestroySelectionLimiter.contains(longThin, limits));
+        assertEquals(longThin, RangeDestroySelectionLimiter.clampBox(longThin, BlockPos.ZERO, limits));
+        assertFalse(RangeDestroySelectionLimiter.contains(longThin,
+                new RangeDestroySelectionLimiter.Limits(59, 1, 1, 60)));
+    }
+
+    @Test
     void roundPositionsStayUnchangedWhenEnvelopeAlreadyFits() {
         List<BlockPos> positions = List.of(
                 new BlockPos(-1, 0, 0),

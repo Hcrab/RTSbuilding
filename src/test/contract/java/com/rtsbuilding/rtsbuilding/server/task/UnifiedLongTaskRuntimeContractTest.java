@@ -43,7 +43,7 @@ class UnifiedLongTaskRuntimeContractTest {
     }
 
     @Test
-    void recoveryQueueStoresDurableEntityClaimsInsteadOfAnonymousCopiedStacks() throws IOException {
+    void legacyRecoveryQueueRemainsReadableButInstantRecoveryCreatesNoNewClaims() throws IOException {
         String state = read("server/storage/state/RtsPlacementState.java");
         String service = read("server/service/RtsPlacedRecoveryService.java");
         String serializer = read("server/data/SessionSerializer.java");
@@ -52,11 +52,12 @@ class UnifiedLongTaskRuntimeContractTest {
         assertTrue(state.contains("int ordinal"));
         assertTrue(state.contains("ItemStack expectedStack"));
         assertTrue(state.contains("ItemStack.isSameItemSameTags(actual, expectedStack)"));
-        assertTrue(service.contains("droppedEntity.getUUID()"));
         assertTrue(service.contains("claim.matches(droppedStack)"));
         assertTrue(serializer.contains("putUUID(\"operation_id\""));
         assertTrue(serializer.contains("putInt(\"ordinal\""));
         assertTrue(serializer.contains("put(\"stack\""));
+        assertFalse(service.contains("new PlacedRecoveryJob("));
+        assertFalse(service.contains("droppedEntity.getUUID()"));
         assertFalse(service.contains("stacks.addLast(droppedStack.copy())"));
     }
 
@@ -95,17 +96,17 @@ class UnifiedLongTaskRuntimeContractTest {
     }
 
     @Test
-    void recoveryClaimsAreBoundedAndUnloadedChunksArePreserved() throws IOException {
+    void legacyRecoveryClaimsStayBoundedAndUnloadedChunksArePreserved() throws IOException {
         String service = read("server/service/RtsPlacedRecoveryService.java");
         String serializer = read("server/data/SessionSerializer.java");
 
-        assertTrue(service.contains("setUnlimitedLifetime()"));
+        assertFalse(service.contains("setUnlimitedLifetime()"));
         assertTrue(service.contains("hasChunkAt(candidate.targetPos())"));
-        assertTrue(service.contains("EntityTypeTest.forClass(ItemEntity.class)"));
-        assertTrue(service.contains("safeLimit + 1"));
+        assertTrue(service.contains("jobLevel.getEntity(claim.entityId())"));
+        assertFalse(service.contains("EntityTypeTest.forClass(ItemEntity.class)"));
         assertFalse(service.contains("getEntitiesOfClass("));
-        assertTrue(service.contains("PLACED_RECOVERY_MAX_QUEUED_JOBS"));
-        assertTrue(service.contains("PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS"));
+        assertFalse(service.contains("new PlacedRecoveryJob("));
+        assertTrue(serializer.contains("PLACED_RECOVERY_MAX_QUEUED_JOBS"));
         assertTrue(serializer.contains("PLACED_RECOVERY_MAX_ENTITIES_PER_JOB"));
         assertTrue(serializer.contains("PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS"));
     }

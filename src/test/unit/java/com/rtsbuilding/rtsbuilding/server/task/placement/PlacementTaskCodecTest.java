@@ -110,6 +110,19 @@ class PlacementTaskCodecTest {
         CompoundTag blockEntity = new CompoundTag();
         blockEntity.putString("id", "minecraft:chest");
         history.put("blockEntity", blockEntity);
+        CompoundTag credentialBefore = credential("minecraft:chest", 3L);
+        CompoundTag credentialAfter = credential("minecraft:stone", 4L);
+        history.put("credentialBefore", credentialBefore);
+        history.put("credentialAfter", credentialAfter);
         return history;
+    }
+
+    private static CompoundTag credential(String block, long generation) {
+        CompoundTag credential = new CompoundTag();
+        credential.putString("block", block);
+        credential.putUUID("owner", UUID.randomUUID());
+        credential.putLong("generation", generation);
+        credential.putByte("kind", (byte) 0);
+        return credential;
     }
 }

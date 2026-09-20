@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.core;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason;
+
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.resources.ResourceKey;
@@ -170,6 +172,19 @@ public record RtsWorkflowToken(
         }
     }
 
+    /** 投影后台任务的结构化原因；未知状态不会被猜成缺材料。 */
+    public void setReason(RtsOperationReason reason, @Nullable String detail,
+            @Nullable List<String> missingItems) {
+        RtsWorkflowEntry entry = resolveEntry();
+        if (entry != null) {
+            entry.setReason(reason);
+            entry.clearMissingItems();
+            entry.addMissingItems(missingItems);
+            entry.setDetailMessage(detail);
+            engine.notifyPlayer(playerId, dimension);
+        }
+    }
+
     /**
      * 挂起此工作流（标记为等待物品）。
      */
@@ -177,6 +192,8 @@ public record RtsWorkflowToken(
         RtsWorkflowEntry entry = resolveEntry();
         if (entry != null) {
             entry.setSuspended(true);
+            entry.setReason(RtsOperationReason.RESOURCE_MISSING);
+            entry.clearMissingItems();
             // 详情跨网络传输翻译键，避免服务端语言固化客户端显示。
             entry.setDetailMessage("screen.rtsbuilding.workflow.waiting_items");
             engine.fireEvent(WorkflowEventType.SUSPENDED, playerId, entryId, entry);
@@ -191,6 +208,9 @@ public record RtsWorkflowToken(
         RtsWorkflowEntry entry = resolveEntry();
         if (entry != null) {
             entry.setPaused(true);
+            entry.setReason(RtsOperationReason.MANUAL_PAUSED);
+            entry.clearMissingItems();
+            entry.setDetailMessage("");
             engine.fireEvent(WorkflowEventType.PAUSED, playerId, entryId, entry);
             engine.notifyPlayer(playerId, dimension);
         }
@@ -205,6 +225,11 @@ public record RtsWorkflowToken(
         RtsWorkflowEntry entry = resolveEntry();
         if (entry != null && entry.paused()) {
             entry.setPaused(false);
+            if (entry.reason() == RtsOperationReason.MANUAL_PAUSED) {
+                entry.setReason(RtsOperationReason.UNKNOWN);
+                entry.clearMissingItems();
+                entry.setDetailMessage("");
+            }
             engine.fireEvent(WorkflowEventType.UNPAUSED, playerId, entryId, entry);
             engine.notifyPlayer(playerId, dimension);
             return true;
@@ -229,6 +254,8 @@ public record RtsWorkflowToken(
         RtsWorkflowEntry entry = resolveEntry();
         if (entry != null && entry.suspended()) {
             entry.setSuspended(false);
+            entry.setReason(RtsOperationReason.UNKNOWN);
+            entry.clearMissingItems();
             entry.setDetailMessage("");
             engine.fireEvent(WorkflowEventType.RESUMED, playerId, entryId, entry);
             engine.notifyPlayer(playerId, dimension);
@@ -244,8 +271,23 @@ public record RtsWorkflowToken(
      * 也不会因为玩家曾经保护该条目而长期占用槽位。</p>
      */
     public void complete() {
+        completeWithReason(RtsOperationReason.SUCCESS);
+    }
+
+    /** 由持久任务终态投影使用；保留 SKIPPED 等明确结果而不把它猜成普通成功。 */
+    public void completeWithReason(RtsOperationReason reason) {
+        completeWithReason(reason, "");
+    }
+
+    /** 完成并携带短诊断详情；不会保留此前的缺料列表。 */
+    public void completeWithReason(RtsOperationReason reason, @Nullable String detail) {
         RtsWorkflowEntry entry = resolveEntry();
         if (entry != null && !entry.terminal()) {
+            // 完成是新的终态；不能把之前的 Need items/暂停原因带进最终快照。
+            entry.setReason(reason == null || reason == RtsOperationReason.UNKNOWN
+                    ? RtsOperationReason.SUCCESS : reason);
+            entry.clearMissingItems();
+            entry.setDetailMessage(detail);
             entry.markTerminal();
             engine.fireEvent(WorkflowEventType.COMPLETED, playerId, entryId, entry);
             engine.removeEntry(playerId, dimension, entryId);
@@ -256,8 +298,16 @@ public record RtsWorkflowToken(
      * 标记真实任务已取消，并短暂保留最终状态供玩家查看。
      */
     public void cancel() {
+        cancelWithReason(RtsOperationReason.CANCELLED);
+    }
+
+    /** 由容量淘汰等后台替换路径使用，保留明确的 REPLACED 原因。 */
+    public void cancelWithReason(RtsOperationReason reason) {
         RtsWorkflowEntry entry = resolveEntry();
         if (entry != null && !entry.terminal()) {
+            entry.setReason(reason == null ? RtsOperationReason.CANCELLED : reason);
+            entry.clearMissingItems();
+            entry.setDetailMessage("");
             entry.markTerminal();
             engine.fireEvent(WorkflowEventType.CANCELLED, playerId, entryId, entry);
             engine.notifyPlayer(playerId, dimension);

@@ -44,4 +44,17 @@ class LatestPlayerPageRequestQueueTest {
 
         assertEquals(List.of(), executed);
     }
+
+    @Test
+    void coalescingKeepsTheLatestPageContextTogether() {
+        record PageContext(int page, long sessionId, long queryId, long requestId) {}
+        LatestPlayerPageRequestQueue<String, PageContext> queue = new LatestPlayerPageRequestQueue<>();
+        queue.offer("alice", new PageContext(0, 7L, 11L, 1L));
+        queue.offer("alice", new PageContext(3, 7L, 12L, 4L));
+
+        List<PageContext> executed = new ArrayList<>();
+        queue.drain(executed::add);
+
+        assertEquals(List.of(new PageContext(3, 7L, 12L, 4L)), executed);
+    }
 }

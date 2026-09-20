@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.common.storage;
 
+import com.rtsbuilding.rtsbuilding.common.mining.SelectionVolumeLimit;
 import net.minecraft.core.BlockPos;
 
 /**
@@ -19,9 +20,14 @@ public final class RtsBatchStorageSelectionBounds {
 
     /** 返回规范化的闭区间选区；非法或超限时返回 {@code null}。 */
     public static Bounds normalize(BlockPos first, BlockPos second) {
+        return normalize(first, second, new SelectionVolumeLimit((int) MAX_VOLUME, MAX_WIDTH, MAX_HEIGHT, MAX_DEPTH));
+    }
+
+    public static Bounds normalize(BlockPos first, BlockPos second, SelectionVolumeLimit limit) {
         if (first == null || second == null) {
             return null;
         }
+        if (limit == null) return null;
         BlockPos min = new BlockPos(
                 Math.min(first.getX(), second.getX()),
                 Math.min(first.getY(), second.getY()),
@@ -33,11 +39,11 @@ public final class RtsBatchStorageSelectionBounds {
         long width = (long) max.getX() - min.getX() + 1L;
         long height = (long) max.getY() - min.getY() + 1L;
         long depth = (long) max.getZ() - min.getZ() + 1L;
-        if (width > MAX_WIDTH || height > MAX_HEIGHT || depth > MAX_DEPTH) {
+        if (!limit.fits(width, height, depth)) {
             return null;
         }
         long volume = width * height * depth;
-        if (volume <= 0L || volume > MAX_VOLUME) {
+        if (volume <= 0L || volume > limit.maxVolume()) {
             return null;
         }
         return new Bounds(min.immutable(), max.immutable(),
@@ -54,4 +60,3 @@ public final class RtsBatchStorageSelectionBounds {
         }
     }
 }
-

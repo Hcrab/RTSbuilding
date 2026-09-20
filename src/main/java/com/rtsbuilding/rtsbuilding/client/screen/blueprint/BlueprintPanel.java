@@ -9,8 +9,6 @@ import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiState;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintLibraryStyle;
-import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
-import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import com.rtsbuilding.rtsbuilding.common.blueprint.transform.BlueprintTransform;
 import com.rtsbuilding.rtsbuilding.network.blueprint.C2SBlueprintPlacePayload;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
@@ -24,8 +22,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -41,7 +37,8 @@ import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel
 
 public final class BlueprintPanel {
     private static final BlueprintLibraryRepository LIBRARY = new BlueprintLibraryRepository();
-    private static int selectedIndex = -1;
+    /** 异步列表发布期间保持选择的稳定身份；索引只在查询时由文件名派生。 */
+    private static String selectedFileName = "";
     private static int scroll = 0;
     private static boolean searchFocused = false;
     private static boolean materialDialogOpen = false;
@@ -55,6 +52,9 @@ public final class BlueprintPanel {
     private static int xRotationSteps = 0;
     private static int zRotationSteps = 0;
     private static BlockPos pinnedAnchor = null;
+    private static String pendingSelectionFileName = "";
+    private static final BlueprintPreviewGeometryCache PREVIEW_GEOMETRY =
+            new BlueprintPreviewGeometryCache();
     private static final BlueprintCaptureController CAPTURE = new BlueprintCaptureController();
     private static String search = "";
     private static Component statusText = Component.translatable("screen.rtsbuilding.blueprints.status.ready");
@@ -380,7 +380,8 @@ public final class BlueprintPanel {
         if (LIBRARY.isEmpty() || delta == 0) {
             return;
         }
-        int start = selectedIndex >= 0 && selectedIndex < LIBRARY.size() ? selectedIndex : 0;
+        int selected = LIBRARY.indexOfFileName(selectedFileName);
+        int start = selected >= 0 ? selected : 0;
         for (int step = 1; step <= LIBRARY.size(); step++) {
             int index = Math.floorMod(start + delta * step, LIBRARY.size());
             BlueprintEntry entry = LIBRARY.get(index);
@@ -444,7 +445,7 @@ public final class BlueprintPanel {
     }
 
     static int selectedBlueprintIndex() {
-        return selectedIndex;
+        return LIBRARY.indexOfFileName(selectedFileName);
     }
 
     static int blueprintEntryCount() {
@@ -561,9 +562,13 @@ public final class BlueprintPanel {
                 BlueprintEntry entry = entryByFileName(result.selectedFileName());
                 if (entry != null) {
                     selectEntry(entry);
+                } else {
+                    // 异步重载尚未发布该行；按稳定文件名延后恢复，不能跟随旧索引。
+                    pendingSelectionFileName = result.selectedFileName();
                 }
             } else if (result.selectionMode()
                     == BlueprintLibraryFileOperations.SelectionMode.INDEX_ONLY) {
+                pendingSelectionFileName = result.selectedFileName();
                 selectByFileName(result.selectedFileName());
             }
         }
@@ -759,11 +764,8 @@ public final class BlueprintPanel {
         int y = BlueprintTransform.normalizeSteps(yRotationSteps);
         int x = BlueprintTransform.normalizeSteps(xRotationSteps);
         int z = BlueprintTransform.normalizeSteps(zRotationSteps);
-        PlacementBounds bounds = transformedContentBounds(entry.blueprint(), y, x, z);
-        if (bounds == null) {
-            return cursorTarget;
-        }
-        return cursorTarget.offset(-bounds.centerX(), -bounds.minY(), -bounds.centerZ());
+        PREVIEW_GEOMETRY.prepare(entry.blueprint(), y, x, z, Config.maxBlueprintBlocks());
+        return PREVIEW_GEOMETRY.anchorForCursorTarget(cursorTarget);
     }
 
     public static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview createGhostPreview(
@@ -773,61 +775,13 @@ public final class BlueprintPanel {
             return com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview.EMPTY;
         }
         int previewLimit = Math.max(1, Config.maxBlueprintBlocks());
-        List<BlueprintGhostBlock> out = new ArrayList<>(Math.min(entry.blockCount(), previewLimit));
         int y = BlueprintTransform.normalizeSteps(yRotationSteps);
+        // 旧 BuilderScreen 入口只传 Y；X/Z 仍由同一放置会话保存，不能让三轴旋转只在 UI
+        // 状态里变化而不进入几何缓存。
         int x = BlueprintTransform.normalizeSteps(xRotationSteps);
         int z = BlueprintTransform.normalizeSteps(zRotationSteps);
-        BlockPos centerOffset = BlueprintTransform.centerRotationOffset(entry.blueprint().size(), y, x, z);
-        for (RtsBlueprintBlock block : entry.blueprint().blocks()) {
-            BlockPos pos = anchor.offset(BlueprintTransform.rotateAroundCenter(block.relativePos(), y, x, z, centerOffset)).immutable();
-            BlockState state = block.isMissingBlock()
-                    ? Blocks.AIR.defaultBlockState()
-                    : BlueprintTransform.rotateState(block.state(), y, x, z);
-            out.add(new BlueprintGhostBlock(pos, state, block.isMissingBlock()));
-            if (out.size() >= previewLimit) {
-                break;
-            }
-        }
-        return new com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview(
-                List.copyOf(out), hasEnoughMaterials(entry, controller), entry.blockCount() > out.size());
-    }
-
-    private static PlacementBounds transformedContentBounds(RtsBlueprint blueprint, int y, int x, int z) {
-        if (blueprint == null || blueprint.blocks().isEmpty()) {
-            return null;
-        }
-        BlockPos centerOffset = BlueprintTransform.centerRotationOffset(blueprint.size(), y, x, z);
-        int minX = Integer.MAX_VALUE;
-        int minY = Integer.MAX_VALUE;
-        int minZ = Integer.MAX_VALUE;
-        int maxX = Integer.MIN_VALUE;
-        int maxY = Integer.MIN_VALUE;
-        int maxZ = Integer.MIN_VALUE;
-        boolean found = false;
-        for (RtsBlueprintBlock block : blueprint.blocks()) {
-            if (block == null || (!block.isMissingBlock() && (block.state() == null || block.state().isAir()))) {
-                continue;
-            }
-            BlockPos pos = BlueprintTransform.rotateAroundCenter(block.relativePos(), y, x, z, centerOffset);
-            minX = Math.min(minX, pos.getX());
-            minY = Math.min(minY, pos.getY());
-            minZ = Math.min(minZ, pos.getZ());
-            maxX = Math.max(maxX, pos.getX());
-            maxY = Math.max(maxY, pos.getY());
-            maxZ = Math.max(maxZ, pos.getZ());
-            found = true;
-        }
-        return found ? new PlacementBounds(minX, minY, minZ, maxX, maxY, maxZ) : null;
-    }
-
-    private record PlacementBounds(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
-        int centerX() {
-            return this.minX + ((this.maxX - this.minX) / 2);
-        }
-
-        int centerZ() {
-            return this.minZ + ((this.maxZ - this.minZ) / 2);
-        }
+        PREVIEW_GEOMETRY.prepare(entry.blueprint(), y, x, z, previewLimit);
+        return PREVIEW_GEOMETRY.preview(anchor, hasEnoughMaterials(entry, controller));
     }
 
     public static boolean placeSelected(BlockPos anchor, int yRotationSteps, int xRotationSteps, int zRotationSteps) {
@@ -896,6 +850,7 @@ public final class BlueprintPanel {
             return true;
         }
         yRotationSteps = BlueprintTransform.normalizeSteps(yRotationSteps + step);
+        PREVIEW_GEOMETRY.clear();
         rememberCurrentRotationAsDefault();
         setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
         return true;
@@ -907,6 +862,7 @@ public final class BlueprintPanel {
             return true;
         }
         xRotationSteps = BlueprintTransform.normalizeSteps(xRotationSteps + step);
+        PREVIEW_GEOMETRY.clear();
         rememberCurrentRotationAsDefault();
         setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
         return true;
@@ -918,6 +874,7 @@ public final class BlueprintPanel {
             return true;
         }
         zRotationSteps = BlueprintTransform.normalizeSteps(zRotationSteps + step);
+        PREVIEW_GEOMETRY.clear();
         rememberCurrentRotationAsDefault();
         setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
         return true;
@@ -931,6 +888,7 @@ public final class BlueprintPanel {
         yRotationSteps = 0;
         xRotationSteps = 0;
         zRotationSteps = 0;
+        PREVIEW_GEOMETRY.clear();
         rememberCurrentRotationAsDefault();
         setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
     }
@@ -1073,13 +1031,38 @@ public final class BlueprintPanel {
         BlueprintRotationDefaults.ensureLoaded();
     }
 
+    /** 客户端生命周期的唯一蓝图库发布入口；每 tick 最多落地一条后台结果。 */
+    static void tickLibrary() {
+        LIBRARY.pump(BlueprintPanel::setStatus);
+        if (!pendingSelectionFileName.isBlank()) {
+            BlueprintEntry pending = LIBRARY.findByFileName(pendingSelectionFileName);
+            if (pending != null) {
+                pendingSelectionFileName = "";
+                selectEntry(pending);
+            }
+        }
+    }
+
+    /** 换世界、断线或退出客户端时取消 worker 并清理几何/材料缓存。 */
+    static void closeLibrary() {
+        LIBRARY.close();
+        pendingSelectionFileName = "";
+        selectedFileName = "";
+        PREVIEW_GEOMETRY.clear();
+        pinnedAnchor = null;
+        BlueprintMaterialInspector.clearCache();
+    }
+
     public static void reload() {
         BlueprintRotationDefaults.ensureLoaded();
-        selectedIndex = -1;
+        selectedFileName = "";
+        pendingSelectionFileName = "";
         scroll = 0;
         materialDialogOpen = false;
         materialDialogScroll = 0;
         pinnedAnchor = null;
+        PREVIEW_GEOMETRY.clear();
+        BlueprintMaterialInspector.clearCache();
         LIBRARY.reload(BlueprintPanel::setStatus);
     }
 
@@ -1178,13 +1161,16 @@ public final class BlueprintPanel {
     private static void selectByFileName(String fileName) {
         int index = LIBRARY.indexOfFileName(fileName);
         if (index >= 0) {
-            selectedIndex = index;
+            pendingSelectionFileName = "";
+            selectedFileName = LIBRARY.get(index).fileName();
             applyDefaultRotation(LIBRARY.get(index));
+        } else if (fileName != null && !fileName.isBlank()) {
+            pendingSelectionFileName = fileName;
         }
     }
 
     private static BlueprintEntry selectedEntry() {
-        return selectedIndex >= 0 && selectedIndex < LIBRARY.size() ? LIBRARY.get(selectedIndex) : null;
+        return selectedFileName.isBlank() ? null : LIBRARY.findByFileName(selectedFileName);
     }
 
     private static String shortPos(BlockPos pos) {
@@ -1192,8 +1178,13 @@ public final class BlueprintPanel {
     }
 
     private static void selectEntry(BlueprintEntry entry) {
-        selectedIndex = LIBRARY.indexOf(entry);
+        if (entry == null) {
+            return;
+        }
+        pendingSelectionFileName = "";
+        selectedFileName = entry.fileName();
         pinnedAnchor = null;
+        PREVIEW_GEOMETRY.clear();
         materialDialogOpen = false;
         materialDialogScroll = 0;
         applyDefaultRotation(entry);
@@ -1206,21 +1197,16 @@ public final class BlueprintPanel {
     }
 
     static void clearSelectedBlueprint() {
-        selectedIndex = -1;
+        selectedFileName = "";
+        pendingSelectionFileName = "";
         pinnedAnchor = null;
         yRotationSteps = 0;
         xRotationSteps = 0;
         zRotationSteps = 0;
+        PREVIEW_GEOMETRY.clear();
         materialDialogOpen = false;
         materialDialogScroll = 0;
         setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.preview_cleared", "");
-    }
-
-    public record BlueprintGhostBlock(BlockPos pos, BlockState state, boolean missing) {
-    }
-
-    public record BlueprintGhostPreview(List<BlueprintGhostBlock> blocks, boolean materialsReady, boolean truncated) {
-        public static final BlueprintGhostPreview EMPTY = new BlueprintGhostPreview(List.of(), false, false);
     }
 
     private enum NameDialogMode {

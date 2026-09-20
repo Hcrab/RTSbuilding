@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.common.smartfill.SmartFillCandidateClassifier;
 import com.rtsbuilding.rtsbuilding.common.smartfill.SmartFillLimits;
@@ -17,8 +18,8 @@ import net.minecraft.world.phys.Vec3;
  * 也不认为本地扫描结果具有执行权限。第二次确认只提交锚点与参数，服务端仍会独立重规划。</p>
  */
 final class SmartFillClientSession {
-    private int maxBlocks = SmartFillLimits.DEFAULT_BLOCKS;
-    private int diameter = SmartFillLimits.DEFAULT_DIAMETER;
+    private int maxBlocks = configuredDefaultBlocks();
+    private int diameter = configuredDefaultDiameter();
     private boolean anchored;
     private BlockHitResult anchoredHit;
     private Vec3 anchoredRayOrigin;
@@ -33,7 +34,7 @@ final class SmartFillClientSession {
     }
 
     void maxBlocks(int value) {
-        int next = clamp(value, SmartFillLimits.MIN_BLOCKS, SmartFillLimits.MAX_BLOCKS);
+        int next = clamp(value, SmartFillLimits.MIN_BLOCKS, configuredMaxBlocks());
         if (next != this.maxBlocks) {
             this.maxBlocks = next;
             invalidateSelection();
@@ -45,7 +46,7 @@ final class SmartFillClientSession {
     }
 
     void diameter(int value) {
-        int next = clamp(value, SmartFillLimits.MIN_DIAMETER, SmartFillLimits.MAX_DIAMETER);
+        int next = clamp(value, SmartFillLimits.MIN_DIAMETER, configuredMaxDiameter());
         if (next != this.diameter) {
             this.diameter = next;
             invalidateSelection();
@@ -150,7 +151,7 @@ final class SmartFillClientSession {
                 new SmartFillPlanner.Limits(
                         maxBlocks,
                         diameter,
-                        SmartFillLimits.HARD_MAX_BLOCKS,
+                        configuredMaxBlocks(),
                         SmartFillLimits.QUERY_BUDGET),
                 pos -> SmartFillCandidateClassifier.classify(minecraft.level, pos));
         this.lastClicked = clicked.immutable();
@@ -170,6 +171,38 @@ final class SmartFillClientSession {
 
     private static int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private static int configuredMaxBlocks() {
+        try {
+            return clamp(Config.smartFillMaxBlocks(), SmartFillLimits.MIN_BLOCKS, SmartFillLimits.HARD_MAX_BLOCKS);
+        } catch (RuntimeException ignored) {
+            return SmartFillLimits.MAX_BLOCKS;
+        }
+    }
+
+    private static int configuredDefaultBlocks() {
+        try {
+            return clamp(Config.smartFillDefaultBlocks(), SmartFillLimits.MIN_BLOCKS, configuredMaxBlocks());
+        } catch (RuntimeException ignored) {
+            return SmartFillLimits.DEFAULT_BLOCKS;
+        }
+    }
+
+    private static int configuredMaxDiameter() {
+        try {
+            return clamp(Config.smartFillMaxDiameter(), SmartFillLimits.MIN_DIAMETER, SmartFillLimits.HARD_MAX_DIAMETER);
+        } catch (RuntimeException ignored) {
+            return SmartFillLimits.MAX_DIAMETER;
+        }
+    }
+
+    private static int configuredDefaultDiameter() {
+        try {
+            return clamp(Config.smartFillDefaultDiameter(), SmartFillLimits.MIN_DIAMETER, configuredMaxDiameter());
+        } catch (RuntimeException ignored) {
+            return SmartFillLimits.DEFAULT_DIAMETER;
+        }
     }
 
     @FunctionalInterface
