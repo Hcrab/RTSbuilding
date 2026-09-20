@@ -43,8 +43,9 @@ public final class MiningOperationService {
     public static final int AREA_MINE_PHASE_NEED_SECOND = 1;
     /** Area mine phase: waiting for scroll-wheel height adjustment then confirm */
     public static final int AREA_MINE_PHASE_NEED_HEIGHT = 2;
-    /** 兼容旧配置的默认单轴上限。实际范围会优先读取服务端配置同步值。 */
-    public static final int AREA_MINE_MAX_SIZE = 36;
+    /** 仅为旧调用点保留的常量；实际范围由服务端同步的轴与体积上限控制。 */
+    @Deprecated
+    public static final int AREA_MINE_MAX_SIZE = 64;
 
     // =========================================================================
     //  Mining state fields
@@ -271,12 +272,8 @@ public final class MiningOperationService {
     // ---------- Bounds computation ----------
 
     /**
-     * Computes the full 3D bounding box for an area mine based on two diagonal points and height offset.
-     * <p>Uses pointA as the anchor:
-     * <ul>
-     *   <li>X/Z direction: determined by pointB, clamped to [0, AREA_MINE_MAX_SIZE-1]</li>
-     *   <li>Y direction: baseY + heightOffset, then clamped to [baseY-(MAX-1), baseY+(MAX-1)]</li>
-     * </ul>
+     * 从对角点和高度偏移计算含端点的区域包围盒，以 A 为锚点。
+     * <p>合法长条保持原尺寸；轴长和体积均使用服务端同步的独立上限。</p>
      *
      * @param pointA       anchor point A
      * @param pointB       diagonal point B
@@ -284,24 +281,31 @@ public final class MiningOperationService {
      * @return the clamped boundary result
      */
     public static AreaMineBounds computeAreaMineBounds(BlockPos pointA, BlockPos pointB, int heightOffset) {
+        if (pointA == null || pointB == null) {
+            return null;
+        }
         int maxWidth = configInt(Config::areaMineMaxWidth, AREA_MINE_MAX_SIZE);
         int maxHeight = configInt(Config::areaMineMaxHeight, AREA_MINE_MAX_SIZE);
         int maxDepth = configInt(Config::areaMineMaxDepth, AREA_MINE_MAX_SIZE);
-        int maxVolume = configInt(Config::areaMineMaxVolume, AREA_MINE_MAX_SIZE * AREA_MINE_MAX_SIZE * AREA_MINE_MAX_SIZE);
+        int maxVolume = configInt(Config::areaMineMaxVolume,
+                com.rtsbuilding.rtsbuilding.common.mining.MiningLimits.DEFAULT_VOLUME);
 
-        int dx = Math.min(Math.abs(pointB.getX() - pointA.getX()), maxWidth - 1);
-        int minX = pointB.getX() >= pointA.getX() ? pointA.getX() : pointA.getX() - dx;
-        int maxX = pointB.getX() >= pointA.getX() ? pointA.getX() + dx : pointA.getX();
+        long dx = Math.min(Math.abs((long) pointB.getX() - pointA.getX()), (long) maxWidth - 1L);
+        int minX = pointB.getX() >= pointA.getX() ? pointA.getX() : safeAdd(pointA.getX(), -dx);
+        int maxX = pointB.getX() >= pointA.getX() ? safeAdd(pointA.getX(), dx) : pointA.getX();
 
-        int dz = Math.min(Math.abs(pointB.getZ() - pointA.getZ()), maxDepth - 1);
-        int minZ = pointB.getZ() >= pointA.getZ() ? pointA.getZ() : pointA.getZ() - dz;
-        int maxZ = pointB.getZ() >= pointA.getZ() ? pointA.getZ() + dz : pointA.getZ();
+        long dz = Math.min(Math.abs((long) pointB.getZ() - pointA.getZ()), (long) maxDepth - 1L);
+        int minZ = pointB.getZ() >= pointA.getZ() ? pointA.getZ() : safeAdd(pointA.getZ(), -dz);
+        int maxZ = pointB.getZ() >= pointA.getZ() ? safeAdd(pointA.getZ(), dz) : pointA.getZ();
 
         int baseY = pointA.getY();
-        int minY = Math.max(baseY - (maxHeight - 1), baseY + Math.min(0, heightOffset));
-        int maxY = Math.min(baseY + (maxHeight - 1), baseY + Math.max(0, heightOffset));
+        long boundedHeightOffset = Math.max(-(long) maxHeight + 1L,
+                Math.min((long) maxHeight - 1L, (long) heightOffset));
+        int minY = safeAdd(baseY, Math.min(0L, boundedHeightOffset));
+        int maxY = safeAdd(baseY, Math.max(0L, boundedHeightOffset));
 
-        return clampAreaMineBounds(new AreaMineBounds(minX, maxX, minY, maxY, minZ, maxZ), maxVolume);
+        return clampAreaMineBounds(new AreaMineBounds(minX, maxX, minY, maxY, minZ, maxZ),
+                maxWidth, maxHeight, maxDepth, maxVolume);
     }
 
     // ---------- Height setting ----------
@@ -312,7 +316,9 @@ public final class MiningOperationService {
     }
 
     public void adjustAreaMineHeightOffset(int delta) {
-        setAreaMineHeightOffset(this.areaMineHeightOffset + delta);
+        long next = (long) this.areaMineHeightOffset + delta;
+        setAreaMineHeightOffset(next <= Integer.MIN_VALUE ? Integer.MIN_VALUE
+                : next >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) next);
     }
 
     // ---------- Selection management ----------
@@ -399,9 +405,13 @@ public final class MiningOperationService {
         this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
         this.mineRenderPos = this.activeMinePos;
         this.mineRenderStage = 0;
-        long areaVolume = (long) (bounds.maxX() - bounds.minX() + 1)
-                * (bounds.maxY() - bounds.minY() + 1)
-                * (bounds.maxZ() - bounds.minZ() + 1);
+        long width = (long) bounds.maxX() - bounds.minX() + 1L;
+        long height = (long) bounds.maxY() - bounds.minY() + 1L;
+        long depth = (long) bounds.maxZ() - bounds.minZ() + 1L;
+        long areaVolume = width > Long.MAX_VALUE / Math.max(1L, height)
+                ? Long.MAX_VALUE : width * height;
+        areaVolume = areaVolume > Long.MAX_VALUE / Math.max(1L, depth)
+                ? Long.MAX_VALUE : areaVolume * depth;
         var trace = RtsClientOperationDiagnostics.begin(
                 "AREA_MINE", inputKind, "UI_CONFIRM",
                 "INTERACT", false, "UI", (int) Math.min(Integer.MAX_VALUE, areaVolume));
@@ -529,28 +539,29 @@ public final class MiningOperationService {
         return (byte) areaShape.ordinal();
     }
 
-    private static AreaMineBounds clampAreaMineBounds(AreaMineBounds bounds, int maxVolume) {
+    private static AreaMineBounds clampAreaMineBounds(
+            AreaMineBounds bounds, int maxWidth, int maxHeight, int maxDepth, int maxVolume) {
         int minX = Math.min(bounds.minX(), bounds.maxX());
         int maxX = Math.max(bounds.minX(), bounds.maxX());
         int minY = Math.min(bounds.minY(), bounds.maxY());
         int maxY = Math.max(bounds.minY(), bounds.maxY());
         int minZ = Math.min(bounds.minZ(), bounds.maxZ());
         int maxZ = Math.max(bounds.minZ(), bounds.maxZ());
-        int width = (maxX - minX) + 1;
-        int height = (maxY - minY) + 1;
-        int depth = (maxZ - minZ) + 1;
-        while ((long) width * height * depth > Math.max(1, maxVolume)) {
-            if (height >= width && height >= depth && height > 1) {
-                height--;
-            } else if (width >= depth && width > 1) {
-                width--;
-            } else if (depth > 1) {
-                depth--;
-            } else {
-                break;
-            }
-        }
-        return new AreaMineBounds(minX, minX + width - 1, minY, minY + height - 1, minZ, minZ + depth - 1);
+        long width = (long) maxX - minX + 1L;
+        long height = (long) maxY - minY + 1L;
+        long depth = (long) maxZ - minZ + 1L;
+        var size = com.rtsbuilding.rtsbuilding.common.mining.MiningLimits.clampDimensions(
+                (int) Math.min(width, Math.max(1L, maxWidth)),
+                (int) Math.min(height, Math.max(1L, maxHeight)),
+                (int) Math.min(depth, Math.max(1L, maxDepth)), maxVolume);
+        return new AreaMineBounds(minX, safeAdd(minX, size.width() - 1L),
+                minY, safeAdd(minY, size.height() - 1L), minZ, safeAdd(minZ, size.depth() - 1L));
+    }
+
+    private static int safeAdd(int base, long offset) {
+        long value = (long) base + offset;
+        return value <= Integer.MIN_VALUE ? Integer.MIN_VALUE
+                : value >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) value;
     }
 
     private static int configInt(java.util.function.IntSupplier supplier, int fallback) {

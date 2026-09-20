@@ -193,10 +193,11 @@ public final class RtsOperationDiagnostics {
         String reason;
         if (event.type() == WorkflowEventType.COMPLETED) {
             outcome = event.status().failedBlocks() > 0 ? "PARTIAL" : "COMPLETED";
-            reason = event.status().failedBlocks() > 0 ? "PARTIAL_FAILURE" : "NONE";
+            reason = event.status().failedBlocks() > 0
+                    ? "PARTIAL_FAILURE" : event.status().reason().diagnosticId();
         } else if (event.type() == WorkflowEventType.CANCELLED) {
             outcome = "CANCELLED";
-            reason = "INTERNAL_FAILURE";
+            reason = event.status().reason().diagnosticId();
         } else if (event.type() == WorkflowEventType.TIMEOUT) {
             outcome = "TIMED_OUT";
             reason = "TIMEOUT";

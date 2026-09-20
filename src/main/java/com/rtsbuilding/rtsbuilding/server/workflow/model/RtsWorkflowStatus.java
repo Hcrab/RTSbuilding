@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.model;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason;
+
 import java.util.List;
 
 /**
@@ -22,6 +24,7 @@ import java.util.List;
  * @param isComplete      {@code true} 表示所有方块均已处理完成（预计算）
  * @param missingItems    当前缺少的物品 ID 列表
  * @param detailMessage   关于当前工作流的可选人类可读详情
+ * @param reason          当前生命周期/执行结果的稳定原因
  * @param entryId         不可变的工作流条目 ID，用于与待处理作业关联
  */
 public record RtsWorkflowStatus(
@@ -38,6 +41,7 @@ public record RtsWorkflowStatus(
         boolean isComplete,
         List<String> missingItems,
         String detailMessage,
+        RtsOperationReason reason,
         int entryId) {
 
     // ──────────────────────────────────────────────────────────────────
@@ -55,6 +59,16 @@ public record RtsWorkflowStatus(
             int totalBlocks, int completedBlocks, int failedBlocks,
             List<String> missingItems, String detailMessage,
             boolean suspended, boolean paused, boolean protectedWorkflow, int entryId) {
+        return fromRaw(type, priority, totalBlocks, completedBlocks, failedBlocks, missingItems,
+                detailMessage, suspended, paused, protectedWorkflow, RtsOperationReason.UNKNOWN, entryId);
+    }
+
+    public static RtsWorkflowStatus fromRaw(
+            RtsWorkflowType type, RtsWorkflowPriority priority,
+            int totalBlocks, int completedBlocks, int failedBlocks,
+            List<String> missingItems, String detailMessage,
+            boolean suspended, boolean paused, boolean protectedWorkflow,
+            RtsOperationReason reason, int entryId) {
         int remaining = totalBlocks > 0
                 ? Math.max(0, totalBlocks - (completedBlocks + failedBlocks))
                 : 0;
@@ -66,7 +80,8 @@ public record RtsWorkflowStatus(
         return new RtsWorkflowStatus(type, priority, totalBlocks, completedBlocks,
                 failedBlocks, remaining, progress, suspended, paused, protectedWorkflow, isComplete,
                 missingItems == null ? List.of() : List.copyOf(missingItems),
-                detailMessage == null ? "" : detailMessage, entryId);
+                detailMessage == null ? "" : detailMessage,
+                reason == null ? RtsOperationReason.UNKNOWN : reason, entryId);
     }
 
     /**
@@ -75,7 +90,7 @@ public record RtsWorkflowStatus(
     public static RtsWorkflowStatus idle() {
         return new RtsWorkflowStatus(null, RtsWorkflowPriority.NORMAL,
                 0, 0, 0, 0, 0.0F, false, false, false, false,
-                List.of(), "", -1);
+                List.of(), "", RtsOperationReason.UNKNOWN, -1);
     }
 
     // ──────────────────────────────────────────────────────────────────

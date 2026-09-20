@@ -1,5 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.task.placement;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason;
+
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -12,11 +15,23 @@ public record PlacementSliceResult(
         int cursorUnits,
         int succeededUnits,
         int failedUnits,
-        Outcome outcome) {
+        Outcome outcome,
+        RtsOperationReason reason,
+        String detail,
+        List<String> missingItems) {
+
+    public PlacementSliceResult(PlacementTaskState state, int processedUnits, int cursorUnits,
+            int succeededUnits, int failedUnits, Outcome outcome) {
+        this(state, processedUnits, cursorUnits, succeededUnits, failedUnits, outcome,
+                RtsOperationReason.UNKNOWN, "", List.of());
+    }
 
     public PlacementSliceResult {
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(outcome, "outcome");
+        reason = reason == null ? RtsOperationReason.UNKNOWN : reason;
+        detail = detail == null ? "" : detail;
+        missingItems = missingItems == null ? List.of() : List.copyOf(missingItems);
         if (processedUnits < 0 || cursorUnits < 0 || succeededUnits < 0 || failedUnits < 0) {
             throw new IllegalArgumentException("slice delta 不能为负数");
         }
@@ -28,6 +43,8 @@ public record PlacementSliceResult(
     public enum Outcome {
         CONTINUE,
         WAITING_RESOURCE,
+        WAITING_CHUNK,
+        FAILED,
         COMPLETE
     }
 }

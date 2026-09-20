@@ -20,7 +20,6 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiTransition;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.ULTIMINE_MAX_LIMIT;
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.ULTIMINE_MIN_LIMIT;
 
 /**
@@ -135,6 +134,8 @@ final class QuickBuildUiAdapter {
                 ? "screen.rtsbuilding.quick_build.destroy_hint"
                 : "screen.rtsbuilding.quick_build.destroy_hint_auto";
         QuickBuildUiConvenienceSettings convenienceSettings = panel.getConvenienceSettings();
+        int chainMaximum = panel.chainMaximum();
+        int chainLimit = panel.getChainDestroyLimit();
         return new QuickBuildUiState(panel.isOpen(), mode, panel.canUseRangeDestroy(),
                 panel.canUseRangeDestroy() ? "" : "plugin_required",
                 buildShape, destroyShape, shapes, controls,
@@ -142,7 +143,7 @@ final class QuickBuildUiAdapter {
                         ? QuickBuildUiCatalogPage.CONVENIENCE_TOOLS
                         : panel.getCatalogPage(),
                 panel.getConvenienceTool(), convenienceSettings,
-                panel.getChainDestroyLimit(), ULTIMINE_MIN_LIMIT, ULTIMINE_MAX_LIMIT,
+                chainLimit, ULTIMINE_MIN_LIMIT, chainMaximum,
                 completed, total, remaining, progress, cost, selectedId, missing,
                 hint, panel.confirmKeyLabel(mode == QuickBuildUiMode.DESTROY),
                 mode == QuickBuildUiMode.SMART_FILL
@@ -151,10 +152,10 @@ final class QuickBuildUiAdapter {
                         : panel.uiScreen().currentShapeSizeText(),
                 panel.getSmartFillMaxBlocks(),
                 SmartFillLimits.MIN_BLOCKS,
-                SmartFillLimits.MAX_BLOCKS,
+                smartFillMaxBlocksLimit(),
                 panel.getSmartFillDiameter(),
                 SmartFillLimits.MIN_DIAMETER,
-                SmartFillLimits.MAX_DIAMETER,
+                smartFillMaxDiameterLimit(),
                 smartFillPlan == null ? 0 : smartFillPlan.targets().size(),
                 panel.isSmartFillAnchored(),
                 smartFillPlan == null ? "" : smartFillPlan.status().name());
@@ -196,6 +197,24 @@ final class QuickBuildUiAdapter {
                     transition.state.smartFillDiameter);
             case CLOSE -> panel.setOpen(false);
             default -> { }
+        }
+    }
+
+    private static int smartFillMaxBlocksLimit() {
+        try {
+            return Math.max(SmartFillLimits.MIN_BLOCKS,
+                    Math.min(SmartFillLimits.HARD_MAX_BLOCKS, Config.smartFillMaxBlocks()));
+        } catch (RuntimeException ignored) {
+            return SmartFillLimits.MAX_BLOCKS;
+        }
+    }
+
+    private static int smartFillMaxDiameterLimit() {
+        try {
+            return Math.max(SmartFillLimits.MIN_DIAMETER,
+                    Math.min(SmartFillLimits.HARD_MAX_DIAMETER, Config.smartFillMaxDiameter()));
+        } catch (RuntimeException ignored) {
+            return SmartFillLimits.MAX_DIAMETER;
         }
     }
 

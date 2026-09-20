@@ -54,6 +54,9 @@ final class UltimineBlockMerger {
      * @return list of edge lines, each defined by its two endpoints
      */
     static List<EdgeLine> getEdgeLines(Collection<BlockPos> positions) {
+        // 大连锁复用范围破坏已有的表面边算法，避免体素并集和反复两两合并随目标数急剧膨胀。
+        // 小选区保留原来的微膨胀线框效果；算法切换不减少任何目标。
+        if (positions.size() > 256) return MergedSkeletonRenderer.buildOuterEdges(positions);
         // Step 1 — merge adjacent blocks into larger AABBs
         List<AABB> merged = merge(positions);
 

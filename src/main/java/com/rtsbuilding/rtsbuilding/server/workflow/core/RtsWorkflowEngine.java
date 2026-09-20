@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.core;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.RtsWorkflowEventBus;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEvent;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventListener;
@@ -166,6 +167,15 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     /**
+     * 让同一新请求的任务族准入复用UI槽位已完成的替换，避免两级容量各取消一条。
+     * 前驱只消费一次；是否确属同族且已终止，仍由Task Engine按真实快照判断。
+     */
+    public int consumeAdmissionReplacement(ServerPlayer player, int entryId) {
+        RtsWorkflowEntry entry = findEntryByPlayer(player, entryId);
+        return entry == null || entry.terminal() ? -1 : entry.consumeAdmissionReplacement();
+    }
+
+    /**
      * 根据玩家 UUID、维度和条目 ID 查找条目，无需 {@link ServerPlayer} 对象。
      * <p>供调用方已有 UUID 和维度时的 hot path 使用，避免 {@code player.level().dimension()} 额外开销。
      */
@@ -243,11 +253,20 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         }
         RtsWorkflowSlotManager slots = getOrCreateSlots(player);
         ResourceKey<Level> dimension = player.level().dimension();
+        // 配置调小只收紧新增数量；一换一仍须成功，不能先取消旧任务再因新上限拒绝。
+        int admissionLimit = Math.max(slots.size(),
+                com.rtsbuilding.rtsbuilding.Config.maxActiveWorkflowsPerPlayer());
+        int replacedActiveEntryId = -1;
         if (slots.isFull()) {
             RtsWorkflowEntry replaced = slots.removeOldestReplaceableEntry();
             if (replaced != null) {
+                boolean hadActiveTask = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                        .hasActiveDurableTaskForWorkflow(player, replaced.id());
+                markTerminalWithReason(replaced, RtsOperationReason.REPLACED,
+                        "replaced_by_newer_workflow");
                 com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
-                        .cancelWorkflowTask(player, replaced.id());
+                        .cancelWorkflowTask(player, dimension, replaced.id(), RtsOperationReason.REPLACED);
+                if (hadActiveTask) replacedActiveEntryId = replaced.id();
                 fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), replaced.id(), replaced);
                 RtsbuildingMod.LOGGER.debug("[Workflow] {} 自动替换可覆盖工作流 #{}: {}",
                         player.getGameProfile().getName(), replaced.id(), replaced.type());
@@ -255,7 +274,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         }
         RtsWorkflowEntry entry;
         do {
-            entry = slots.addEntry(priority);
+            entry = slots.addEntry(priority, admissionLimit);
             if (entry == null
                     || !com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                             .hasDurableTaskForWorkflow(player, entry.id())) {
@@ -268,7 +287,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         if (entry == null) {
             String name = player.getGameProfile().getName();
             RtsbuildingMod.LOGGER.debug("[Workflow] {} 工作流已满且没有可覆盖条目 ({}), 拒绝新工作流 {}",
-                    name, RtsWorkflowSlotManager.MAX_SLOTS, type);
+                    name, com.rtsbuilding.rtsbuilding.Config.maxActiveWorkflowsPerPlayer(), type);
             player.displayClientMessage(
                     Component.translatable("message.rtsbuilding.workflow.full_protected"),
                     true);
@@ -276,6 +295,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         }
         entry.setType(type);
         entry.setTotalBlocks(totalBlocks);
+        entry.recordAdmissionReplacement(replacedActiveEntryId);
 
         // 追踪玩家引用，供后续通知使用
         playerRefs.put(player.getUUID(), player);
@@ -310,9 +330,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             return Optional.of(new RtsWorkflowToken(player.getUUID(), entryId, dimension, this));
         }
 
-        // 旧持久任务的恢复不能反过来淘汰已经可见的新工作流。
-        // 满槽时由 Task Engine 终止这个未显示、因而也不可能被玩家钉住的旧任务。
-        if (slots.isFull()) return Optional.empty();
+        // 恢复的是已接纳任务，不是新增；配置调小后也应完整显示，且不能淘汰其他可见项。
 
         RtsWorkflowEntry restored = new RtsWorkflowEntry(entryId);
         restored.setPriority(RtsWorkflowPriority.NORMAL);
@@ -592,8 +610,9 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         RtsbuildingMod.LOGGER.info("[Workflow] {} 删除工作流 #{}: {}",
                 player.getGameProfile().getName(), entry.id(), entry.type());
 
+        markTerminalWithReason(entry, RtsOperationReason.CANCELLED, "");
         com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
-                .cancelWorkflowTask(player, entryId);
+                .cancelWorkflowTask(player, dimension, entryId, RtsOperationReason.CANCELLED);
         fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), entryId, entry);
         slots.removeEntryById(entryId);
 
@@ -632,8 +651,9 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         if (slots == null) return;
 
         for (RtsWorkflowEntry entry : slots.occupiedEntries()) {
+            markTerminalWithReason(entry, RtsOperationReason.CANCELLED, "");
             com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
-                    .cancelWorkflowTask(player, entry.id());
+                    .cancelWorkflowTask(player, dimension, entry.id(), RtsOperationReason.CANCELLED);
             fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), entry.id(), entry);
         }
         slots.clear();
@@ -738,6 +758,15 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     // ──────────────────────────────────────────────────────────────────
     //  内部辅助方法
     // ──────────────────────────────────────────────────────────────────
+
+    /** 终态事件发送前先清除旧缺料投影，避免取消/替换沿用 WAITING_RESOURCE 详情。 */
+    private static void markTerminalWithReason(
+            RtsWorkflowEntry entry, RtsOperationReason reason, String detail) {
+        entry.setReason(reason);
+        entry.clearMissingItems();
+        entry.setDetailMessage(detail);
+        entry.markTerminal();
+    }
 
     /**
      * 获取或创建指定玩家在当前维度的槽位管理器。

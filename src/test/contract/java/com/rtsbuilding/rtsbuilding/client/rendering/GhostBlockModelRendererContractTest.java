@@ -31,7 +31,8 @@ class GhostBlockModelRendererContractTest {
     void ghostModelCallSitesUseTheSharedPositionAwareRenderer() throws Exception {
         for (String file : ghostModelCallSites()) {
             String source = Files.readString(Path.of(file));
-            assertTrue(source.contains("GhostBlockModelRenderer.renderAt("),
+            assertTrue(source.contains("GhostBlockModelRenderer.renderAt(")
+                            || source.contains("GhostBlockModelRenderer.renderAtLocal("),
                     file + " should render ghost block models through the shared context-aware helper.");
             assertFalse(source.contains(".renderSingleBlock("),
                     file + " must not reintroduce null-position block color rendering.");

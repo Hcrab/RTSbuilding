@@ -14,13 +14,25 @@ import net.minecraft.core.Direction;
  * @param heightOffset 相对于基准平面的垂直偏移（2D 形状为 0）
  * @param clickedFace  玩家点击的面的方向
  * @param placementFace 放置方块时的贴附面方向
+ * @param maxOffset    调用方验证后的生成预算，旧建造调用默认 64，挖掘在体积接纳后显式传入
  */
 public record AreaShapeInput(
         BlockPos start,
         BlockPos end,
         int heightOffset,
         Direction clickedFace,
-        Direction placementFace) {
+        Direction placementFace,
+        int maxOffset) {
+
+    /** 旧建造调用保留原来的生成预算；挖掘入口在完成体积校验后显式提供自己的预算。 */
+    public AreaShapeInput(BlockPos start, BlockPos end, int heightOffset,
+                          Direction clickedFace, Direction placementFace) {
+        this(start, end, heightOffset, clickedFace, placementFace, 64);
+    }
+
+    public AreaShapeInput {
+        maxOffset = Math.max(0, maxOffset);
+    }
 
     /**
      * 创建一个仅包含两个角点的最小输入（默认使用 UP 方向）。

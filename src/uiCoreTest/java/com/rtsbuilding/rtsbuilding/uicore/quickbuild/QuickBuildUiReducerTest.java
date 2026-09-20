@@ -75,8 +75,13 @@ class QuickBuildUiReducerTest {
                 tool.state, QuickBuildUiAction.convenienceParameter(
                         QuickBuildUiConvenienceParameter.TREE_MAX_BLOCKS, 99_999));
         assertEquals(QuickBuildUiConvenienceTool.TREE_FELL, limit.state.convenienceTool);
-        assertEquals(QuickBuildUiConvenienceSettings.TREE_MAX,
+        assertEquals(99_999,
                 limit.state.convenienceSettings.treeMaxBlocks());
+        QuickBuildUiTransition technicalLimit = QuickBuildUiReducer.apply(
+                tool.state, QuickBuildUiAction.convenienceParameter(
+                        QuickBuildUiConvenienceParameter.TREE_MAX_BLOCKS, Integer.MAX_VALUE));
+        assertEquals(QuickBuildUiConvenienceSettings.TREE_MAX,
+                technicalLimit.state.convenienceSettings.treeMaxBlocks());
         assertEquals(QuickBuildUiShape.BOX, limit.state.destroyShape);
     }
 

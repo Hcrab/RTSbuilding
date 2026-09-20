@@ -43,6 +43,17 @@ public final class RtsStoragePageBuilder {
                 activeHandlers, activeFluidHandlers);
     }
 
+    /** 构建带客户端请求上下文的页面，旧调用点继续使用上面的兼容重载。 */
+    public static PageResult build(
+            ServerPlayer player, RtsStorageSession session,
+            int requestedPage, int requestedPageSize,
+            List<LinkedHandler> activeHandlers,
+            List<LinkedFluidHandler> activeFluidHandlers,
+            long sessionId, long queryId, long requestId) {
+        return RtsPageCore.build(player, session, requestedPage, requestedPageSize,
+                activeHandlers, activeFluidHandlers, sessionId, queryId, requestId);
+    }
+
     public static int sanitizePageSize(int pageSize) {
         return RtsPageSharedHelpers.sanitizePageSize(pageSize);
     }

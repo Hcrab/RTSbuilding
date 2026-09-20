@@ -17,7 +17,8 @@ import java.util.List;
 /** PlacementTaskPayload 的有界、版本化 NBT 编解码器。 */
 public final class PlacementTaskCodec {
     public static final int SCHEMA_VERSION = 3;
-    public static final int MAX_TARGETS = 32_768;
+    /** 由任务状态与范围选择共用的完整目标表示边界。 */
+    public static final int MAX_TARGETS = PlacementTaskState.MAX_TARGETS;
 
     private PlacementTaskCodec() {
     }

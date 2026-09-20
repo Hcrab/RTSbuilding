@@ -24,9 +24,9 @@ public class WallShapeGenerator extends AreaShapeGenerator {
     @Override
     public List<BlockPos> generatePositions(AreaShapeInput input, ShapeFillMode fillMode) {
         // 计算 XZ 平面和 Y 轴上的偏移量并限制范围
-        int dx = clampOffset(input.end().getX() - input.start().getX());
-        int dz = clampOffset(input.end().getZ() - input.start().getZ());
-        int dy = clampOffset(input.heightOffset());
+        int dx = clampOffset(input.end().getX() - input.start().getX(), input);
+        int dz = clampOffset(input.end().getZ() - input.start().getZ(), input);
+        int dy = clampOffset(input.heightOffset(), input);
 
         // 生成基线（起点 → 终点在 XZ 平面上的投影）
         BlockPos endPos = new BlockPos(input.start().getX() + dx, input.start().getY(), input.start().getZ() + dz);

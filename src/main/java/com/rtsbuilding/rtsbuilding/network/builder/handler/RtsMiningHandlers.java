@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.builder.handler;
 
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyFragmentPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyTracePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMinePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsConvenienceDestroyPayload;
@@ -14,11 +15,14 @@ import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
 import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.network.RtsTracedPayload;
 import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry;
+import com.rtsbuilding.rtsbuilding.server.network.RtsAreaDestroyFragmentNetwork;
+import com.rtsbuilding.rtsbuilding.server.network.RtsAreaDestroyFragmentReassembler;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.destruction.RtsConvenienceDestroyService;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsNativeLeftClickBridge;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -229,13 +233,49 @@ public final class RtsMiningHandlers {
         long receivedTick = receiveTick(context);
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                var trace = trace(serverPlayer, payload, payload.clientTick(), payload.heldMs(),
-                        payload.inputKind(), payload.stopOrigin(), "AREA_DESTROY", receivedNanos, receivedTick);
-                ServiceRegistry.getInstance().mining().areaDestroy(
-                        serverPlayer, payload.positions(), payload.toolSlot(), payload.toolItemId(),
-                        payload.toolPrototype(), payload.toolProtectionEnabled(), trace);
+                dispatchAreaDestroyTrace(serverPlayer, payload, receivedNanos, receivedTick);
             }
         });
+    }
+
+    /**
+     * 接收新的区域分片协议；只有重组器报告 COMPLETE 才进入原有 trace/workflow dispatch。
+     * 分片乱序、重复或超限都在此边界被吞掉，不会提前调用 mining service。
+     */
+    public static void handleAreaDestroyFragment(
+            C2SRtsAreaDestroyFragmentPayload payload, IPayloadContext context) {
+        long receivedNanos = System.nanoTime();
+        long receivedTick = receiveTick(context);
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer serverPlayer)) {
+                return;
+            }
+            long nowTick = receiveTick(context);
+            var result = RtsAreaDestroyFragmentNetwork.accept(
+                    serverPlayer.getUUID(), payload, nowTick < 0L ? receivedTick : nowTick);
+            if (result.status() == RtsAreaDestroyFragmentReassembler.Status.REJECTED) {
+                serverPlayer.displayClientMessage(Component.translatable(
+                        "message.rtsbuilding.mining.transfer_incomplete"), false);
+            }
+            if (result.status() != RtsAreaDestroyFragmentReassembler.Status.COMPLETE) {
+                return;
+            }
+            C2SRtsAreaDestroyTracePayload assembled = result.payload();
+            if (assembled == null) {
+                return;
+            }
+            dispatchAreaDestroyTrace(serverPlayer, assembled, receivedNanos, receivedTick);
+        });
+    }
+
+    private static void dispatchAreaDestroyTrace(
+            ServerPlayer serverPlayer, C2SRtsAreaDestroyTracePayload payload,
+            long receivedNanos, long receivedTick) {
+        var trace = trace(serverPlayer, payload, payload.clientTick(), payload.heldMs(),
+                payload.inputKind(), payload.stopOrigin(), "AREA_DESTROY", receivedNanos, receivedTick);
+        ServiceRegistry.getInstance().mining().areaDestroy(
+                serverPlayer, payload.positions(), payload.toolSlot(), payload.toolItemId(),
+                payload.toolPrototype(), payload.toolProtectionEnabled(), trace);
     }
 
     private static com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext trace(

@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import net.minecraft.core.BlockPos;
 
 import java.util.ArrayList;
@@ -9,9 +10,9 @@ import java.util.List;
 /**
  * 范围破坏选区的纯尺寸、体积与方块列表限制器。
  *
- * <p>本类只消费已经解析好的上限，不读取配置、不访问世界，也不拥有预览缓存或确认状态。
- * ScreenShapeController 负责选择当前业务上限，本类负责让输入、包围盒和最终位置列表遵守
- * 同一套规则。</p>
+ * <p>本类只消费已经解析好的共同体积上限，不读取配置、不访问世界，也不拥有预览缓存或
+ * 确认状态。ScreenShapeController 负责选择当前业务上限，本类负责让输入、包围盒和最终
+ * 位置列表遵守同一套规则。</p>
  */
 public final class RangeDestroySelectionLimiter {
     private RangeDestroySelectionLimiter() {
@@ -21,23 +22,14 @@ public final class RangeDestroySelectionLimiter {
             ShapeBuildTypes.Input input,
             Limits limits) {
         Limits safe = Limits.safe(limits);
-        return ShapeSelectionLimiter.clampDimensionsAndVolume(
-                input,
-                safe.maxWidth(),
-                safe.maxHeight(),
-                safe.maxDepth(),
-                safe.maxVolume());
+        return ShapeSelectionLimiter.clampDimensionsAndVolume(input, safe.maxWidth(), safe.maxHeight(), safe.maxDepth(), safe.maxVolume());
     }
 
     public static ShapeBuildTypes.Input clampDimensions(
             ShapeBuildTypes.Input input,
             Limits limits) {
         Limits safe = Limits.safe(limits);
-        return ShapeSelectionLimiter.clampDimensions(
-                input,
-                safe.maxWidth(),
-                safe.maxHeight(),
-                safe.maxDepth());
+        return ShapeSelectionLimiter.clampDimensionsAndVolume(input, safe.maxWidth(), safe.maxHeight(), safe.maxDepth(), safe.maxVolume());
     }
 
     public static boolean contains(RtsCullingBox box, Limits limits) {
@@ -45,11 +37,10 @@ public final class RangeDestroySelectionLimiter {
             return false;
         }
         Limits safe = Limits.safe(limits);
-        return box.width() <= safe.maxWidth()
-                && box.height() <= safe.maxHeight()
-                && box.depth() <= safe.maxDepth()
-                && (long) box.width() * box.height() * box.depth()
-                <= safe.maxVolume();
+        return safe.accepts(
+                span(box.min().getX(), box.max().getX()),
+                span(box.min().getY(), box.max().getY()),
+                span(box.min().getZ(), box.max().getZ()));
     }
 
     public static List<BlockPos> clampRoundPositions(
@@ -127,35 +118,20 @@ public final class RangeDestroySelectionLimiter {
             return box;
         }
         Limits safe = Limits.safe(limits);
-        AxisBounds x = clampAxisAroundAnchor(
-                box.min().getX(),
-                box.max().getX(),
-                anchor.getX(),
-                safe.maxWidth());
-        AxisBounds y = clampAxisAroundAnchor(
-                box.min().getY(),
-                box.max().getY(),
-                anchor.getY(),
-                safe.maxHeight());
-        AxisBounds z = clampAxisAroundAnchor(
-                box.min().getZ(),
-                box.max().getZ(),
-                anchor.getZ(),
-                safe.maxDepth());
-        while ((long) x.length() * y.length() * z.length()
-                > safe.maxVolume()) {
-            if (y.length() >= x.length()
-                    && y.length() >= z.length()
-                    && y.length() > 1) {
-                y = y.shrinkToward(anchor.getY());
-            } else if (x.length() >= z.length() && x.length() > 1) {
-                x = x.shrinkToward(anchor.getX());
-            } else if (z.length() > 1) {
-                z = z.shrinkToward(anchor.getZ());
-            } else {
-                break;
-            }
-        }
+        AxisBounds x = AxisBounds.normalized(box.min().getX(), box.max().getX());
+        AxisBounds y = AxisBounds.normalized(box.min().getY(), box.max().getY());
+        AxisBounds z = AxisBounds.normalized(box.min().getZ(), box.max().getZ());
+        MiningLimits.Dimensions dimensions = MiningLimits.clampDimensions(
+                (int) Math.min(x.length(), safe.maxWidth()),
+                (int) Math.min(y.length(), safe.maxHeight()),
+                (int) Math.min(z.length(), safe.maxDepth()), safe.maxVolume());
+        dimensions = new MiningLimits.Dimensions(
+                Math.min(dimensions.width(), safe.maxWidth()),
+                Math.min(dimensions.height(), safe.maxHeight()),
+                Math.min(dimensions.depth(), safe.maxDepth()));
+        x = x.shrinkToLength(dimensions.width(), anchor.getX());
+        y = y.shrinkToLength(dimensions.height(), anchor.getY());
+        z = z.shrinkToLength(dimensions.depth(), anchor.getZ());
         return new RtsCullingBox(
                 box.id(),
                 new BlockPos(x.min(), y.min(), z.min()),
@@ -188,50 +164,13 @@ public final class RangeDestroySelectionLimiter {
             return true;
         }
         return count <= limits.maxVolume()
-                && maxX - minX + 1 <= limits.maxWidth()
-                && maxY - minY + 1 <= limits.maxHeight()
-                && maxZ - minZ + 1 <= limits.maxDepth();
+                && limits.accepts(span(minX, maxX), span(minY, maxY), span(minZ, maxZ));
     }
 
-    private static AxisBounds clampAxisAroundAnchor(
-            int min,
-            int max,
-            int anchor,
-            int maxLength) {
-        if (min > max) {
-            int swap = min;
-            min = max;
-            max = swap;
-        }
-        int safeMaxLength = Math.max(1, maxLength);
-        int length = max - min + 1;
-        if (length <= safeMaxLength) {
-            return new AxisBounds(min, max);
-        }
-        if (anchor <= min) {
-            return new AxisBounds(min, min + safeMaxLength - 1);
-        }
-        if (anchor >= max) {
-            return new AxisBounds(max - safeMaxLength + 1, max);
-        }
-        int leftAvailable = anchor - min;
-        int rightAvailable = max - anchor;
-        int left = Math.min(leftAvailable, safeMaxLength / 2);
-        int right = Math.min(
-                rightAvailable,
-                safeMaxLength - 1 - left);
-        int spare = safeMaxLength - 1 - left - right;
-        if (spare > 0) {
-            int moreLeft = Math.min(spare, leftAvailable - left);
-            left += moreLeft;
-            spare -= moreLeft;
-        }
-        if (spare > 0) {
-            right += Math.min(spare, rightAvailable - right);
-        }
-        return new AxisBounds(anchor - left, anchor + right);
-    }
-
+    /**
+     * 旧四元形状保留给源码兼容；范围破坏实际只读取 {@code maxVolume}，三个轴字段不构成
+     * 额外业务限制。
+     */
     public record Limits(
             int maxWidth,
             int maxHeight,
@@ -241,7 +180,18 @@ public final class RangeDestroySelectionLimiter {
             maxWidth = Math.max(1, maxWidth);
             maxHeight = Math.max(1, maxHeight);
             maxDepth = Math.max(1, maxDepth);
-            maxVolume = Math.max(1, maxVolume);
+            maxVolume = MiningLimits.clampVolume(maxVolume);
+        }
+
+        /** 新配置只有共同体积；保留四元构造器供旧 addon/测试源码编译。 */
+        public Limits(int maxVolume) {
+            this(maxVolume, maxVolume, maxVolume, maxVolume);
+        }
+
+        boolean accepts(long width, long height, long depth) {
+            return width > 0 && height > 0 && depth > 0
+                    && width <= maxWidth && height <= maxHeight && depth <= maxDepth
+                    && MiningLimits.fitsVolume(width, height, depth, maxVolume);
         }
 
         private static Limits safe(Limits limits) {
@@ -252,23 +202,59 @@ public final class RangeDestroySelectionLimiter {
     }
 
     private record AxisBounds(int min, int max) {
-        int length() {
-            return max - min + 1;
+        static AxisBounds normalized(int first, int second) {
+            return first <= second
+                    ? new AxisBounds(first, second)
+                    : new AxisBounds(second, first);
         }
 
-        AxisBounds shrinkToward(int anchor) {
-            if (length() <= 1) {
+        long length() {
+            return (long) max - min + 1L;
+        }
+
+        AxisBounds shrinkToLength(long requestedLength, int anchor) {
+            long target = Math.max(1L, Math.min(requestedLength, length()));
+            if (target >= length()) {
                 return this;
             }
-            if (anchor <= min) {
-                return new AxisBounds(min, max - 1);
+            long pivot = Math.max((long) min, Math.min((long) max, anchor));
+            long leftAvailable = pivot - min;
+            long rightAvailable = max - pivot;
+            long left = Math.min(leftAvailable, target / 2L);
+            long right = Math.min(rightAvailable, target - 1L - left);
+            long spare = target - 1L - left - right;
+            if (spare > 0L) {
+                long extraLeft = Math.min(spare, leftAvailable - left);
+                left += extraLeft;
+                spare -= extraLeft;
             }
-            if (anchor >= max) {
-                return new AxisBounds(min + 1, max);
+            if (spare > 0L) {
+                right += Math.min(spare, rightAvailable - right);
             }
-            return max - anchor >= anchor - min
-                    ? new AxisBounds(min, max - 1)
-                    : new AxisBounds(min + 1, max);
+            return new AxisBounds(toInt(pivot - left), toInt(pivot + right));
         }
+    }
+
+    private static long span(int min, int max) {
+        return (long) Math.max(min, max) - Math.min(min, max) + 1L;
+    }
+
+    /** 普通建造保留原有轴长规则；它不是范围挖掘配置，不应随本轮迁移一起放开。 */
+    public static RtsCullingBox clampBoxDimensions(RtsCullingBox box, BlockPos anchor, int maxDimension) {
+        if (box == null || anchor == null) return box;
+        AxisBounds x = AxisBounds.normalized(box.min().getX(), box.max().getX())
+                .shrinkToLength(maxDimension, anchor.getX());
+        AxisBounds y = AxisBounds.normalized(box.min().getY(), box.max().getY())
+                .shrinkToLength(maxDimension, anchor.getY());
+        AxisBounds z = AxisBounds.normalized(box.min().getZ(), box.max().getZ())
+                .shrinkToLength(maxDimension, anchor.getZ());
+        return new RtsCullingBox(box.id(), new BlockPos(x.min(), y.min(), z.min()),
+                new BlockPos(x.max(), y.max(), z.max()));
+    }
+
+    private static int toInt(long value) {
+        return value <= Integer.MIN_VALUE
+                ? Integer.MIN_VALUE
+                : value >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) value;
     }
 }

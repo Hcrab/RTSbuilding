@@ -183,7 +183,7 @@ public final class RtsVisualOverlayRenderer {
                     fillBuffer,
                     cullingHandleLineBuffer,
                     cullingHandleFillBuffer);
-            BlueprintGhostRenderer.renderBlueprintGhostPreview(minecraft, poseStack, lineBuffer, fillBuffer);
+            BlueprintGhostRenderer.renderBlueprintGhostPreview(minecraft, poseStack, lineBuffer, fillBuffer, event.getFrustum());
             PlacementAnimationRenderer.render(minecraft, poseStack, lineBuffer, fillBuffer);
 
             drawIfNotEmpty(BOUNDARY_BARRIER, barrierBuffer);

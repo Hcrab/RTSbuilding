@@ -6,6 +6,7 @@ import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -69,6 +70,19 @@ class MiningTaskStateTest {
 
         assertFalse(heldFirstBlock.committedBatch());
         assertTrue(committedChain.committedBatch());
+    }
+
+    @Test
+    void historyAllowsCollateralRecordsWithoutBecomingUnbounded() {
+        assertEquals(7, MiningTaskState.maxHistoryRecordsForTargets(1));
+        MiningTaskState accepted = state(
+                MiningTaskState.Mode.BATCH, List.of(), 1, 1, 1, 0,
+                Collections.nCopies(7, historyTag()));
+        assertEquals(7, accepted.historyRecords().size());
+
+        assertThrows(IllegalArgumentException.class, () -> state(
+                MiningTaskState.Mode.BATCH, List.of(), 1, 1, 1, 0,
+                Collections.nCopies(8, historyTag())));
     }
 
     @Test

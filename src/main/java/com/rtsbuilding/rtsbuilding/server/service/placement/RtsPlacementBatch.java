@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
 import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason;
 import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
@@ -13,6 +14,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.task.placement.PlacementSliceResult;
+import com.rtsbuilding.rtsbuilding.server.task.placement.PlacementExecutionResult;
 import com.rtsbuilding.rtsbuilding.server.task.placement.PlacementResumePolicy;
 import com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskState;
 import net.minecraft.core.BlockPos;
@@ -47,6 +49,7 @@ import java.util.List;
  * 物品提取（{@link RtsPlacementExtractor}）、声音（{@link RtsPlacementSound}）。
  */
 public final class RtsPlacementBatch {
+    /** 兼容源码引用；实际值来自服务端配置。 */
     private static final int BUILD_BATCH_MAX_BLOCKS_PER_TICK = 64;
     private static final int BUILD_BATCH_MAX_QUEUED_JOBS = 4;
 
@@ -100,21 +103,21 @@ public final class RtsPlacementBatch {
         if (session == null || clickedPositions == null || clickedPositions.isEmpty() || face == null) {
             return false;
         }
+        if (clickedPositions.size() > C2SRtsPlaceBatchPayload.MAX_POSITIONS) {
+            return false;
+        }
         if (quickBuild && (itemId == null || itemId.isBlank())) {
             player.displayClientMessage(
                     Component.translatable("message.rtsbuilding.quick_build.select_material"), true);
             return false;
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        List<BlockPos> positions = new ArrayList<>(Math.min(clickedPositions.size(), C2SRtsPlaceBatchPayload.MAX_POSITIONS));
+        List<BlockPos> positions = new ArrayList<>(clickedPositions.size());
         for (BlockPos pos : clickedPositions) {
             if (pos == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
                 continue;
             }
             positions.add(pos.immutable());
-            if (positions.size() >= C2SRtsPlaceBatchPayload.MAX_POSITIONS) {
-                break;
-            }
         }
         if (positions.isEmpty()) {
             return false;
@@ -231,6 +234,9 @@ public final class RtsPlacementBatch {
         int processed = 0;
         PlacementSliceResult.Outcome outcome = job.hasNext()
                 ? PlacementSliceResult.Outcome.CONTINUE : PlacementSliceResult.Outcome.COMPLETE;
+        RtsOperationReason sliceReason = RtsOperationReason.UNKNOWN;
+        String sliceDetail = "";
+        List<String> missingItems = List.of();
 
         while (processed < limit && System.nanoTime() < deadlineNanos && job.hasNext()) {
             BlockPos clickedPos = job.next();
@@ -244,6 +250,9 @@ public final class RtsPlacementBatch {
                 BlockPos targetPos = predictedTarget;
                 if (!player.serverLevel().hasChunkAt(targetPos)) {
                     job.unconsumeLast();
+                    outcome = PlacementSliceResult.Outcome.WAITING_CHUNK;
+                    sliceReason = RtsOperationReason.CHUNK_UNLOADED;
+                    sliceDetail = "chunk_unloaded:" + targetPos;
                     break;
                 }
                 BlockState targetState = player.serverLevel().getBlockState(targetPos);
@@ -253,22 +262,35 @@ public final class RtsPlacementBatch {
                         || (conflict && state.resumePolicy() == PlacementResumePolicy.SKIP_CONFLICTS)) {
                     job.skippedWhileProcessing++;
                     processed++;
+                    sliceReason = RtsOperationReason.SKIPPED;
+                    sliceDetail = alreadyExpected
+                            ? "target_already_present:" + targetPos
+                            : "target_conflict_skipped:" + targetPos;
                     continue;
                 }
                 if (conflict && state.resumePolicy() == PlacementResumePolicy.OVERWRITE_CONFLICTS
                         && !prepareOverwriteConflict(player, targetPos, targetState, overwriteDropPositions)) {
                     job.skippedWhileProcessing++;
                     processed++;
+                    sliceReason = RtsOperationReason.PERMISSION_DENIED;
+                    sliceDetail = "overwrite_denied:" + targetPos;
                     continue;
                 }
             }
-            boolean keepGoing = processOnePlacement(
+            PlacementExecutionResult execution = processOnePlacementWithReason(
                     player, session, job, clickedPos, beforePlacement, state.creativeOperation());
             processed++;
-            if (!keepGoing) {
+            sliceReason = execution.reason();
+            sliceDetail = execution.detail();
+            missingItems = execution.missingItems();
+            if (!execution.keepGoing()) {
                 // 事务未获得资源时不消费 cursor；真实物品仍由原库存/Capability 或世界持有。
                 job.unconsumeLast();
-                outcome = PlacementSliceResult.Outcome.WAITING_RESOURCE;
+                outcome = switch (execution.reason()) {
+                    case RESOURCE_MISSING, TOOL_MISSING -> PlacementSliceResult.Outcome.WAITING_RESOURCE;
+                    case CHUNK_UNLOADED -> PlacementSliceResult.Outcome.WAITING_CHUNK;
+                    default -> PlacementSliceResult.Outcome.FAILED;
+                };
                 break;
             }
         }
@@ -277,7 +299,9 @@ public final class RtsPlacementBatch {
             com.rtsbuilding.rtsbuilding.server.service.mining.RtsDropAbsorber
                     .absorbMinedDropsBatch(player, session, overwriteDropPositions);
         }
-        if (outcome != PlacementSliceResult.Outcome.WAITING_RESOURCE && !job.hasNext()) {
+        if (outcome != PlacementSliceResult.Outcome.WAITING_RESOURCE
+                && outcome != PlacementSliceResult.Outcome.WAITING_CHUNK
+                && outcome != PlacementSliceResult.Outcome.FAILED && !job.hasNext()) {
             outcome = PlacementSliceResult.Outcome.COMPLETE;
         }
 
@@ -300,7 +324,7 @@ public final class RtsPlacementBatch {
                 Math.max(0, job.index - beforeCursor),
                 Math.max(0, job.placedPositions.size() - beforeSucceeded),
                 Math.max(0, job.skippedWhileProcessing - beforeFailed),
-                outcome);
+                outcome, sliceReason, sliceDetail, missingItems);
     }
 
     private static Block expectedPlacementBlock(PlaceBatchJob job) {
@@ -357,27 +381,28 @@ public final class RtsPlacementBatch {
         RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
     }
 
-    private static boolean processOnePlacement(
+    private static PlacementExecutionResult processOnePlacementWithReason(
             ServerPlayer player, RtsStorageSession session, PlaceBatchJob job, BlockPos clickedPos,
             HistoryBlockRecord beforePlacement, boolean creativeOperation) {
         RtsPlacementQuickBuild.StatePlacementPlan statePlan = job.quickBuild()
                 ? job.statePlacementPlan(player) : null;
-        boolean keepGoing;
+        PlacementExecutionResult execution;
         if (statePlan != null) {
             BlockPos trackedPos = clickedPos;
             BlockState beforeState = player.serverLevel().getBlockState(trackedPos);
             boolean creativeOverwrite = job.overwriteExisting() && player.isCreative();
-            keepGoing = RtsPlacementQuickBuild.placeStateBatchEntry(
+            execution = RtsPlacementQuickBuild.placeStateBatchEntryWithReason(
                     player, session, clickedPos, statePlan, creativeOverwrite);
-            if (keepGoing && (creativeOverwrite || beforeState.isAir() || beforeState.canBeReplaced())
+            if (execution.keepGoing() && (creativeOverwrite || beforeState.isAir() || beforeState.canBeReplaced())
                     && !player.serverLevel().getBlockState(trackedPos).isAir()) {
                 job.placedPositions.add(trackedPos);
                 job.historyRecords.add(encodePlacementHistory(historyRecordAfterPlacement(
                         player, trackedPos, beforePlacement, creativeOperation)));
-            } else if (keepGoing) {
+            } else if (execution.keepGoing()) {
                 job.skippedWhileProcessing++;
+                return PlacementExecutionResult.skipped("target_occupied:" + trackedPos);
             }
-            return keepGoing;
+            return execution;
         }
 
         Vec3 hitLocation = new Vec3(
@@ -388,7 +413,7 @@ public final class RtsPlacementBatch {
         BlockState beforeClicked = player.serverLevel().getBlockState(clickedPos);
         BlockState beforeAdjacent = player.serverLevel().hasChunkAt(adjPos)
                 ? player.serverLevel().getBlockState(adjPos) : null;
-        keepGoing = RtsPlacementExecutor.placeSelectedInternal(
+        execution = RtsPlacementExecutor.placeSelectedWithReason(
                 player,
                 session,
                 clickedPos,
@@ -412,7 +437,7 @@ public final class RtsPlacementBatch {
                 job.forceEmptyHand(),
                 false,
                 job.sendRemoteHint());
-        if (keepGoing) {
+        if (execution.keepGoing()) {
             BlockPos actualPos = RtsPlacementHelper.detectPlacedPos(
                     player.serverLevel(), clickedPos, beforeClicked, adjPos, beforeAdjacent);
             if (actualPos != null) {
@@ -420,9 +445,12 @@ public final class RtsPlacementBatch {
                 job.historyRecords.add(encodePlacementHistory(historyRecordAfterPlacement(
                         player, actualPos, beforePlacement, creativeOperation)));
             }
-            else job.skippedWhileProcessing++;
+            else {
+                job.skippedWhileProcessing++;
+                return PlacementExecutionResult.skipped("target_skipped:" + clickedPos);
+            }
         }
-        return keepGoing;
+        return execution;
     }
 
     private static HistoryBlockRecord historyRecordAfterPlacement(

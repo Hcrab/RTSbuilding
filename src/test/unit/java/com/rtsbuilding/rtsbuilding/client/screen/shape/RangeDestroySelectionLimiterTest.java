@@ -12,11 +12,11 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 范围破坏的输入、包围盒和位置列表必须服从同一组轴长与体积上限。
+ * 范围破坏的输入、包围盒和位置列表必须服从同一个包围盒体积上限。
  */
 class RangeDestroySelectionLimiterTest {
     @Test
-    void boxClampKeepsAnchorAndHonorsAxisAndVolumeCaps() {
+    void boxClampKeepsAnchorAndHonorsVolumeCap() {
         RangeDestroySelectionLimiter.Limits limits =
                 new RangeDestroySelectionLimiter.Limits(6, 5, 4, 60);
         BlockPos anchor = new BlockPos(3, 3, 3);
@@ -30,13 +30,24 @@ class RangeDestroySelectionLimiterTest {
 
         assertEquals(7, limited.id());
         assertTrue(limited.contains(anchor));
-        assertTrue(limited.width() <= 6);
-        assertTrue(limited.height() <= 5);
-        assertTrue(limited.depth() <= 4);
         assertTrue((long) limited.width() * limited.height() * limited.depth()
                 <= 60);
         assertTrue(RangeDestroySelectionLimiter.contains(limited, limits));
         assertFalse(RangeDestroySelectionLimiter.contains(source, limits));
+    }
+
+    @Test
+    void longThinSelectionRequiresBothVolumeAndExplicitAxisAllowance() {
+        RangeDestroySelectionLimiter.Limits limits =
+                new RangeDestroySelectionLimiter.Limits(60, 1, 1, 60);
+        RtsCullingBox longThin = new RtsCullingBox(
+                8, BlockPos.ZERO, new BlockPos(59, 0, 0));
+
+        assertTrue(RangeDestroySelectionLimiter.contains(longThin, limits));
+        assertEquals(longThin, RangeDestroySelectionLimiter.clampBox(
+                longThin, BlockPos.ZERO, limits));
+        assertFalse(RangeDestroySelectionLimiter.contains(longThin,
+                new RangeDestroySelectionLimiter.Limits(59, 1, 1, 60)));
     }
 
     @Test

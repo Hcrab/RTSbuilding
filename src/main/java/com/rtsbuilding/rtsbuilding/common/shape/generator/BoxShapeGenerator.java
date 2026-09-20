@@ -23,9 +23,9 @@ public class BoxShapeGenerator extends AreaShapeGenerator {
     @Override
     public List<BlockPos> generatePositions(AreaShapeInput input, ShapeFillMode fillMode) {
         // 计算三个轴上的偏移量并限制最大范围
-        int dx = clampOffset(input.end().getX() - input.start().getX());
-        int dz = clampOffset(input.end().getZ() - input.start().getZ());
-        int dy = clampOffset(input.heightOffset());
+        int dx = clampOffset(input.end().getX() - input.start().getX(), input);
+        int dz = clampOffset(input.end().getZ() - input.start().getZ(), input);
+        int dy = clampOffset(input.heightOffset(), input);
 
         // 确定各轴的最小/最大范围
         int minX = Math.min(0, dx);

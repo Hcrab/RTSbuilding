@@ -36,7 +36,7 @@ Hover the Storage binding button and open link details to refresh, change priori
 
 ### Range binding
 
-Range binding scans storage endpoints in one loaded area. Switch to Storage binding, hold Ctrl to enter range binding, left-click the first corner, then left-click the opposite corner. When the box is ready, scroll to adjust height; hold Alt for faster height changes; press Enter or click again to submit. The mode stays active for another selection; Esc clears the current box first and exits on the next Esc. The current implementation submits read/write binding, accepts up to 64 × 64 × 64, scans loaded chunks only, and deduplicates AE2/Refined Storage networks to one representative endpoint. Oversized, unloaded, or unauthorized targets are filtered by the server.
+Range binding scans storage endpoints in one loaded area. Switch to Storage binding, hold Ctrl to enter range binding, left-click the first corner, then left-click the opposite corner. When the box is ready, scroll to adjust height; hold Alt for faster height changes; press Enter or click again to submit. The mode stays active for another selection; Esc clears the current box first and exits on the next Esc. The current implementation submits read/write binding, defaults to 64 blocks per axis with a 262144-block volume ceiling, scans loaded chunks only, and deduplicates AE2/Refined Storage networks to one representative endpoint. Oversized, unloaded, or unauthorized targets are filtered by the server.
 
 ## Top bar modes
 
@@ -54,7 +54,7 @@ After switching the top bar to Storage binding, point at a chest, barrel, machin
 - Right click is extract-only: RTS may take materials but will not insert drops; use it for a dedicated source endpoint.
 - Hover the top-bar button and open View Links to refresh, inspect dimension/position, change priority/access, or unlink. If the storage page is temporarily empty, refresh and check that the target and its Storage Integration/network are available before assuming data was lost.
 
-Range binding is inside Storage binding: hold Ctrl, click the first corner and the opposite corner, scroll to adjust height, hold Alt for faster changes, then press Enter or click again to submit. The mode stays active for another selection; Esc clears the current box first and exits on the next Esc. It currently submits read/write links, accepts up to 64 × 64 × 64, scans loaded chunks only, and deduplicates AE2/Refined Storage networks to one representative endpoint.
+Range binding is inside Storage binding: hold Ctrl, click the first corner and the opposite corner, scroll to adjust height, hold Alt for faster changes, then press Enter or click again to submit. The mode stays active for another selection; Esc clears the current box first and exits on the next Esc. It currently submits read/write links, defaults to 64 blocks per axis with a 262144-block volume ceiling, scans loaded chunks only, and deduplicates AE2/Refined Storage networks to one representative endpoint.
 
 ### Funnel
 
@@ -71,6 +71,8 @@ To choose the state of the next block before placing it, select the block, point
 Open Quick Build, choose Range Build or Range Destroy, then choose a shape and fill mode. Range Build uses right-click to set its points; Range Destroy uses left-click. When the preview is locked, press the confirm key; the default is `Enter`.
 
 Lines, squares, circles, and balls use A/B points. Lines and circles can be horizontal or vertical. Walls, cylinders, and boxes also need height. Advanced mode gives walls, cylinders, balls, and boxes a 3D box with direction handles. Connected mode fills diagonal corners so line and wall paths remain face-connected.
+
+Normal shape limits are independent: `maxShapeDimension` applies to rectilinear axes and cylinder height, while `maxShapeRadius` applies to circle/cylinder footprints and ball radius. The defaults are `32` / `32`, and both accept `1`–`Integer.MAX_VALUE`. Every generated plan still has one real capacity of `262144` unique targets. A hollow or skeleton shape may therefore remain valid even when its bounding box is larger; a full plan over that capacity is shown as too large and cannot be confirmed. Preview, material count, and confirmation consume the same complete plan. Range Destroy keeps its configured X/Y/Z and bounding-volume checks.
 
 Chain is a Range Destroy shape. Left click the starting block to find connected blocks of the same type. The Limit control caps the block count. With Survival Balance enabled, Chain is unlocked independently by the Chain Break Plugin. Soft blocks such as dirt, snow, and sand need no harvest-tier plugin; stone and harder blocks still require the matching tier plugin and a usable real tool. Placement and destruction wireframes, ghosts, and animations can be toggled separately in Settings.
 
@@ -198,7 +200,7 @@ Open the gear panel:
 - Auto-store, Shift Deposit, and Tool Protection adjust personal workflows.
 - Preview and Animation options separately control block ghosts, wireframes, destruction animation, and the Range Destroy skeleton.
 - Storage Refresh controls 30-second automatic refresh and whether the manual refresh button turns green.
-- Recover RTS-placed Blocks directly takes back recorded placements without tool, harvest-tier, or Silk Touch checks.
+- Recover RTS-placed Blocks instantly recovers blocks with a valid placement credential owned by the current player. No player-supplied tool or linked storage is required; claim protection and third-party break events still apply.
 - Jade Follow Mouse / Hide Jade in RTS keep Jade away from the top prompt.
 - Container Side Overlay controls the panel beside inventories and machines.
 - Damage feedback and low-health exit help protect the player body while using the overhead view.
@@ -207,7 +209,7 @@ The RTS button at the top of the vanilla inventory is automatically centered and
 
 The default confirm key is `Enter`. Change it in Minecraft Controls by searching for RTSBuilding.
 
-Modpack and server rules are not changed in the gear panel. Use `Mods → RTSBuilding → Config`, or edit the server's `config/rts_building/rtsbuilding-common.toml`.
+Modpack and server rules are not changed in the gear panel. Use `Mods → RTSBuilding → Config` for client settings; an OP/singleplayer owner must use the world/server page or edit the world's `serverconfig/rts_building/rtsbuilding-server.toml` for server settings.
 
 ## Common questions
 
@@ -266,6 +268,8 @@ A new single mine, chain mine, or other mining replacement must genuinely cancel
 4. Separate directly logged evidence, supported conclusions, and remaining inferences. Mark missing evidence unknown and ask only 1–3 discriminating questions.
 
 For ordinary controls, Storage binding, Range binding, UI themes, and building how-to questions, answer briefly from the guide without requesting logs or expanding internals. Use this appendix against recent logs only for anomalies, stalls, task resurrection, network rejection, storage failure, or crashes.
+
+Sodium's `LevelSlice` is a critical compatibility boundary for range culling: at least one of the two block-state overloads must successfully take over, otherwise Sodium can bypass the hidden boxes and read the original block state directly. After a Sodium update, a client that starts successfully is not by itself proof that range-culling compatibility is working; verify that a block-state hook remains active.
 
 ### NeoForge 1.21.1 adapter note
 
@@ -354,7 +358,7 @@ Targets pass soft-block classification, plugin harvest tier, real-tool suitabili
 
 Each chain/area request has independent progress and task identity. Overlap must tolerate a target already becoming air without duplicating drops. With “Recover RTS-placed blocks” enabled, a valid credential created by the same player's RTS or ordinary placement event enters instant recovery before the ordinary mining workflow and tool lease. Credentials match the owner, actual block registry ID, and placement generation. Another player, a replaced block, or an untracked target continues through ordinary mining without consuming stale tracking.
 
-Instant recovery temporarily uses an internal Silk Touch tool only for the current player, dimension, and exact target, then invokes the vanilla player-break entry once. Final drops still pass through NeoForge and third-party drop events. With auto-store enabled they try linked storage, then player inventory, while any remainder follows the vanilla world-drop path; linked storage is not required. Cancellation, claim denial, exceptions, or an unchanged world state retain the credential, and tracker/link cleanup commits only after the block actually changes.
+Instant recovery temporarily uses an internal Silk Touch tool only for the current player, dimension, and exact target, then invokes the vanilla player-break entry once. Final drops still pass through NeoForge and third-party drop events. With auto-store enabled they try linked storage, then player inventory, while any remainder follows the vanilla world-drop path; linked storage is not required. Cancellation, claim denial, and exceptions are reconciled against the final world state: an unchanged block retains its credential, and tracker/link cleanup commits only after the block actually changes.
 
 Area destruction freezes the selected tool slot when the task is submitted. A real tool leased from linked storage takes priority; without a lease, execution reads the task's frozen hotbar slot rather than mutable or stale session state. Harvest checks, tool protection, and durability write-back all use that same real stack.
 
@@ -362,7 +366,7 @@ Drops follow normal break logic, then optionally transfer to linked storage. A f
 
 ### Undo and redo history
 
-Ctrl+Z uses server-authoritative history and executes with the creative/survival mode frozen when the original operation occurred; changing game mode before undo cannot change its resource or NBT rules. Each player keeps only the latest three complete placement or destruction operations. If one operation exceeds the block-count or compressed-NBT limit, the whole history entry is rejected with player feedback instead of retaining an incomplete snapshot.
+Ctrl+Z uses server-authoritative history and executes with the creative/survival mode frozen when the original operation occurred; changing game mode before undo cannot change its resource or NBT rules. Each player's undo and redo stacks default to three complete operations each, with a default retention of 600 seconds. The server can change these through `history.maxEntriesPerStack` and `history.retentionSeconds`. If one operation exceeds the block-count or compressed-NBT limit, the whole history entry is rejected with player feedback instead of retaining an incomplete snapshot.
 
 Placement and destruction history also stores the recovery credential before and after each operation. Undo/redo restores it only after a successful world write and only while the expected generation still matches, so an older history entry cannot remove or reclaim a newer same-block placement at the same coordinate.
 
@@ -473,67 +477,54 @@ All settings below apply immediately and need no restart. Most live in the clien
 
 ## Mod and server configuration
 
-Saving through “Mods → RTSBuilding → Config” applies to subsequent requests and writes the config. After manually editing TOML, restart the relevant client, integrated world, or dedicated server.
+First distinguish ownership. “Mods → RTSBuilding → Config” edits the local client file. The RTS gear's world/server page edits typed server settings only when the player has server authority. After manual TOML edits, reload or restart the relevant side. A remote player's client file never changes multiplayer rules.
 
-- **COMMON**: `config/rts_building/rtsbuilding-common.toml`; multiplayer uses the server's values.
-- **CLIENT**: `config/rts_building/rtsbuilding-client.toml`; local visuals, confirmation, and developer display only.
-- **SERVER**: the world's `serverconfig/rts_building/rtsbuilding-server.toml`; server-authoritative.
+- **COMMON (migration input, not runtime rules)**: `config/rts_building/rtsbuilding-common.toml`. The current COMMON spec has no active runtime keys; positive legacy world values in an old COMMON file are considered only when the server key is missing.
+- **CLIENT**: `config/rts_building/rtsbuilding-client.toml`; local visuals, confirmation, and local diagnostics.
+- **SERVER**: the world's `serverconfig/rts_building/rtsbuilding-server.toml` (in the current world directory on a dedicated server); server-authoritative and sent to clients.
+- **Player data**: sessions, linked endpoints, workflows/tasks, undo history, and culling records live in server player/world data. Themes, UI drafts, and personal UI state are client-local, not server TOML.
 
-### Common rules
-
-| Key | Default (range) | Effect |
-|---|---:|---|
-| `enableSurvivalProgression` | `false` | Enables plugins, survival progression, home, and session range gates. |
-| `shareSurvivalProgressionWithTeams` | `false` | Shares home/plugins via FTB Teams, OpenPAC party, or scoreboard team. |
-| `maxActionRadiusBlocks` | `128` (48–512) | Final server ceiling for action radius. |
-| `enableBlueprints` | `true` | Enables blueprint library/upload/server placement. |
-| `maxBlueprintBlocks` | `20000` (1–200000) | Non-air blocks allowed per import, capture, or placement. |
-
-### Client config
+### CLIENT: client-file keys
 
 | Key | Default | Effect |
 |---|---:|---|
+| `enableUiAnimations` | `true` | Visual-only hover and selection transitions. |
 | `useBlockGhostPreview` | `false` | Block ghosts before confirmation. |
-| `usePlaceBlockGhostAnimation` | `true` | Ghost after confirmed placement. |
-| `useDestroyBlockGhostAnimation` | `true` | Ghost after confirmed destruction. |
+| `usePlaceBlockGhostAnimation` / `useDestroyBlockGhostAnimation` | `true` / `true` | Ghost animation after server-confirmed placement/destruction. |
 | `useWireframePreview` | `false` | Wireframe before confirmation. |
-| `usePlaceWireframeAnimation` | `false` | Wireframe after confirmed placement. |
-| `useDestroyWireframeAnimation` | `false` | Wireframe after confirmed destruction. |
-| `useRangeDestroySkeleton` | `true` | Skeleton for non-chain area destruction. |
-| `showInventoryRtsButton` | `true` | Shows the RTS entry button at the top of the vanilla inventory. |
-| `requireKeyboardBatchConfirm` | `true` | Requires keyboard final confirmation. |
-| `developerMode` | `false` | Shows developer scenario entry and enables local developer diagnostics. |
-| `diagnostics.level` | `BASIC` | Client operation-trace level; `OFF` disables it and `VERBOSE` adds detail. Structured output is written to `logs/rtsbuilding/diagnostics-client.jsonl`. |
+| `usePlaceWireframeAnimation` / `useDestroyWireframeAnimation` | `false` / `false` | Wireframe animation after confirmed placement/destruction. |
+| `useRangeDestroySkeleton` | `true` | Skeleton for non-chain area destruction; chain always uses the skeleton style. |
+| `showInventoryRtsButton` | `true` | RTS entry button at the top of the vanilla inventory. |
+| `requireKeyboardBatchConfirm` | `true` | Requires the configurable final key, default `Enter`, for batch actions. |
+| `developerMode` | `false` | Developer scenario entry and local developer diagnostics. |
+| `diagnostics.level` | `BASIC` | `OFF` disables, `BASIC` records bounded lifecycle, and `VERBOSE` adds detail in `logs/rtsbuilding/diagnostics-client.jsonl`. |
 
-### Server runtime limits
+### SERVER: effective runtime keys
 
 | Key | Default (range) | Effect |
 |---|---:|---|
-| `mining.ultimineMaxBlocks` | `256` (1–4096) | Maximum targets collected by one chain request. |
-| `mining.areaMineMaxSize` | `36` (1–64) | Compatibility per-axis ceiling; in-game save syncs it to max(width,height,depth), clamped to 64. |
-| `mining.areaMineMaxVolume` | `46656` (1–262144) | Width×height×depth limit. |
-| `mining.areaMineMaxWidth` | `36` (1–256) | X width limit. |
-| `mining.areaMineMaxHeight` | `36` (1–256) | Y height limit. |
-| `mining.areaMineMaxDepth` | `36` (1–256) | Z depth limit. |
-| `mining.areaMineMaxHarvestTier` | `UNLIMITED` | Server ceiling for area-mining plugin tier. |
-| `mining.areaDestroyMaxTargets` | `98304` (1–262144) | Explicit target positions accepted by one area request. |
-| `mining.ultimineBlocksPerTick` | `32` (1–128) | Batch targets processed by one mining task slice. |
-| `storage.ae2NetworkRefreshThrottle` | `10` (1–200) | Refresh cycles between expensive AE2 snapshots. |
-| `storage.refinedStorageNetworkRefreshThrottle` | `10` (1–200) | Refresh cycles between expensive RS snapshots. |
-| `storage.maxLinkedStorages` | `200` (1–4096) | Linked storage endpoints retained per player; batch linking deduplicates each AE2/RS network and prefers a terminal or grid representative. |
-| `storage.pageCacheMaxPlayers` | `256` (1–4096) | Player entries retained in the page LRU cache. |
-| `storage.defaultStoragePageSize` | `90` (1–4096) | Default entries per page, capped by max page size. |
-| `storage.maxStoragePageSize` | `180` (1–8192) | Maximum entries accepted in one page request. |
-| `placement.buildBatchBlocksPerTick` | `64` (1–512) | Remote placements processed per player per tick. |
-| `placement.buildBatchMaxQueuedJobs` | `4` (1–32) | Queued quick-build jobs per player. |
-| `taskEngine.maxUnitsPerTick` | `256` (1–4096) | Global work-unit hard limit per tick. |
-| `taskEngine.maxUnitsPerSlice` | `32` (1–512) | Units given to one player before rotation. |
-| `taskEngine.maxNanosPerTick` | `8000000` (250000–20000000) | Main-thread cooperative budget in nanoseconds per tick. |
-| `interaction.remotePovBlockReach` | `4.0` (1.0–16.0) | Temporary reach while replaying a remote action. |
-| `mining.dropScanRadius` | `1.25` (0.25–8.0) | Radius for absorbing drops around remotely mined blocks. |
-| `placement.remoteBlockActionSoundsPerTick` | `16` (0–16) | Remote block-action sounds sent per player per tick; excess is dropped. |
-| `fluid.internalFluidCapacityBuckets` | `100` (1–4096) | Fallback internal fluid capacity in buckets. |
-| `diagnostics.level` | `BASIC` | Server diagnostics; `BASIC` records threshold progress, tick health, and persistence results, `VERBOSE` also permits one task-progress sample per second, and `OFF` disables it. |
+| `enableSurvivalProgression` / `shareSurvivalProgressionWithTeams` | `false` / `false` | Survival plugins/home/session gates; the second shares home/plugins with a team. |
+| `maxActionRadiusBlocks` / `enableBlueprints` / `maxBlueprintBlocks` | `128` (48–512) / `true` / `20000` (1–200000) | Final action-radius ceiling, blueprint switch, and non-air blocks per blueprint. |
+| `mining.maxSelectionVolume` | `46656` (1–262144) | The only selection volume ceiling (width × height × depth). |
+| `mining.maxSelectionSizeX` / `mining.maxSelectionSizeY` / `mining.maxSelectionSizeZ` | `64` / `64` / `64` (each 1–`Integer.MAX_VALUE`) | Independent axis ceilings; every axis and the volume must pass. |
+| `mining.ultimineMaxBlocks` / `mining.ultimineBlocksPerTick` | `256` (1–4096) / `32` (positive integer) | Chain target total and per-slice processing count. |
+| `mining.maxTreeBlocks` / `mining.areaMineMaxHarvestTier` | `8192` (1–262144) / `UNLIMITED` | Connected tree limit and area-mining harvest-tier ceiling; an oversized connected group is rejected as a whole. |
+| `progression.homeSelectionRadiusBlocks` / `progression.homeRelocationCooldownDays` | `34` (1–`Integer.MAX_VALUE`) / `20` (0–`Integer.MAX_VALUE`) | Home selection radius and relocation cooldown; zero disables the cooldown. |
+| `building.maxShapeDimension` / `building.maxShapeRadius` | `32` / `32` (each 1–`Integer.MAX_VALUE`) | Independent rectilinear/cylinder-height dimension and circle/cylinder/ball radius ceilings. |
+| `smartFill.maxBlocks` / `smartFill.defaultBlocks` | `1024` / `512` (each 1–8192; default ≤ maximum) | Smart Fill block maximum and default. |
+| `smartFill.maxDiameter` / `smartFill.defaultDiameter` | `32` / `16` (each 3–256; default ≤ maximum) | Smart Fill detection diameter maximum and default. |
+| `storage.maxBatchBindingSelectionVolume` | `262144` (1–262144) | Batch storage-binding selection volume. |
+| `storage.maxBatchBindingSizeX` / `storage.maxBatchBindingSizeY` / `storage.maxBatchBindingSizeZ` | `64` / `64` / `64` (positive integer) | Batch storage-binding axis ceilings. |
+| `funnel.pickupRadiusBlocks` / `workflows.maxActivePerPlayer` | `2.0` (0–32) / `8` (1–1024) | Funnel pickup radius and active workflows per player. |
+| `history.maxEntriesPerStack` / `history.retentionSeconds` | `3` (positive integer) / `600` (positive integer) | Undo entries per stack and retention seconds. |
+| `diagnostics.level` | `BASIC` | `OFF`/`BASIC`/`VERBOSE`; server lifecycle, health, and persistence diagnostics. |
+| `diagnostics.maxTraces` / `diagnostics.maxWorkflowLinks` / `diagnostics.maxTaskLinks` | `1024` / `2048` / `2048` (positive integer) | Bounded structured-diagnostic capacities. |
+
+These SERVER keys are file-oriented and may not be ordinary in-game controls: `funnel.maxEntitiesPerTick=24`, `funnel.maxItemsPerTick=48`, `funnel.bufferMaxStacks=16`, `funnel.tickInterval=2`, `storage.dropCacheSoftCapacity=4096`, `storage.ae2NetworkRefreshThrottle=10`, `storage.refinedStorageNetworkRefreshThrottle=10`, `storage.maxLinkedStorages=200` (1–4096), `storage.enableCrossDimensionStorage=true`, `storage.maxCrossDimensionAwakeChunks=32` (1–256), `storage.pageCacheMaxPlayers=256` (positive integer), `storage.defaultStoragePageSize=90` (1–4096), `storage.maxStoragePageSize=180` (1–8192), `placement.buildBatchBlocksPerTick=64`, `placement.buildBatchMaxQueuedJobs=4`, `taskEngine.maxUnitsPerTick=256`, `taskEngine.maxUnitsPerSlice=32`, `taskEngine.maxNanosPerTick=8000000` (positive ranges), `interaction.remotePovBlockReach=4.0` (1–16), `mining.dropScanRadius=1.25` (0.25–8), `placement.remoteBlockActionSoundsPerTick=16` (0–16), `fluid.internalFluidCapacityBuckets=100` (1–4096), and internal migration key `internal.configRevision=0` (do not edit manually).
+
+### Legacy migration keys (not current limits)
+
+`mining.areaMineMaxSize`, `mining.areaMineMaxVolume`, `mining.areaMineMaxWidth`, `mining.areaMineMaxHeight`, `mining.areaMineMaxDepth`, and `mining.areaDestroyMaxTargets` default to `0` sentinels and are read only during the first migration. A fresh install uses volume `46656` with independent axes `64/64/64`. Positive old axes are preserved independently; a missing axis falls back to the old size or new default 64. A positive old volume wins over old axes, and old targets provide volume only when no other clue exists. If a file contains only canonical `mining.maxSelectionVolume`, that volume is kept and missing axes become 64; canonical axes win one by one. The canonical write is idempotent.
 
 ## Symptom-to-checkpoint table
 
@@ -565,9 +556,44 @@ The most useful bundle contains RTSBuilding/Minecraft/loader versions, singlepla
 
 When information is incomplete, offer safe reversible checks first, then ask for the most important 1–3 missing details. Do not demand the complete mod list immediately. If the guide cannot establish the cause, state that clearly instead of presenting inference as fact.
 
+## Current candidate runtime quick reference
+
+### Reason code → short state → next action
+
+The workflow panel displays a server reason code; the short state is not a guess.
+
+| Code | Short state | Player action |
+|---|---|---|
+| `RESOURCE_MISSING` | Waiting for materials | Add the real block/tool and check linked endpoints plus the player's main inventory. The currently open menu, cursor stack, or hovered container does not change the background source. |
+| `TOOL_MISSING` | Usable tool missing | Supply a real harvestable tool and check durability/harvest tier; a preview icon is not proof of a usable tool. |
+| `CHUNK_UNLOADED` | Waiting for chunks | Keep the target chunks loaded and let the task continue; if it still waits, record dimension and trace. |
+| `CONFIG_DISABLED` | Disabled by server | Ask an OP/singleplayer owner to inspect and save SERVER config; a remote client cannot bypass it with a local file. |
+| `PERMISSION_DENIED` | Permission denied | Check claim, dimension, session range, and target permission; do not spam the same request. |
+| `QUEUE_FULL` | Queue full | Inspect unfinished workflows, cancel an unprotected task you no longer need, or wait for rotation; protected work is not silently evicted. |
+| `MANUAL_PAUSED` | Paused by player | Resume that workflow; resource waiting and manual pause are different states. |
+| `EXECUTION_ERROR` | Execution failed | Preserve the save and provide client/server logs correlated by trace → seq → op → workflow → task. |
+| `CANCELLED` / `REPLACED` | Cancelled / replaced | This is a server terminal state. A new mining replacement releases leases and writes a tombstone; a vanished UI alone is not evidence. |
+| `SUCCESS` / `SKIPPED` / `UNKNOWN` | Complete / skipped / unknown | `SKIPPED` may mean the target already changed; `UNKNOWN` does not mean missing materials. Include the correlation IDs for further diagnosis. |
+
+### Settings, sessions, and ACKs
+
+The client settings screen edits a draft; only “Apply” writes the client file. Themes, UI state, and animations do not change server tasks. The server settings page checks authority, value/range, and revision conflicts, writes canonical values, returns an ACK, and then broadcasts the new server view; an ordinary player or remote client must be rejected. Opening RTS creates a player/dimension session with an anchor. Each later action rechecks dimension, session, and the ±X/±Z action radius. Leaving the world, changing dimension, death, or disconnect must clean the session. An ACK confirms a settings write, not termination of an old task.
+
+### Pagination, entry IDs, and asynchronous results
+
+The server builds storage pages from a snapshot. The default page contains `90` entries and a client request is capped at `180` (`storage.defaultStoragePageSize` / `storage.maxStoragePageSize`); the response carries the actual `safePage`, `totalPages`, and total entry count. Pages are zero-based; the last row of a page is not a global index. Requests carry session/query/request generations, so a late response for an old query, source, sort, or dimension is discarded; changing source/filter/sort returns to page one. A workflow `entryId` is the stable server identity used by detail, pause, resume, protect, and delete actions. Reordering or removing rows must never retarget an action by list index.
+
+### Blueprint loading and cancellation
+
+Blueprint scans, parsing, and capture saves can run asynchronously. Each load carries a generation/file revision; a new scan, folder switch, delete, or screen close cancels the old handle, and a late old-generation result cannot replace the current selection. A preview/ghost is client display only: submission revalidates format, non-air count, materials, permissions, chunks, and rotation on the server. Large blueprints enter a durable workflow. Cancelling a blueprint uses the workflow cancel/delete action; clearing a local ghost, cancelling placement, and deleting a file are different actions.
+
+### Migration and evidence boundary
+
+A fresh range limit is volume `46656` with independent axes `64/64/64`. Positive legacy axes are preserved independently; a legacy file containing only canonical volume gains 64 axes, and old keys are not current UI limits. Server extraction must retain the real `ItemStack`, including capability/NBT/durability changes and remainders. Switching menus changes display semantics only, not the background source. The version sections below describe loader/API directory differences; these semantics still need separate NeoForge 1.21.1 and Forge 1.20.1 in-game verification, and this text does not claim that runtime verification was performed.
+
 ## Version-specific technical appendix: NeoForge 1.21.1
 
-This appendix defines the task, workflow, and logging boundaries for this line. The release-preparation version is `1.1.7`, while the platform channel remains Beta; if the test build is unstable in a modpack, return to the latest release `1.1.6-patch2` and do not leave old test tasks running in the world.
+This appendix defines the task, workflow, and logging boundaries for the NeoForge 1.21.1 line. The release version is filled during release closeout; do not treat the candidate source state as a published version or replace server terminal evidence with a disappearing client panel.
 
 ### Task-cancellation contract
 

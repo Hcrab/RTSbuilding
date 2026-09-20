@@ -137,10 +137,6 @@ public final class RtsProgressRefresher {
      */
     public static long countItemsInPlayerInventory(ServerPlayer player, ItemStack template) {
         if (player == null || template == null || template.isEmpty()) return 0;
-        boolean includePlayerInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player,
-                ServiceRegistry.getInstance().session().getIfPresent(player));
-        if (!includePlayerInventory) return 0;
-
         int start = RtsStoragePageBuilder.getPlayerMainInventoryStart(player);
         int end = RtsStoragePageBuilder.getPlayerMainInventoryEndExclusive(player);
         long count = 0;

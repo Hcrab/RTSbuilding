@@ -30,7 +30,7 @@ class RtsCullingRoutingContractTest {
     }
 
     @Test
-    void sodium0613UsesLevelSliceAndItsOwnAreaRebuildEntry() throws IOException {
+    void sodiumUsesLevelSliceAndItsOwnAreaRebuildEntry() throws IOException {
         String mixin = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/mixin/SodiumLevelSliceMixin.java"));
         String config = Files.readString(Path.of("src/main/resources/rtsbuilding.mixins.json"));
@@ -41,6 +41,10 @@ class RtsCullingRoutingContractTest {
         assertTrue(mixin.contains("getBlockState(III)"));
         assertTrue(mixin.contains("getFluidState("));
         assertTrue(mixin.contains("getBlockEntity(III)"));
+        assertTrue(mixin.contains("require = 0"),
+                "Sodium's internal LevelSlice methods are optional and must not block client startup");
+        assertTrue(mixin.contains("@Group(name = \"rtsbuilding$sodiumBlockState\", min = 1, max = 2)"),
+                "at least one Sodium block-state hook must remain active to preserve range culling");
         assertTrue(config.contains("SodiumLevelSliceMixin"));
         assertTrue(invalidator.contains("net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer"));
         assertTrue(invalidator.contains("scheduleRebuildForBlockArea"));

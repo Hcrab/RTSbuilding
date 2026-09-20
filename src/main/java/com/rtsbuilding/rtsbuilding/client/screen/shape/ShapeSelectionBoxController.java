@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionBoxAnimator;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.AABB;
@@ -16,7 +17,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.SHAPE_MAX_DIMENSION;
 
 /**
  * 高级形状范围框的唯一交互 owner。
@@ -25,13 +25,6 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
  * 生成方块或触发世界副作用。会话通过窄读写端口接入，避免把状态复制到两个模块。</p>
  */
 public final class ShapeSelectionBoxController {
-    private static final int DEFAULT_AREA_MINE_MAX_SIZE = 36;
-    private static final int DEFAULT_AREA_MINE_MAX_VOLUME =
-            DEFAULT_AREA_MINE_MAX_SIZE * DEFAULT_AREA_MINE_MAX_SIZE * DEFAULT_AREA_MINE_MAX_SIZE;
-    private static final RangeDestroySelectionLimiter.Limits SHAPE_LIMITS =
-            new RangeDestroySelectionLimiter.Limits(
-                    SHAPE_MAX_DIMENSION, SHAPE_MAX_DIMENSION, SHAPE_MAX_DIMENSION,
-                    SHAPE_MAX_DIMENSION * SHAPE_MAX_DIMENSION * SHAPE_MAX_DIMENSION);
 
     private final RtsBoxHandleInteraction handles = new RtsBoxHandleInteraction();
     private final RtsSelectionBoxAnimator animator = new RtsSelectionBoxAnimator();
@@ -156,7 +149,8 @@ public final class ShapeSelectionBoxController {
                 : null;
         ShapeBuildTypes.Session moved = new ShapeBuildTypes.Session(
                 session.shape(), session.planeFace(), session.placementFace(),
-                session.pointA().offset(dx, dy, dz), session.pointB().offset(dx, dy, dz),
+                ShapeGeometryUtil.offsetPos(session.pointA(), dx, dy, dz),
+                ShapeGeometryUtil.offsetPos(session.pointB(), dx, dy, dz),
                 session.phase(), session.boxHeightOffset(), session.boxHeightMouseBaseY());
         update(moved);
         if (oldBox != null) {
@@ -166,8 +160,9 @@ public final class ShapeSelectionBoxController {
     }
 
     public RtsCullingBox clamp(RtsCullingBox box, BlockPos anchor) {
-        return RangeDestroySelectionLimiter.clampBox(
-                box, anchor, isRangeDestroy() ? currentRangeDestroyLimits() : SHAPE_LIMITS);
+        return isRangeDestroy()
+                ? RangeDestroySelectionLimiter.clampBox(box, anchor, currentRangeDestroyLimits())
+                : RangeDestroySelectionLimiter.clampBoxDimensions(box, anchor, Config.maxShapeDimension());
     }
 
     private boolean withinCaps(RtsCullingBox box) {
@@ -177,9 +172,8 @@ public final class ShapeSelectionBoxController {
         if (isRangeDestroy()) {
             return RangeDestroySelectionLimiter.contains(box, currentRangeDestroyLimits());
         }
-        return box.width() <= SHAPE_MAX_DIMENSION
-                && box.height() <= SHAPE_MAX_DIMENSION
-                && box.depth() <= SHAPE_MAX_DIMENSION;
+        int maxDimension = Config.maxShapeDimension();
+        return box.width() <= maxDimension && box.height() <= maxDimension && box.depth() <= maxDimension;
     }
 
     private boolean isRangeDestroy() {
@@ -188,10 +182,10 @@ public final class ShapeSelectionBoxController {
 
     public static RangeDestroySelectionLimiter.Limits currentRangeDestroyLimits() {
         return new RangeDestroySelectionLimiter.Limits(
-                configInt(Config::areaMineMaxWidth, DEFAULT_AREA_MINE_MAX_SIZE),
-                configInt(Config::areaMineMaxHeight, DEFAULT_AREA_MINE_MAX_SIZE),
-                configInt(Config::areaMineMaxDepth, DEFAULT_AREA_MINE_MAX_SIZE),
-                configInt(Config::areaMineMaxVolume, DEFAULT_AREA_MINE_MAX_VOLUME));
+                configInt(Config::areaMineMaxWidth, 64),
+                configInt(Config::areaMineMaxHeight, 64),
+                configInt(Config::areaMineMaxDepth, 64),
+                configInt(Config::areaMineMaxVolume, MiningLimits.DEFAULT_VOLUME));
     }
 
     private static int configInt(java.util.function.IntSupplier supplier, int fallback) {

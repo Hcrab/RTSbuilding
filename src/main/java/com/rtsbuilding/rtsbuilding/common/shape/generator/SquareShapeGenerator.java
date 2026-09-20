@@ -27,13 +27,13 @@ public class SquareShapeGenerator extends AreaShapeGenerator {
         Direction[] axes = resolvePlaneAxes(face);
 
         // 计算偏移并限制范围
-        int dx = clampOffset(input.end().getX() - input.start().getX());
-        int dy = clampOffset(input.end().getY() - input.start().getY());
-        int dz = clampOffset(input.end().getZ() - input.start().getZ());
+        int dx = clampOffset(input.end().getX() - input.start().getX(), input);
+        int dy = clampOffset(input.end().getY() - input.start().getY(), input);
+        int dz = clampOffset(input.end().getZ() - input.start().getZ(), input);
 
         // 将偏移投影到两个平面轴上
-        int aOffset = clampOffset(dotDelta(dx, dy, dz, axes[0]));
-        int bOffset = clampOffset(dotDelta(dx, dy, dz, axes[1]));
+        int aOffset = clampOffset(dotDelta(dx, dy, dz, axes[0]), input);
+        int bOffset = clampOffset(dotDelta(dx, dy, dz, axes[1]), input);
 
         int minA = Math.min(0, aOffset);
         int maxA = Math.max(0, aOffset);
@@ -48,8 +48,8 @@ public class SquareShapeGenerator extends AreaShapeGenerator {
         }
 
         // HOLLOW / SKELETON：调用通用边界过滤器
-        int minY = Math.min(0, clampOffset(input.end().getY() - input.start().getY()));
-        int maxY = Math.max(0, clampOffset(input.end().getY() - input.start().getY()));
+        int minY = Math.min(0, clampOffset(input.end().getY() - input.start().getY(), input));
+        int maxY = Math.max(0, clampOffset(input.end().getY() - input.start().getY(), input));
         return filterBoundary(all, minY, maxY);
     }
 }

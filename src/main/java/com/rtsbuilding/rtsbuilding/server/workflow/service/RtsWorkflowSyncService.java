@@ -21,8 +21,6 @@ import java.util.List;
  */
 public final class RtsWorkflowSyncService {
 
-    private static final int MAX_WORKFLOWS = 8;
-
     /**
      * 将所有已占用的工作流条目作为独立负载发送给客户端。
      *
@@ -33,7 +31,6 @@ public final class RtsWorkflowSyncService {
         if (player == null || slots == null) return;
 
         int totalCount = slots.occupiedCount();
-        byte totalCountByte = (byte) Math.min(totalCount, 255);
 
         if (totalCount == 0) {
             RtsClientboundPackets.sendToPlayer(player, S2CRtsWorkflowProgressPayload.idle());
@@ -42,16 +39,16 @@ public final class RtsWorkflowSyncService {
 
         // 收集所有条目，作为单个批次包发送
         List<S2CRtsWorkflowProgressPayload> entries = new ArrayList<>(totalCount);
-        int entryCount = Math.min(slots.size(), MAX_WORKFLOWS);
+        int entryCount = slots.size();
         for (int i = 0; i < entryCount; i++) {
             RtsWorkflowEntry entry = slots.getEntry(i);
             if (entry == null || !entry.isOccupied()) continue;
 
             RtsWorkflowStatus status = entry.snapshot();
             entries.add(new S2CRtsWorkflowProgressPayload(
-                    (byte) i,
-                    totalCountByte,
-                    status.type() != null ? (byte) status.type().ordinal() : (byte) -1,
+                    i,
+                    totalCount,
+                    status.type() != null ? (byte) status.type().wireId() : (byte) -1,
                     (byte) status.priority().rank(),
                     status.totalBlocks(),
                     status.completedBlocks(),
@@ -61,7 +58,8 @@ public final class RtsWorkflowSyncService {
                     status.suspended() ? (byte) 1 : (byte) 0,
                     status.paused() ? (byte) 1 : (byte) 0,
                     status.protectedWorkflow() ? (byte) 1 : (byte) 0,
-                    entry.id()));
+                    entry.id(),
+                    status.reason().wireId()));
         }
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsWorkflowProgressBatchPayload(entries));
     }
@@ -78,9 +76,9 @@ public final class RtsWorkflowSyncService {
         RtsWorkflowStatus status = entry.snapshot();
         int remainingCount = slots.occupiedCount() - 1;
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsWorkflowProgressPayload(
-                (byte) removedAtIndex,
-                (byte) remainingCount,
-                status.type() != null ? (byte) status.type().ordinal() : (byte) -1,
+                removedAtIndex,
+                remainingCount,
+                status.type() != null ? (byte) status.type().wireId() : (byte) -1,
                 (byte) status.priority().rank(),
                 status.totalBlocks(),
                 status.completedBlocks(),
@@ -90,7 +88,8 @@ public final class RtsWorkflowSyncService {
                 (byte) 0,
                 (byte) 0,
                 status.protectedWorkflow() ? (byte) 1 : (byte) 0,
-                entry.id()));
+                entry.id(),
+                status.reason().wireId()));
 
         // 如果还有剩余条目，通知更新后的状态
         notifyPlayer(player, slots);

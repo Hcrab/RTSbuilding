@@ -19,7 +19,6 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.SHAPE_MAX_DIMENSION;
 
 /**
  * 形状操作的纯规划与世界资格 adapter。
@@ -67,19 +66,35 @@ public final class ShapeWorldOperationPlanner {
     }
 
     public List<BlockPos> generate(ShapeBuildTypes.Input input) {
+        return generationPlan(input).positions();
+    }
+
+    /** 预览、材料统计和确认共用同一份有界几何计划。 */
+    public ShapeGenerationResult generationPlan(ShapeBuildTypes.Input input) {
         if (input == null) {
-            return List.of();
+            this.generationPlans.clear();
+            return new ShapeGenerationResult(
+                    ShapeGenerationStatus.EMPTY, List.of(), 0);
         }
+        return this.generationPlans.plan(requestFor(input));
+    }
+
+    public ShapeGenerationStatus generationStatus(ShapeBuildTypes.Input input) {
+        return generationPlan(input).status();
+    }
+
+    private ShapeGenerationPlanCache.Request requestFor(ShapeBuildTypes.Input input) {
         boolean rangeDestroy = this.screen.isQuickBuildRangeDestroyMode()
                 && !this.screen.isQuickBuildRangeDestroyChainMode();
         RtsCullingBox advancedBox = this.selectionBox.hasEditableSession() ? this.selectionBox.box() : null;
-        return this.generationPlans.positions(new ShapeGenerationPlanCache.Request(
+        return new ShapeGenerationPlanCache.Request(
                 input,
                 this.modeState.activeFillMode(),
                 advancedBox,
                 rangeDestroy,
                 ShapeSelectionBoxController.currentRangeDestroyLimits(),
-                SHAPE_MAX_DIMENSION));
+                com.rtsbuilding.rtsbuilding.Config.maxShapeDimension(),
+                com.rtsbuilding.rtsbuilding.Config.maxShapeRadius());
     }
 
     public List<BlockPos> filterToBounds(List<BlockPos> blocks) {
@@ -179,7 +194,11 @@ public final class ShapeWorldOperationPlanner {
             TargetFilter filter,
             TargetExecutor executor,
             Runnable clearSession) {
-        List<BlockPos> targets = filter.filter(input, generate(input));
+        ShapeGenerationResult generation = generationPlan(input);
+        if (generation.status() == ShapeGenerationStatus.TOO_LARGE) {
+            return false;
+        }
+        List<BlockPos> targets = filter.filter(input, generation.positions());
         clearSession.run();
         if (targets.isEmpty()) {
             return true;

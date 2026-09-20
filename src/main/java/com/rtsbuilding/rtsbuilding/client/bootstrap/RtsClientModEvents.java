@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.blueprint.BlueprintGhostRenderer;
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsMovementModeRegistry;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.RtsMenuTypes;
@@ -58,5 +59,7 @@ public final class RtsClientModEvents {
     public static void registerThemeReloadListener(RegisterClientReloadListenersEvent event) {
         event.registerReloadListener((ResourceManagerReloadListener) resourceManager ->
                 UiThemeTextureCache.INSTANCE.clear());
+        event.registerReloadListener((ResourceManagerReloadListener) resourceManager ->
+                BlueprintGhostRenderer.invalidate());
     }
 }

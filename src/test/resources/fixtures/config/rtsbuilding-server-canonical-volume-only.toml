@@ -1,0 +1,3 @@
+# 迁移夹具：框架只保留 canonical 体积，轴字段尚未写入。
+[mining]
+maxSelectionVolume = 50000

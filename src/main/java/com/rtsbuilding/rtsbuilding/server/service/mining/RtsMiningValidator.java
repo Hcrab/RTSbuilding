@@ -2,6 +2,8 @@ package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
+import com.rtsbuilding.rtsbuilding.common.mining.SelectionVolumeLimit;
 import com.rtsbuilding.rtsbuilding.server.loadout.RtsMiningRules;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
@@ -23,9 +25,8 @@ import net.minecraft.world.level.block.state.BlockState;
  *
  * <p><b>常量限制：</b>
  * <ul>
- *   <li>{@link #ULTIMINE_MAX_BLOCKS}=256 — BFS 连锁挖掘收集的硬上限</li>
- *   <li>{@link #AREA_MINE_MAX_SIZE}=36 — 区域挖掘每个维度的最大范围</li>
- *   <li>{@link #AREA_DESTROY_MAX_TARGETS}=98304 — 区域破坏接受的最大位置数</li>
+ *   <li>{@link #ULTIMINE_MAX_BLOCKS} — 未加载配置时的连锁数量默认值，不是运行时上限</li>
+ *   <li>区域挖掘与范围破坏共用 {@link #areaMineMaxVolume()}，没有独立轴向限制</li>
  *   <li>{@link #ULTIMINE_BLOCKS_PER_TICK}=32 — 单个挖掘任务切片处理的目标数（节流）</li>
  * </ul>
  *
@@ -44,14 +45,15 @@ public final class RtsMiningValidator {
     //  常量
     // =========================================================================
 
-    /** 连锁挖掘批次最多可收集的方块数。 */
-    public static final int ULTIMINE_MAX_BLOCKS = 256;
+    /** 兼容旧调用方的默认值；运行时必须调用 ultimineMaxBlocks。 */
+    public static final int ULTIMINE_MAX_BLOCKS = MiningLimits.DEFAULT_CHAIN_LIMIT;
 
-    /** 区域挖掘每维度最大方块数（X、Y、Z）。 */
+    /** 仅保留旧 API 常量，区域不再按此值限制每个方向。 */
+    @Deprecated
     public static final int AREA_MINE_MAX_SIZE = 36;
 
-    /** 快速建造接受的显式形状破坏最大目标数。 */
-    public static final int AREA_DESTROY_MAX_TARGETS = 98304;
+    /** 兼容旧 API 的实现容量；新请求仍应通过统一体积接纳检查。 */
+    public static final int AREA_DESTROY_MAX_TARGETS = MiningLimits.MAX_VOLUME;
 
     /** 单个挖掘任务切片处理的批量目标数。 */
     public static final int ULTIMINE_BLOCKS_PER_TICK = 32;
@@ -63,31 +65,29 @@ public final class RtsMiningValidator {
     }
 
     public static int ultimineMaxBlocks() {
-        return configIntOrDefault(Config::ultimineMaxBlocks, ULTIMINE_MAX_BLOCKS);
+        return MiningLimits.clampChainLimit(configIntOrDefault(Config::ultimineMaxBlocks, ULTIMINE_MAX_BLOCKS));
     }
 
     public static int areaMineMaxSize() {
-        return configIntOrDefault(Config::areaMineMaxSize, AREA_MINE_MAX_SIZE);
+        return areaMineMaxVolume();
     }
 
     public static int areaMineMaxVolume() {
-        return configIntOrDefault(Config::areaMineMaxVolume, AREA_MINE_MAX_SIZE * AREA_MINE_MAX_SIZE * AREA_MINE_MAX_SIZE);
+        return MiningLimits.clampVolume(configIntOrDefault(Config::areaMineMaxVolume, MiningLimits.DEFAULT_VOLUME));
     }
 
-    public static int areaMineMaxWidth() {
-        return configIntOrDefault(Config::areaMineMaxWidth, areaMineMaxSize());
-    }
+    public static int areaMineMaxWidth() { return configIntOrDefault(Config::areaMineMaxWidth, 64); }
 
-    public static int areaMineMaxHeight() {
-        return configIntOrDefault(Config::areaMineMaxHeight, areaMineMaxSize());
-    }
+    public static int areaMineMaxHeight() { return configIntOrDefault(Config::areaMineMaxHeight, 64); }
 
-    public static int areaMineMaxDepth() {
-        return configIntOrDefault(Config::areaMineMaxDepth, areaMineMaxSize());
-    }
+    public static int areaMineMaxDepth() { return configIntOrDefault(Config::areaMineMaxDepth, 64); }
 
     public static int areaDestroyMaxTargets() {
-        return configIntOrDefault(Config::areaDestroyMaxTargets, AREA_DESTROY_MAX_TARGETS);
+        return areaMineMaxVolume();
+    }
+
+    public static SelectionVolumeLimit areaMineSelectionLimit() {
+        return new SelectionVolumeLimit(areaMineMaxVolume(), areaMineMaxWidth(), areaMineMaxHeight(), areaMineMaxDepth());
     }
 
     public static int ultimineBlocksPerTick() {
@@ -325,6 +325,8 @@ public final class RtsMiningValidator {
      * Session 中最近一次连锁挖掘的槽位相同。</p>
      */
     public static boolean isToolNearBreak(ServerPlayer player, RtsStorageSession session, int toolSlot) {
+        // 创造操作不消耗工具耐久，不能因手里恰好拿着残损工具而暂停大选区任务。
+        if (player != null && player.isCreative()) return false;
         if (session == null || !session.mining.miningToolProtectionEnabled) {
             return false;
         }

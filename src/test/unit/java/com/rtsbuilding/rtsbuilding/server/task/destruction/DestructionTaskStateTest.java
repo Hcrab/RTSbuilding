@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.task.destruction;
 
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import com.rtsbuilding.rtsbuilding.server.task.DestructionTaskPayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -80,6 +81,22 @@ class DestructionTaskStateTest {
     }
 
     @Test
+    void maximumVolumeTargetsAreAcceptedAndLargerListsFailClosed() {
+        List<BlockPos> maximum = new ArrayList<>(MiningLimits.MAX_VOLUME);
+        for (int i = 0; i < MiningLimits.MAX_VOLUME; i++) {
+            maximum.add(new BlockPos(i, 0, 0));
+        }
+        DestructionTaskState state = new DestructionTaskState(
+                maximum, (byte) 0, false, false, 1,
+                0, 0, 0, List.of(), List.of());
+
+        assertEquals(MiningLimits.MAX_VOLUME, state.totalUnits());
+        assertThrows(IllegalArgumentException.class, () -> new DestructionTaskState(
+                java.util.Collections.nCopies(MiningLimits.MAX_VOLUME + 1, BlockPos.ZERO),
+                (byte) 0, false, false, 1, 0, 0, 0, List.of(), List.of()));
+    }
+
+    @Test
     void codecRejectsWrongHistoryElementTypeAndNonCanonicalDimension() {
         DestructionTaskPayload payload = new DestructionTaskPayload(
                 UUID.randomUUID(), Level.OVERWORLD, 17, stateWithOneDestroyedTarget(false));
@@ -101,14 +118,37 @@ class DestructionTaskStateTest {
         DestructionTaskPayload payload = new DestructionTaskPayload(
                 UUID.randomUUID(), Level.OVERWORLD, 17, stateWithOneDestroyedTarget(false));
         CompoundTag encoded = DestructionTaskCodec.encode(payload);
-        CompoundTag history = encoded.getList("history", net.minecraft.nbt.Tag.TAG_COMPOUND).getCompound(0);
-        history.remove("credentialBefore");
-        history.remove("credentialAfter");
+        CompoundTag historyValues = encoded.getList("history", net.minecraft.nbt.Tag.TAG_COMPOUND)
+                .getCompound(0).getCompound("values");
+        historyValues.remove("credentialBefore");
+        historyValues.remove("credentialAfter");
+        encoded.remove("history_credentials");
 
         DestructionTaskPayload decoded = DestructionTaskCodec.decode(encoded);
 
         assertFalse(decoded.state().historyRecords().getFirst().contains("credentialBefore"));
         assertFalse(decoded.state().historyRecords().getFirst().contains("credentialAfter"));
+    }
+
+    @Test
+    void schemaTwoInlineHistoryRemainsReadableAfterCompactSchemaUpgrade() {
+        DestructionTaskPayload payload = new DestructionTaskPayload(
+                UUID.randomUUID(), Level.OVERWORLD, 17, stateWithOneDestroyedTarget(false));
+        CompoundTag legacy = DestructionTaskCodec.encode(payload);
+        long position = legacy.getLongArray("historyPositions")[0];
+        CompoundTag record = new CompoundTag();
+        record.putLong("pos", position);
+        record.put("state", legacy.getList("history_states", net.minecraft.nbt.Tag.TAG_COMPOUND)
+                .getCompound(0).copy());
+        net.minecraft.nbt.ListTag inline = new net.minecraft.nbt.ListTag();
+        inline.add(record);
+        legacy.put("history", inline);
+        legacy.remove("historyPositions");
+        legacy.putInt("schema", 2);
+
+        DestructionTaskPayload decoded = DestructionTaskCodec.decode(legacy);
+
+        assertEquals(position, decoded.state().historyRecords().getFirst().getLong("pos"));
     }
 
     private static DestructionTaskState stateWithOneDestroyedTarget(boolean creativeOperation) {

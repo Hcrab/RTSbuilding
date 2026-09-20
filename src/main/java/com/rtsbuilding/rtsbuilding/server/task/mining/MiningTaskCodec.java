@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.task.mining;
 
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
+import com.rtsbuilding.rtsbuilding.server.history.HistoryRecordCodec;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.task.MiningTaskPayload;
 import net.minecraft.core.BlockPos;
@@ -8,7 +9,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
@@ -21,8 +21,9 @@ import java.util.List;
 
 /** MiningTaskPayload 的版本化纯 NBT codec，并集中保存历史方块快照格式。 */
 public final class MiningTaskCodec {
-    public static final int SCHEMA_VERSION = 2;
-    public static final int MAX_TARGETS = 32_768;
+    public static final int SCHEMA_VERSION = 3;
+    /** 保留旧调用点名称，但边界由公共挖掘容量统一定义。 */
+    public static final int MAX_TARGETS = MiningTaskState.MAX_TARGETS;
 
     private MiningTaskCodec() {
     }
@@ -30,7 +31,10 @@ public final class MiningTaskCodec {
     public static CompoundTag encode(MiningTaskPayload payload) {
         MiningTaskState state = payload.state();
         if (state.totalUnits() > MAX_TARGETS) throw new IllegalArgumentException("mining target 数量越界");
-        if (state.historyRecords().size() > MAX_TARGETS * 7) {
+        // codec 只读冻结历史；不要在每个持久化检查点深复制 26 万条 NBT。
+        List<CompoundTag> historyRecords = new ArrayList<>();
+        state.appendFrozenHistoryTo(historyRecords);
+        if (historyRecords.size() > MiningTaskState.maxHistoryRecordsForTargets(state.totalUnits())) {
             throw new IllegalArgumentException("mining history 越界");
         }
         CompoundTag tag = new CompoundTag();
@@ -51,9 +55,8 @@ public final class MiningTaskCodec {
         tag.putBoolean("creative_operation", state.creativeOperation());
         tag.putFloat("progress", state.blockProgress());
         tag.putInt("stage", state.visibleStage());
-        ListTag history = new ListTag();
-        state.historyRecords().forEach(history::add);
-        tag.put("history", history);
+        // 位置单独存放，避免 262144 条普通历史因重复 LongTag 触碰通用节点预算。
+        HistoryRecordCodec.encode(tag, "history", "history_positions", historyRecords);
         return tag;
     }
 
@@ -76,10 +79,32 @@ public final class MiningTaskCodec {
         }
         List<BlockPos> targets = new ArrayList<>(encodedTargets.length);
         for (long encoded : encodedTargets) targets.add(BlockPos.of(encoded).immutable());
-        ListTag encodedHistory = tag.getList("history", Tag.TAG_COMPOUND);
-        if (encodedHistory.size() > MAX_TARGETS * 7) throw new IllegalArgumentException("mining history 越界");
-        List<CompoundTag> history = new ArrayList<>(encodedHistory.size());
-        for (int i = 0; i < encodedHistory.size(); i++) history.add(encodedHistory.getCompound(i).copy());
+        List<CompoundTag> history = HistoryRecordCodec.decode(
+                tag, "history", "history_positions",
+                MiningTaskState.maxHistoryRecordsForTargets(total),
+                tag.getInt("schema") >= 3);
+        for (CompoundTag record : history) {
+            if (record.contains("block_entity")
+                    && !record.contains("block_entity", Tag.TAG_COMPOUND)) {
+                throw new IllegalArgumentException("mining history block_entity 类型无效");
+            }
+            if (record.contains("blockEntity")
+                    && !record.contains("blockEntity", Tag.TAG_COMPOUND)) {
+                throw new IllegalArgumentException("mining history blockEntity 类型无效");
+            }
+            if (record.contains("afterBlockEntity")
+                    && !record.contains("afterBlockEntity", Tag.TAG_COMPOUND)) {
+                throw new IllegalArgumentException("mining history afterBlockEntity 类型无效");
+            }
+            if (record.contains("after_block_entity")
+                    && !record.contains("after_block_entity", Tag.TAG_COMPOUND)) {
+                throw new IllegalArgumentException("mining history after_block_entity 类型无效");
+            }
+            decodeCredential(record, "credential_before");
+            decodeCredential(record, "credential_after");
+            decodeCredential(record, "credentialBefore");
+            decodeCredential(record, "credentialAfter");
+        }
         int workflow = tag.getInt("workflow");
         MiningTaskState state = new MiningTaskState(
                 mode, workflow, targets, total,
@@ -114,6 +139,20 @@ public final class MiningTaskCodec {
         BlockState state = NbtUtils.readBlockState(
                 registryAccess.lookupOrThrow(Registries.BLOCK), tag.getCompound("state"));
         if (state.isAir()) throw new IllegalArgumentException("mining history 不能记录空气");
+        if (tag.contains("block_entity") && !tag.contains("block_entity", Tag.TAG_COMPOUND)) {
+            throw new IllegalArgumentException("mining history block_entity 类型无效");
+        }
+        if (tag.contains("blockEntity") && !tag.contains("blockEntity", Tag.TAG_COMPOUND)) {
+            throw new IllegalArgumentException("mining history blockEntity 类型无效");
+        }
+        if (tag.contains("afterBlockEntity")
+                && !tag.contains("afterBlockEntity", Tag.TAG_COMPOUND)) {
+            throw new IllegalArgumentException("mining history afterBlockEntity 类型无效");
+        }
+        if (tag.contains("after_block_entity")
+                && !tag.contains("after_block_entity", Tag.TAG_COMPOUND)) {
+            throw new IllegalArgumentException("mining history after_block_entity 类型无效");
+        }
         CompoundTag blockEntity = tag.contains("block_entity", Tag.TAG_COMPOUND)
                 ? tag.getCompound("block_entity").copy() : null;
         PlacedBlockTrackerData.CredentialSnapshot credentialBefore = decodeCredential(
@@ -152,6 +191,12 @@ public final class MiningTaskCodec {
         }
         if (tag.getInt("schema") >= 2 && !tag.contains("creative_operation", Tag.TAG_BYTE)) {
             throw new IllegalArgumentException("mining task 缺少 creative_operation");
+        }
+        if (tag.getInt("schema") >= 3
+                && (!tag.contains("history_positions", Tag.TAG_LONG_ARRAY)
+                || !tag.contains(HistoryRecordCodec.STATES_KEY, Tag.TAG_LIST)
+                || !tag.contains(HistoryRecordCodec.STATE_INDICES_KEY, Tag.TAG_INT_ARRAY))) {
+            throw new IllegalArgumentException("mining task 缺少紧凑 history 数组");
         }
     }
 }

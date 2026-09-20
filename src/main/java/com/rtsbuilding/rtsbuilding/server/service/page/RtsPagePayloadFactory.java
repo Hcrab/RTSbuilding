@@ -46,7 +46,27 @@ public final class RtsPagePayloadFactory {
      * 构建表示空白储存（无物品或流体）的页面数据包。
      */
     public static S2CRtsStoragePagePayload buildEmpty(ServerPlayer player, RtsStorageSession session) {
+        int defaultPageSize = RtsPageSharedHelpers.defaultPageSize();
+        return buildEmpty(player, session, 0, defaultPageSize, RtsPageSharedHelpers.sanitizePageSize(defaultPageSize),
+                0L, 0L, 0L, session == null ? 0L : session.transfer.pageDataVersion.get());
+    }
+
+    /**
+     * 构建带分页窗口和请求上下文的空页面。即使没有条目，也要返回与普通页一致的
+     * 有效页大小和请求标识，避免客户端把空结果误判成旧协议或永远等待。
+     */
+    public static S2CRtsStoragePagePayload buildEmpty(
+            ServerPlayer player,
+            RtsStorageSession session,
+            int requestedPage,
+            int requestedPageSize,
+            int effectivePageSize,
+            long sessionId,
+            long queryId,
+            long requestId,
+            long serverDataRevision) {
         LinkedRefPayload linkedRefs = buildLinkedRefPayload(player, session);
+        RtsPageWindow window = RtsPageWindow.calculate(requestedPage, requestedPageSize, 0);
         int qSlotCount = RtsStorageBindings.QUICK_SLOT_COUNT;
         int gbSlotCount = RtsStorageBindings.GUI_BINDING_SLOT_COUNT;
         return new S2CRtsStoragePagePayload(
@@ -54,7 +74,7 @@ public final class RtsPagePayloadFactory {
                 RtsLinkedStorageResolver.buildAnyStorageSummary(player, session),
                 linkedRefs.positions(), linkedRefs.dimensions(), linkedRefs.names(), linkedRefs.modes(),
                 linkedRefs.priorities(), linkedRefs.iconItemIds(), linkedRefs.worldAvailable(),
-                0, 1, 0,
+                window.safePage(), window.totalPages(), 0,
                 true,
                 session.browser.search, session.browser.category,
                 (byte) session.browser.sort.ordinal(), session.browser.ascending,
@@ -67,7 +87,9 @@ public final class RtsPagePayloadFactory {
                 RtsStorageUiPayloads.buildQuickSlotPreviewPayload(session, qSlotCount),
                 RtsStorageUiPayloads.buildGuiBindingLabelPayload(session, gbSlotCount),
                 RtsStorageUiPayloads.buildGuiBindingItemIdPayload(session, gbSlotCount),
-                session.funnel.funnelEnabled, List.of(), List.of());
+                session.funnel.funnelEnabled, List.of(), List.of(),
+                requestedPage, requestedPageSize, window.effectivePageSize(), 0L,
+                sessionId, queryId, requestId, serverDataRevision);
     }
 
     // ---- Linked ref payload ---------------------------------------------------

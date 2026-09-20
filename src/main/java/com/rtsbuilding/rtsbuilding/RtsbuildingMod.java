@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.common.RtsCreativeTabs;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.RtsItems;
 import com.rtsbuilding.rtsbuilding.common.RtsMenuTypes;
+import com.rtsbuilding.rtsbuilding.common.config.RtsServerConfigRawSnapshot;
 import com.rtsbuilding.rtsbuilding.gametest.MekanismToolsCompatibilityGameTests;
 import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
@@ -38,6 +39,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
@@ -49,6 +51,9 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 
 /**
@@ -101,8 +106,10 @@ public class RtsbuildingMod {
         RtsMenuTypes.register(modEventBus);
         RtsCreativeTabs.register(modEventBus);
         NeoForge.EVENT_BUS.register(this);
+        // 在 ConfigSpec 注册前保存 COMMON 原文，迁移只使用服务端本机快照。
+        Config.captureRawCommonConfig(readRawCommonSnapshot());
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC, "rts_building/rtsbuilding-common.toml");
-        modContainer.registerConfig(ModConfig.Type.SERVER, Config.SERVER_SPEC, "rts_building/rtsbuilding-server.toml");
+        modContainer.registerConfig(ModConfig.Type.SERVER, Config.SERVER_CONFIG_SPEC, "rts_building/rtsbuilding-server.toml");
         if (FMLEnvironment.dist == Dist.CLIENT) {
             modContainer.registerConfig(ModConfig.Type.CLIENT, Config.CLIENT_SPEC, "rts_building/rtsbuilding-client.toml");
             com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap.registerConfigUi(modContainer);
@@ -110,18 +117,11 @@ public class RtsbuildingMod {
     }
 
     private void onConfigLoading(ModConfigEvent.Loading event) {
-        migrateServerConfigIfNeeded(event.getConfig());
+        // SERVER 原文已由 spec 适配器在 correction 前截获；这里不能在 loader 线程迁移或写盘。
     }
 
     private void onConfigReloading(ModConfigEvent.Reloading event) {
-        migrateServerConfigIfNeeded(event.getConfig());
-    }
-
-    private void migrateServerConfigIfNeeded(ModConfig config) {
-        if (config != null && config.getSpec() == Config.SERVER_SPEC
-                && Config.migrateLegacyServerDefaults()) {
-            LOGGER.info("已迁移 RTSBuilding 旧版服务端吞吐默认值。");
-        }
+        // ConfigWatcher 可能运行在 watcher 线程；迁移统一延后到 ServerStarting/ServerTick。
     }
 
     private void registerCompatibilityGameTests(RegisterGameTestsEvent event) {
@@ -162,6 +162,11 @@ public class RtsbuildingMod {
      */
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
+        // 同一客户端切换到第二个单人存档时，模组构造函数不会再次运行；重新捕获本机 COMMON 原文。
+        Config.captureRawCommonConfig(readRawCommonSnapshot());
+        if (Config.consumePendingLegacyServerMigration()) {
+            LOGGER.info("已迁移 RTSBuilding 旧版服务端挖掘配置。");
+        }
         try {
             // 必须先于任何 durable task admission 读取；损坏时拒绝以空仓继续启动。
             TaskPersistenceRuntime.INSTANCE.start(event.getServer());
@@ -170,6 +175,16 @@ public class RtsbuildingMod {
             throw failure;
         }
         LOGGER.info("服务器正在启动……");
+    }
+
+    private static RtsServerConfigRawSnapshot readRawCommonSnapshot() {
+        Path path = FMLPaths.CONFIGDIR.get().resolve("rts_building").resolve("rtsbuilding-common.toml");
+        try {
+            return new RtsServerConfigRawSnapshot(path.toString(), Files.exists(path) ? Files.readString(path) : "", false);
+        } catch (IOException | SecurityException failure) {
+            LOGGER.warn("无法在 ConfigSpec 注册前读取 COMMON 原始配置: {}", path, failure);
+            return new RtsServerConfigRawSnapshot(path.toString(), "", true);
+        }
     }
 
     /**

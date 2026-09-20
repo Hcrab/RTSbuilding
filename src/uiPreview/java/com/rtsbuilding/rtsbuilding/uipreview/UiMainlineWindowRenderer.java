@@ -443,14 +443,27 @@ final class UiMainlineWindowRenderer {
                     row.suspended,
                     row.protectedWorkflow,
                     false);
+            // 与生产行一致：短状态靠右，名称只占剩余宽度，不能用旧预览掩盖状态列。
+            int textLeft = (int) rowGeometry.row.getX() + WorkflowWindowLayout.LABEL_X;
+            int textRight = (int) rowGeometry.row.right() - WorkflowWindowLayout.LABEL_X;
+            String status = canvas.trimToWidth(row.statusText,
+                    Math.min(WorkflowWindowLayout.STATUS_MAX_WIDTH, Math.max(0, textRight - textLeft)));
+            int statusWidth = status.isEmpty() ? 0 : canvas.textWidth(status);
+            int labelWidth = Math.max(1, textRight - textLeft
+                    - (statusWidth == 0 ? 0 : statusWidth + WorkflowWindowLayout.STATUS_GAP));
             canvas.text(
                     canvas.trimToWidth(
                             row.label,
-                            (int) rowGeometry.row.getWidth() - 8),
-                    rowGeometry.row.getX() + WorkflowWindowLayout.LABEL_X,
+                            labelWidth),
+                    textLeft,
                     rowGeometry.row.getY() + 11,
                     UiMainlinePreviewStyle.color(
                             rowVisual.labelText.toArgb()));
+            if (!status.isEmpty()) {
+                canvas.text(status, textRight - statusWidth,
+                        rowGeometry.row.getY() + 11,
+                        UiMainlinePreviewStyle.color(rowVisual.labelText.toArgb()));
+            }
             canvas.text(
                     canvas.trimToWidth(
                             row.progressText,

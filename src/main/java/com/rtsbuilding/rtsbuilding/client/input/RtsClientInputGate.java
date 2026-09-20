@@ -117,6 +117,8 @@ public final class RtsClientInputGate {
         // 登录也主动清一次，覆盖崩服或异常断线时未完整收到退出事件的情况。
         RtsCullingClientState.resetForWorldChange();
         RtsClientOperationDiagnostics.reset("CLIENT_LOGIN_RESET");
+        com.rtsbuilding.rtsbuilding.client.network.RtsClientServerConfigNetwork.beginSession();
+        com.rtsbuilding.rtsbuilding.client.network.RtsClientServerConfigNetwork.requestCurrent();
     }
 
     @SubscribeEvent
@@ -128,6 +130,7 @@ public final class RtsClientInputGate {
         // when the player joins a different world (save).
         ClientRtsController.get().clearWorkflowData();
         RtsClientOperationDiagnostics.reset("CLIENT_LOGOUT");
+        com.rtsbuilding.rtsbuilding.client.network.RtsClientServerConfigNetwork.clearSession();
         RtsAsyncJsonlWriter.flush(Duration.ofMillis(500));
     }
 
@@ -142,6 +145,13 @@ public final class RtsClientInputGate {
                 visible.layout().panelW(),
                 visible.layout().panelH(),
                 visible.profile().renderScale()));
+    }
+
+    /**
+     * 对外暴露现有 Overlay 输入策略的只读判断，供生命周期刷新复用同一资格。
+     */
+    public static boolean canHandleOverlayInput(Screen screen) {
+        return RtsClientInputPolicy.canHandleOverlayInput(screen);
     }
 
     public static JeiOverlayIngredient getJeiOverlayIngredientUnderMouse(double mouseX, double mouseY) {
@@ -193,6 +203,11 @@ public final class RtsClientInputGate {
         }
 
         ClientRtsController controller = ClientRtsController.get();
+        OverlayProfile profile = overlayProfile();
+        OverlayLayout layout = resolveOverlayLayout(profile);
+        int visibleStorageRows = layout.overlayCollapsed() ? 1 : layout.storageRows();
+        // 在首次搜索或刷新前先同步 Overlay 的真实可见容量，避免服务端页大小过大而遗漏翻页内容。
+        controller.updateStoragePageSize(STORAGE_COLS * visibleStorageRows);
         if (!controller.canUseStorageOverlay()) {
             requestOverlayBootstrap(event.getScreen(), controller);
             return;
@@ -201,10 +216,8 @@ public final class RtsClientInputGate {
 
         Minecraft minecraft = Minecraft.getInstance();
         GuiGraphics g = event.getGuiGraphics();
-        OverlayProfile profile = overlayProfile();
         double mouseX = toOverlayMouse(event.getMouseX(), profile);
         double mouseY = toOverlayMouse(event.getMouseY(), profile);
-        OverlayLayout layout = resolveOverlayLayout(profile);
         syncOverlaySearchDrafts(controller);
         syncOverlayCraftables(controller);
 
@@ -278,7 +291,6 @@ public final class RtsClientInputGate {
         }
 
         var entries = controller.getStorageEntries();
-        int visibleStorageRows = layout.overlayCollapsed() ? 1 : layout.storageRows();
         int visibleStorageSlots = STORAGE_COLS * visibleStorageRows;
         int maxSlots = Math.min(entries.size(), visibleStorageSlots);
         for (int i = 0; i < visibleStorageSlots; i++) {

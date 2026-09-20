@@ -156,6 +156,18 @@ public final class RtsMiningServiceImpl implements MiningService {
     public void areaDestroy(ServerPlayer player, List<BlockPos> positions, byte toolSlot,
                             String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled,
                             RtsOperationTraceContext trace) {
+        submitAreaDestroy(player, positions, toolSlot, toolItemId, toolPrototype, toolProtectionEnabled, trace, false);
+    }
+
+    @Override
+    public void destroyConnectedGroup(ServerPlayer player, List<BlockPos> positions, byte toolSlot,
+            String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled, RtsOperationTraceContext trace) {
+        submitAreaDestroy(player, positions, toolSlot, toolItemId, toolPrototype, toolProtectionEnabled, trace, true);
+    }
+
+    private void submitAreaDestroy(ServerPlayer player, List<BlockPos> positions, byte toolSlot,
+            String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled,
+            RtsOperationTraceContext trace, boolean connectedGroup) {
         PipelineRegistry.execute(RtsWorkflowType.AREA_DESTROY,
                 MiningContext.builder(player)
                         .operationTrace(trace)
@@ -163,6 +175,7 @@ public final class RtsMiningServiceImpl implements MiningService {
                         .toolItemId(toolItemId)
                         .toolPrototype(toolPrototype)
                         .positions(positions)
+                        .connectedGroup(connectedGroup)
                         .toolProtectionEnabled(toolProtectionEnabled)
                         .build());
     }

@@ -17,11 +17,30 @@ public record C2SRtsRequestStoragePagePayload(
         boolean ascending,
         int pageSize,
         boolean pinyinSearchEnabled,
-        List<String> localizedSearchMatches) implements CustomPacketPayload {
+        List<String> localizedSearchMatches,
+        long sessionId,
+        long queryId,
+        long requestId) implements CustomPacketPayload {
     public static final int MAX_LOCALIZED_SEARCH_MATCHES = 256;
 
     public static final Type<C2SRtsRequestStoragePagePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_request_storage_page"));
+            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_request_storage_page_v2"));
+
+    /**
+     * 保留旧的源码构造形状，供 GameTest/服务端内部直接构造请求；真正的网络入口必须携带上下文。
+     */
+    public C2SRtsRequestStoragePagePayload(
+            int page,
+            String search,
+            String category,
+            byte sort,
+            boolean ascending,
+            int pageSize,
+            boolean pinyinSearchEnabled,
+            List<String> localizedSearchMatches) {
+        this(page, search, category, sort, ascending, pageSize, pinyinSearchEnabled,
+                localizedSearchMatches, 0L, 0L, 0L);
+    }
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsRequestStoragePagePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
@@ -33,16 +52,27 @@ public record C2SRtsRequestStoragePagePayload(
                 buf.writeVarInt(payload.pageSize());
                 buf.writeBoolean(payload.pinyinSearchEnabled());
                 writeStringList(buf, payload.localizedSearchMatches());
+                buf.writeVarLong(payload.sessionId());
+                buf.writeVarLong(payload.queryId());
+                buf.writeVarLong(payload.requestId());
             },
-            (buf) -> new C2SRtsRequestStoragePagePayload(
-                    buf.readVarInt(),
-                    buf.readUtf(128),
-                    buf.readUtf(128),
-                    buf.readByte(),
-                    buf.readBoolean(),
-                    buf.readVarInt(),
-                    buf.readBoolean(),
-                    readStringList(buf)));
+            (buf) -> {
+                int page = buf.readVarInt();
+                String search = buf.readUtf(128);
+                String category = buf.readUtf(128);
+                byte sort = buf.readByte();
+                boolean ascending = buf.readBoolean();
+                int pageSize = buf.readVarInt();
+                boolean pinyinSearchEnabled = buf.readBoolean();
+                List<String> localizedSearchMatches = readStringList(buf);
+                long sessionId = buf.readVarLong();
+                long queryId = buf.readVarLong();
+                long requestId = buf.readVarLong();
+                return new C2SRtsRequestStoragePagePayload(
+                        page, search, category, sort, ascending, pageSize,
+                        pinyinSearchEnabled, localizedSearchMatches,
+                        sessionId, queryId, requestId);
+            });
 
     public static List<String> limitLocalizedSearchMatches(List<String> values) {
         if (values == null || values.isEmpty()) {

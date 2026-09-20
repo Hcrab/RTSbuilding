@@ -30,6 +30,19 @@ class WorkflowLocalizationContractTest {
         assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.type.place_single"));
         assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.resume_placement.title"));
         assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.blueprint_resume.title"));
+        assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.status.need_items"));
+        assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.status.paused"));
+        assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.detail.missing"));
+        assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.detail.progress"));
+        assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.detail.missing_item"));
+        assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.detail.missing_generic"));
+        assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.detail.workflow_missing"));
+        assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.detail.waiting_unknown"));
+        assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.details.title"));
+        assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.details.final"));
+        assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.details.close"));
+        assertTrue(englishKeys.contains("screen.rtsbuilding.workflow.pending"));
+        assertTrue(englishKeys.contains("screen.rtsbuilding.world.field.history_entries.hint"));
         assertTrue(englishKeys.contains("message.rtsbuilding.gui_binding.open_failed"));
     }
 

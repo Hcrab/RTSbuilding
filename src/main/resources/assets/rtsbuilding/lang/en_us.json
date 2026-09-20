@@ -1,5 +1,10 @@
-﻿{
+{
   "key.categories.rtsbuilding": "RTSbuilding",
+  "message.rtsbuilding.mining.selection_too_large": "Selection exceeds the server volume limit (%s blocks). Refresh the preview and try again.",
+  "message.rtsbuilding.mining.transfer_incomplete": "The selection transfer did not complete; no partial mining was started. Please try again.",
+  "message.rtsbuilding.mining.tool_data_too_large": "This tool's data exceeds the transfer budget. No mining was started; try another tool.",
+  "message.rtsbuilding.mining.history_capacity": "Some targets were left intact because their snapshots exceed the save/undo budget. Completed work remains undoable.",
+  "config.rtsbuilding.mining_server_owned": "Owned by the current world. On multiplayer, the server owner edits serverconfig/rts_building/rtsbuilding-server.toml. In singleplayer, enter a world to edit here.",
   "rtsbuilding.configuration.enableUiAnimations": "RTS UI transitions",
   "rtsbuilding.configuration.enableUiAnimations.tooltip": "Animate hover and selection transitions without delaying input or actions.",
   "screen.rtsbuilding.ai_help.title": "Need help controlling?",
@@ -214,6 +219,7 @@
   "screen.rtsbuilding.shape_status.destroy_confirm_wall": "%s: confirm destroy; mouse wheel adjusts wall height",
   "screen.rtsbuilding.shape_status.destroy_confirm_cylinder": "%s: confirm destroy; mouse wheel adjusts cylinder height",
   "screen.rtsbuilding.shape_status.destroy_chain": "LMB: chain break connected matching blocks",
+  "screen.rtsbuilding.shape_status.too_large": "Shape exceeds the operation limit; reduce the selection",
   "screen.rtsbuilding.settings.title": "RTS Controls",
   "screen.rtsbuilding.settings.controls": "Controls",
   "screen.rtsbuilding.settings.category.controls": "Controls",
@@ -299,6 +305,52 @@
   "screen.rtsbuilding.workflow.empty": "No active workflows",
   "screen.rtsbuilding.workflow.keep": "Do not replace",
   "screen.rtsbuilding.workflow.allow_replace": "Allow auto replace",
+  "screen.rtsbuilding.workflow.status.running": "Running",
+  "screen.rtsbuilding.workflow.status.complete": "Complete",
+  "screen.rtsbuilding.workflow.status.need_items": "Need materials",
+  "screen.rtsbuilding.workflow.status.need_tool": "Need tool",
+  "screen.rtsbuilding.workflow.status.loading": "Loading chunks",
+  "screen.rtsbuilding.workflow.status.disabled": "Disabled",
+  "screen.rtsbuilding.workflow.status.no_access": "No access",
+  "screen.rtsbuilding.workflow.status.paused": "Paused",
+  "screen.rtsbuilding.workflow.status.error": "Error",
+  "screen.rtsbuilding.workflow.status.queue_full": "Queue full",
+  "screen.rtsbuilding.workflow.status.waiting": "Waiting",
+  "screen.rtsbuilding.workflow.detail.status": "Status: %s",
+  "screen.rtsbuilding.workflow.detail.progress": "Progress: %s",
+  "screen.rtsbuilding.workflow.detail.missing": "Missing: %s",
+  "screen.rtsbuilding.workflow.detail.missing_count": "Missing material types: %s",
+  "screen.rtsbuilding.workflow.detail.missing_item": "Material: %s",
+  "screen.rtsbuilding.workflow.detail.missing_generic": "The task is waiting for materials.",
+  "screen.rtsbuilding.workflow.detail.tool_missing": "The required tool is not available.",
+  "screen.rtsbuilding.workflow.detail.chunk_waiting": "The target area is waiting for chunks to load.",
+  "screen.rtsbuilding.workflow.detail.config_disabled": "The related server setting is disabled.",
+  "screen.rtsbuilding.workflow.detail.permission_denied": "The server did not grant access to this task.",
+  "screen.rtsbuilding.workflow.detail.queue_full": "The server queue is currently full.",
+  "screen.rtsbuilding.workflow.detail.execution_error": "The server reported an execution error.",
+  "screen.rtsbuilding.workflow.detail.workflow_missing": "The task record is no longer available.",
+  "screen.rtsbuilding.workflow.detail.waiting_unknown": "The server has not provided a more specific waiting reason.",
+  "screen.rtsbuilding.workflow.detail.skipped": "The server skipped this task.",
+  "screen.rtsbuilding.workflow.detail.cancelled": "The task was cancelled.",
+  "screen.rtsbuilding.workflow.detail.replaced": "The task was replaced by a newer task.",
+  "screen.rtsbuilding.workflow.detail.server": "Details: %s",
+  "screen.rtsbuilding.workflow.detail.more": "... and %s more",
+  "screen.rtsbuilding.workflow.details.title": "Workflow details: %s",
+  "screen.rtsbuilding.workflow.details.final": "This task is no longer active; this is its last received snapshot.",
+  "screen.rtsbuilding.workflow.details.live": "Live task",
+  "screen.rtsbuilding.workflow.details.close": "Close",
+  "screen.rtsbuilding.workflow.details.scroll": "Scroll for more",
+  "screen.rtsbuilding.workflow.next.running": "The task is running.",
+  "screen.rtsbuilding.workflow.next.complete": "The task finished.",
+  "screen.rtsbuilding.workflow.next.items": "Add the missing materials, then resume.",
+  "screen.rtsbuilding.workflow.next.tool": "Provide the required tool, then resume.",
+  "screen.rtsbuilding.workflow.next.loading": "Wait for the target chunks to load.",
+  "screen.rtsbuilding.workflow.next.disabled": "Enable the related server setting.",
+  "screen.rtsbuilding.workflow.next.access": "Access was not granted for this task.",
+  "screen.rtsbuilding.workflow.next.resume": "Click resume to continue.",
+  "screen.rtsbuilding.workflow.next.error": "Review the short error detail and try again.",
+  "screen.rtsbuilding.workflow.next.waiting": "The server will re-check this task.",
+  "screen.rtsbuilding.workflow.pending": "Waiting for workflow updates...",
   "screen.rtsbuilding.workflow.type.idle": "Idle",
   "screen.rtsbuilding.workflow.type.mine_single": "Mining",
   "screen.rtsbuilding.workflow.type.ultimine": "Chain mining",
@@ -429,7 +481,7 @@
   "config.rtsbuilding.area_mine_max_depth": "Max depth",
   "config.rtsbuilding.area_mine_max_depth.hint": "Server-side Z cap, 1-256 blocks.",
   "config.rtsbuilding.area_mine_max_volume": "Max volume",
-  "config.rtsbuilding.area_mine_max_volume.hint": "Server-side width x height x depth cap.",
+  "config.rtsbuilding.area_mine_max_volume.hint": "Server-side inclusive width x height x depth cap, 1-262144 blocks; any axis ratio is allowed.",
   "config.rtsbuilding.area_destroy_max_targets": "Max target count",
   "config.rtsbuilding.area_destroy_max_targets.hint": "Server-side explicit range-destroy target cap.",
   "config.rtsbuilding.survival_on": "Survival Balance: ON",
@@ -484,6 +536,8 @@
   "message.rtsbuilding.developer.run_mismatch": "Developer metrics run mismatch; the active server sample was kept unchanged.",
   "rtsbuilding.configuration.ultimineMaxBlocks": "Chain mining max blocks",
   "rtsbuilding.configuration.ultimineMaxBlocks.tooltip": "Maximum blocks collected by one RTS chain mining request.",
+  "rtsbuilding.configuration.maxSelectionVolume": "Max selection volume",
+  "rtsbuilding.configuration.maxSelectionVolume.tooltip": "Inclusive width x height x depth capacity for one RTS range-mining or range-destroy request. Range: 1-262144 blocks.",
   "rtsbuilding.configuration.areaMineMaxSize": "Area mining max size",
   "rtsbuilding.configuration.areaMineMaxSize.tooltip": "Maximum block count per dimension for RTS area mining selections.",
   "rtsbuilding.configuration.areaMineMaxVolume": "Area mining max volume",
@@ -630,6 +684,7 @@
   "screen.rtsbuilding.blueprints.materials_all_ready": "All listed materials are available.",
   "screen.rtsbuilding.blueprints.materials_creative": "Creative mode: materials are not consumed.",
   "screen.rtsbuilding.blueprints.status.ready": "Blueprint space ready.",
+  "screen.rtsbuilding.blueprints.status.loading": "Loading blueprints...",
   "screen.rtsbuilding.blueprints.status.disabled": "Blueprint placement is disabled by config.",
   "screen.rtsbuilding.blueprints.status.locked": "Install the Blueprint Plugin first.",
   "screen.rtsbuilding.blueprints.status.folder_opened": "Blueprint folder opened.",
@@ -1180,4 +1235,127 @@
   ,"message.rtsbuilding.storage_batch.too_large": "Selection is too large (maximum 64 x 64 x 64)."
   ,"message.rtsbuilding.storage_batch.selection_cleared": "Selection cleared. Select the first corner again."
   ,"message.rtsbuilding.storage_batch.exited": "Range binding exited."
+  ,"screen.rtsbuilding.settings.title": "RTSBuilding settings"
+  ,"screen.rtsbuilding.settings.personal": "Personal settings"
+  ,"screen.rtsbuilding.settings.world": "World / server settings"
+  ,"screen.rtsbuilding.settings.enabled": "Enabled"
+  ,"screen.rtsbuilding.settings.disabled": "Disabled"
+  ,"screen.rtsbuilding.settings.save_personal": "Save personal"
+  ,"screen.rtsbuilding.settings.save_world": "Save world"
+  ,"screen.rtsbuilding.settings.cancel": "Cancel"
+  ,"screen.rtsbuilding.settings.personal_group": "Local player preferences"
+  ,"screen.rtsbuilding.settings.personal_group.hint": "Saved on this client"
+  ,"screen.rtsbuilding.settings.status.personal_ready": "Personal settings are ready."
+  ,"screen.rtsbuilding.settings.status.no_world": "No world is open. Personal settings remain available."
+  ,"screen.rtsbuilding.settings.status.loading": "Reading the current world settings…"
+  ,"screen.rtsbuilding.settings.status.ready": "World settings loaded. You can edit them."
+  ,"screen.rtsbuilding.settings.status.read_only": "World settings are read-only for this player."
+  ,"screen.rtsbuilding.settings.status.pending": "Saving world settings…"
+  ,"screen.rtsbuilding.settings.status.no_change": "There are no changes to save."
+  ,"screen.rtsbuilding.settings.status.world_saved": "World settings saved."
+  ,"screen.rtsbuilding.settings.status.personal_saved": "Personal settings saved."
+  ,"screen.rtsbuilding.settings.status.personal_failed": "Personal settings were not fully saved."
+  ,"screen.rtsbuilding.settings.status.conflict": "The world changed. Your draft is kept; review and save again."
+  ,"screen.rtsbuilding.settings.status.invalid": "Check the highlighted values before saving."
+  ,"screen.rtsbuilding.settings.status.save_failed": "The server could not save these settings. Your draft is kept."
+  ,"screen.rtsbuilding.personal.ui_animations": "UI animations"
+  ,"screen.rtsbuilding.personal.ui_animations.hint": "Animate RTS controls and panels."
+  ,"screen.rtsbuilding.personal.block_ghost_preview": "Block placement preview"
+  ,"screen.rtsbuilding.personal.block_ghost_preview.hint": "Show the block ghost before placement."
+  ,"screen.rtsbuilding.personal.place_ghost_animation": "Placement ghost animation"
+  ,"screen.rtsbuilding.personal.place_ghost_animation.hint": "Animate a block ghost when placing."
+  ,"screen.rtsbuilding.personal.destroy_ghost_animation": "Breaking ghost animation"
+  ,"screen.rtsbuilding.personal.destroy_ghost_animation.hint": "Animate the breaking preview."
+  ,"screen.rtsbuilding.personal.wireframe_preview": "Wireframe preview"
+  ,"screen.rtsbuilding.personal.wireframe_preview.hint": "Show the wireframe placement preview."
+  ,"screen.rtsbuilding.personal.place_wireframe_animation": "Placement wireframe animation"
+  ,"screen.rtsbuilding.personal.place_wireframe_animation.hint": "Animate the wireframe when placing."
+  ,"screen.rtsbuilding.personal.destroy_wireframe_animation": "Breaking wireframe animation"
+  ,"screen.rtsbuilding.personal.destroy_wireframe_animation.hint": "Animate the wireframe when breaking."
+  ,"screen.rtsbuilding.personal.range_destroy_skeleton": "Range-break outline"
+  ,"screen.rtsbuilding.personal.range_destroy_skeleton.hint": "Show the outline for a range-break action."
+  ,"screen.rtsbuilding.personal.keyboard_confirm": "Keyboard batch confirmation"
+  ,"screen.rtsbuilding.personal.keyboard_confirm.hint": "Require keyboard confirmation for batch actions."
+  ,"screen.rtsbuilding.personal.inventory_button": "Inventory RTS button"
+  ,"screen.rtsbuilding.personal.inventory_button.hint": "Show the RTS button in compatible inventories."
+  ,"screen.rtsbuilding.personal.developer_mode": "Developer mode"
+  ,"screen.rtsbuilding.personal.developer_mode.hint": "Show developer diagnostics and tools."
+  ,"screen.rtsbuilding.world.group.rules": "Rules"
+  ,"screen.rtsbuilding.world.group.rules.hint": "Core rules for this world"
+  ,"screen.rtsbuilding.world.group.home": "Home"
+  ,"screen.rtsbuilding.world.group.home.hint": "Home selection and relocation"
+  ,"screen.rtsbuilding.world.group.building": "Building"
+  ,"screen.rtsbuilding.world.group.building.hint": "Shape and smart-fill limits"
+  ,"screen.rtsbuilding.world.group.mining": "Mining"
+  ,"screen.rtsbuilding.world.group.mining.hint": "Selection, chain and harvest limits"
+  ,"screen.rtsbuilding.world.group.blueprint": "Blueprints"
+  ,"screen.rtsbuilding.world.group.blueprint.hint": "Blueprint availability and size"
+  ,"screen.rtsbuilding.world.group.storage": "Storage"
+  ,"screen.rtsbuilding.world.group.storage.hint": "Binding and pickup limits"
+  ,"screen.rtsbuilding.world.group.workflows": "Tasks"
+  ,"screen.rtsbuilding.world.group.workflows.hint": "Active task capacity"
+  ,"screen.rtsbuilding.world.group.history": "Undo history"
+  ,"screen.rtsbuilding.world.group.history.hint": "Undo/redo history capacity and retention"
+  ,"screen.rtsbuilding.world.field.survival": "Survival progression"
+  ,"screen.rtsbuilding.world.field.survival.hint": "Enable survival progression rules."
+  ,"screen.rtsbuilding.world.field.share_teams": "Share progression with teams"
+  ,"screen.rtsbuilding.world.field.share_teams.hint": "Let team members share progression."
+  ,"screen.rtsbuilding.world.field.action_radius": "Action radius (blocks)"
+  ,"screen.rtsbuilding.world.field.action_radius.hint": "Maximum radius for RTS actions."
+  ,"screen.rtsbuilding.world.field.home_radius": "Home selection radius (blocks)"
+  ,"screen.rtsbuilding.world.field.home_radius.hint": "Maximum distance when selecting a home."
+  ,"screen.rtsbuilding.world.field.home_cooldown": "Home relocation cooldown (days)"
+  ,"screen.rtsbuilding.world.field.home_cooldown.hint": "In-game days before relocating the home again."
+  ,"screen.rtsbuilding.world.field.shape_dimension": "Maximum shape dimension (blocks)"
+  ,"screen.rtsbuilding.world.field.shape_dimension.hint": "Largest side of a building shape."
+  ,"screen.rtsbuilding.world.field.shape_radius": "Maximum shape radius (blocks)"
+  ,"screen.rtsbuilding.world.field.shape_radius.hint": "Largest radius of a building shape."
+  ,"screen.rtsbuilding.world.field.smart_max_blocks": "Smart fill maximum blocks"
+  ,"screen.rtsbuilding.world.field.smart_max_blocks.hint": "Maximum blocks in one smart-fill preview."
+  ,"screen.rtsbuilding.world.field.smart_default_blocks": "Smart fill default blocks"
+  ,"screen.rtsbuilding.world.field.smart_default_blocks.hint": "Default block count used by smart fill."
+  ,"screen.rtsbuilding.world.field.smart_max_diameter": "Smart fill maximum diameter"
+  ,"screen.rtsbuilding.world.field.smart_max_diameter.hint": "Maximum diameter of a smart-fill preview."
+  ,"screen.rtsbuilding.world.field.smart_default_diameter": "Smart fill default diameter"
+  ,"screen.rtsbuilding.world.field.smart_default_diameter.hint": "Default diameter used by smart fill."
+  ,"screen.rtsbuilding.world.field.selection_volume": "Mining selection volume"
+  ,"screen.rtsbuilding.world.field.selection_volume.hint": "Maximum blocks in one mining selection. Maximum: 262144."
+  ,"screen.rtsbuilding.world.field.selection_x": "Mining selection X length"
+  ,"screen.rtsbuilding.world.field.selection_x.hint": "Maximum length along world X, inclusive. Maximum: 262144."
+  ,"screen.rtsbuilding.world.field.selection_y": "Mining selection Y length"
+  ,"screen.rtsbuilding.world.field.selection_y.hint": "Maximum length along world Y, inclusive. Maximum: 262144."
+  ,"screen.rtsbuilding.world.field.selection_z": "Mining selection Z length"
+  ,"screen.rtsbuilding.world.field.selection_z.hint": "Maximum length along world Z, inclusive. Maximum: 262144."
+  ,"screen.rtsbuilding.world.field.ultimine_max": "Chain mining maximum blocks"
+  ,"screen.rtsbuilding.world.field.ultimine_max.hint": "Maximum blocks in one chain-mining action."
+  ,"screen.rtsbuilding.world.field.harvest_tier": "Range harvest tier"
+  ,"screen.rtsbuilding.world.field.harvest_tier.hint": "Highest harvest tier allowed for range mining."
+  ,"screen.rtsbuilding.world.field.tree_max": "Tree-felling maximum blocks"
+  ,"screen.rtsbuilding.world.field.tree_max.hint": "Maximum blocks in one tree-felling action."
+  ,"screen.rtsbuilding.world.field.blueprints": "Blueprints enabled"
+  ,"screen.rtsbuilding.world.field.blueprints.hint": "Allow blueprint capture and placement."
+  ,"screen.rtsbuilding.world.field.blueprint_max": "Blueprint maximum blocks"
+  ,"screen.rtsbuilding.world.field.blueprint_max.hint": "Maximum blocks in one blueprint."
+  ,"screen.rtsbuilding.world.field.batch_volume": "Storage binding selection volume"
+  ,"screen.rtsbuilding.world.field.batch_volume.hint": "Maximum blocks in one range binding. Maximum: 262144."
+  ,"screen.rtsbuilding.world.field.batch_x": "Storage binding X length"
+  ,"screen.rtsbuilding.world.field.batch_x.hint": "Maximum binding length along world X, inclusive. Maximum: 262144."
+  ,"screen.rtsbuilding.world.field.batch_y": "Storage binding Y length"
+  ,"screen.rtsbuilding.world.field.batch_y.hint": "Maximum binding length along world Y, inclusive. Maximum: 262144."
+  ,"screen.rtsbuilding.world.field.batch_z": "Storage binding Z length"
+  ,"screen.rtsbuilding.world.field.batch_z.hint": "Maximum binding length along world Z, inclusive. Maximum: 262144."
+  ,"screen.rtsbuilding.world.field.linked_storage_max": "Linked storage maximum"
+  ,"screen.rtsbuilding.world.field.linked_storage_max.hint": "Maximum linked storages per player."
+  ,"screen.rtsbuilding.world.field.funnel_radius": "Funnel pickup radius (blocks)"
+  ,"screen.rtsbuilding.world.field.funnel_radius.hint": "Radius used to pick up nearby drops."
+  ,"screen.rtsbuilding.world.field.workflow_max": "Active tasks per player"
+  ,"screen.rtsbuilding.world.field.workflow_max.hint": "Maximum active tasks for each player."
+  ,"screen.rtsbuilding.world.field.history_entries": "Undo/redo entries per history stack"
+  ,"screen.rtsbuilding.world.field.history_entries.hint": "Maximum undo/redo entries kept for one history stack."
+  ,"screen.rtsbuilding.world.field.history_retention": "Undo/redo history retention (seconds)"
+  ,"screen.rtsbuilding.world.field.history_retention.hint": "How long one history stack's undo/redo history remains available."
+  ,"screen.rtsbuilding.world.tier.stone": "Stone"
+  ,"screen.rtsbuilding.world.tier.iron": "Iron"
+  ,"screen.rtsbuilding.world.tier.diamond": "Diamond"
+  ,"screen.rtsbuilding.world.tier.unlimited": "Unlimited"
 }

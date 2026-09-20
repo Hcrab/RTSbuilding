@@ -61,6 +61,18 @@ public interface PageService {
                      boolean pinyinSearchEnabled, List<String> localizedSearchMatches);
 
     /**
+     * 请求带会话、查询和请求序列的页面；服务端必须把上下文原样带回响应，
+     * 让客户端能够丢弃跨查询或同页的旧响应。
+     */
+    default void requestPage(ServerPlayer player, int page, String search, String category,
+                             RtsStorageSort sort, boolean ascending, int pageSize,
+                             boolean pinyinSearchEnabled, List<String> localizedSearchMatches,
+                             long sessionId, long queryId, long requestId) {
+        requestPage(player, page, search, category, sort, ascending, pageSize,
+                pinyinSearchEnabled, localizedSearchMatches);
+    }
+
+    /**
      * 标记当前存储视图为脏，触发下次请求时重新构建页面。
      * 当存储内容发生变化时调用，确保客户端显示最新的数据。
      *

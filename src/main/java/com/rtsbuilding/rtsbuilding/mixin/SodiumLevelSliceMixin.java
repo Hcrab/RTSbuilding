@@ -9,6 +9,7 @@ import net.minecraft.world.level.material.FluidState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Group;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -22,10 +23,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Pseudo
 @Mixin(targets = "net.caffeinemc.mods.sodium.client.world.LevelSlice", remap = false)
 public abstract class SodiumLevelSliceMixin {
+    /**
+     * Sodium 至少必须保留一个方块状态入口，否则它会绕过范围隐藏并直接读取原始方块。
+     * 两个重载分别覆盖不同版本/转换链，单个入口变化时允许另一个继续接管。
+     */
+    @Group(name = "rtsbuilding$sodiumBlockState", min = 1, max = 2)
     @Inject(
             method = "getBlockState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;",
             at = @At("HEAD"),
             cancellable = true,
+            require = 0,
             remap = false)
     private void rtsbuilding$cullBlockState(BlockPos pos, CallbackInfoReturnable<BlockState> cir) {
         if (RtsCullingClientState.shouldCull(pos)) {
@@ -33,10 +40,12 @@ public abstract class SodiumLevelSliceMixin {
         }
     }
 
+    @Group(name = "rtsbuilding$sodiumBlockState", min = 1, max = 2)
     @Inject(
             method = "getBlockState(III)Lnet/minecraft/world/level/block/state/BlockState;",
             at = @At("HEAD"),
             cancellable = true,
+            require = 0,
             remap = false)
     private void rtsbuilding$cullBlockState(int x, int y, int z, CallbackInfoReturnable<BlockState> cir) {
         if (RtsCullingClientState.shouldCull(new BlockPos(x, y, z))) {
@@ -48,6 +57,7 @@ public abstract class SodiumLevelSliceMixin {
             method = "getFluidState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/material/FluidState;",
             at = @At("HEAD"),
             cancellable = true,
+            require = 0,
             remap = false)
     private void rtsbuilding$cullFluidState(BlockPos pos, CallbackInfoReturnable<FluidState> cir) {
         if (RtsCullingClientState.shouldCull(pos)) {
@@ -59,6 +69,7 @@ public abstract class SodiumLevelSliceMixin {
             method = "getBlockEntity(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/entity/BlockEntity;",
             at = @At("HEAD"),
             cancellable = true,
+            require = 0,
             remap = false)
     private void rtsbuilding$cullBlockEntity(BlockPos pos, CallbackInfoReturnable<BlockEntity> cir) {
         if (RtsCullingClientState.shouldCull(pos)) {
@@ -70,6 +81,7 @@ public abstract class SodiumLevelSliceMixin {
             method = "getBlockEntity(III)Lnet/minecraft/world/level/block/entity/BlockEntity;",
             at = @At("HEAD"),
             cancellable = true,
+            require = 0,
             remap = false)
     private void rtsbuilding$cullBlockEntity(int x, int y, int z, CallbackInfoReturnable<BlockEntity> cir) {
         if (RtsCullingClientState.shouldCull(new BlockPos(x, y, z))) {

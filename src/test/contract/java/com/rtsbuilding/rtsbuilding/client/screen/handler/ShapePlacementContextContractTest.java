@@ -90,7 +90,11 @@ class ShapePlacementContextContractTest {
                 "客户端快速放置数量判断中，创造模式应视为无限材料。");
         assertTrue(quickBuildSource.contains("boolean creativeSource = player.isCreative();"),
                 "服务端批量快速建造也必须识别创造模式来源。");
-        assertTrue(quickBuildSource.contains("? RtsPlacementExtractor.creativeStack"),
+        String materialSources = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/ConstructionMaterialSources.java"));
+        assertTrue(quickBuildSource.contains("ConstructionMaterialSources.extractOne("),
+                "服务端批量快速建造必须通过统一材料来源解析器取材。");
+        assertTrue(materialSources.contains("if (player.isCreative()) return RtsPlacementExtractor.creativeStack"),
                 "创造模式批量放置应构造创造模式物品栏，而不是从远程存储扣材料。");
     }
 }

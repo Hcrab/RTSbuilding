@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.controller;
 
 import com.rtsbuilding.rtsbuilding.client.compat.RtsClientRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.client.compat.RtsRemoteMenuClientDiagnostics;
+import com.rtsbuilding.rtsbuilding.client.input.RtsClientInputGate;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.record.*;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
@@ -256,7 +257,8 @@ final class ClientRtsLifecycleOwner {
             // 触发当前页刷新，否则终端只能在重开或手动操作后看到最新数量。
             boolean storageViewVisible = minecraft.screen instanceof RtsCraftTerminalScreen
                     || (minecraft.screen instanceof BuilderScreen builderScreen
-                        && builderScreen.isStorageViewVisible());
+                        && builderScreen.isStorageViewVisible())
+                    || RtsClientInputGate.canHandleOverlayInput(minecraft.screen);
             controller.storageStateManager.tickStorageAutoRefresh(storageViewVisible);
 
             // Don't override player.input in RTS mode so the player entity can

@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.RangeDestroySelectionLimiter;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningTargetQueue;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import net.minecraft.core.BlockPos;
@@ -43,7 +44,12 @@ final class SkeletonMiningSequenceFixtures {
         if (!scene.blocks().isEmpty()) {
             rawPositions.add(scene.blocks().get(0));
         }
-        rawPositions.add(new BlockPos(1_000_000, 80, 1_000_000));
+        // 先走玩家真实预览限幅，再锁定服务器目标。远处伪造坐标现在会使整个请求超体积，
+        // 不能混进一个声称“已通过选区校验”的骨架时序用例里。
+        rawPositions = new ArrayList<>(RangeDestroySelectionLimiter.clampPositions(
+                null, rawPositions, new RangeDestroySelectionLimiter.Limits(
+                        Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE,
+                        RtsMiningValidator.areaMineMaxVolume())));
         rawPositions.sort(Comparator.<BlockPos>comparingInt(BlockPos::getY).reversed());
         return List.copyOf(RtsMiningTargetQueue.collectExplicitDestroyTargets(
                 rawPositions,

@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.task.mining;
 
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.task.MiningTaskPayload;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
@@ -58,6 +59,65 @@ class MiningTaskCodecTest {
         CompoundTag oversized = validTag();
         oversized.putInt("total", MiningTaskCodec.MAX_TARGETS + 1);
         assertThrows(IllegalArgumentException.class, () -> MiningTaskCodec.decode(oversized));
+    }
+
+    @Test
+    void maximumVolumeIsAcceptedWhileLargerStateIsRejected() {
+        ResourceKey<Level> dimension = ResourceKey.create(
+                Registries.DIMENSION, ResourceLocation.parse("minecraft:overworld"));
+        MiningTaskState state = new MiningTaskState(
+                MiningTaskState.Mode.BATCH, -1, List.of(new BlockPos(4, 5, 6)),
+                MiningLimits.MAX_VOLUME, MiningLimits.MAX_VOLUME - 1,
+                MiningLimits.MAX_VOLUME - 1, 0, Direction.DOWN, 0,
+                false, true, 0.0F, -1, List.of());
+
+        MiningTaskPayload decoded = MiningTaskCodec.decode(MiningTaskCodec.encode(
+                new MiningTaskPayload(UUID.randomUUID(), dimension, -1, state)));
+
+        assertEquals(MiningLimits.MAX_VOLUME, decoded.state().totalUnits());
+        assertEquals(List.of(new BlockPos(4, 5, 6)), decoded.state().remainingTargets());
+        assertThrows(IllegalArgumentException.class, () -> new MiningTaskState(
+                MiningTaskState.Mode.BATCH, -1, List.of(new BlockPos(4, 5, 6)),
+                MiningLimits.MAX_VOLUME + 1, MiningLimits.MAX_VOLUME,
+                MiningLimits.MAX_VOLUME, 0, Direction.DOWN, 0,
+                false, true, 0.0F, -1, List.of()));
+    }
+
+    @Test
+    void schemaTwoInlineHistoryRemainsReadableAfterCompactSchemaUpgrade() {
+        CompoundTag legacy = validTag();
+        long position = 123L;
+        // 构造真实的旧格式记录，避免依赖当前紧凑格式的标记。
+        net.minecraft.nbt.ListTag records = new net.minecraft.nbt.ListTag();
+        CompoundTag record = legacyHistoryTag();
+        record.putLong("pos", position);
+        records.add(record);
+        legacy.put("history", records);
+        legacy.remove("history_positions");
+        legacy.putInt("schema", 2);
+
+        MiningTaskPayload decoded = MiningTaskCodec.decode(legacy);
+
+        assertEquals(position, decoded.state().historyRecords().getFirst().getLong("pos"));
+    }
+
+    @Test
+    void compactHistoryRejectsWrongBlockEntityTypeInsteadOfDroppingNbt() {
+        ResourceKey<Level> dimension = ResourceKey.create(
+                Registries.DIMENSION, ResourceLocation.parse("minecraft:overworld"));
+        CompoundTag validHistory = historyTag();
+        validHistory.put("block_entity", new CompoundTag());
+        MiningTaskState state = new MiningTaskState(
+                MiningTaskState.Mode.BATCH, -1, List.of(),
+                1, 1, 1, 0, Direction.DOWN, 0,
+                false, true, 0.0F, -1, List.of(validHistory));
+        CompoundTag encoded = MiningTaskCodec.encode(new MiningTaskPayload(
+                UUID.randomUUID(), dimension, -1, state));
+        encoded.getList("history", net.minecraft.nbt.Tag.TAG_COMPOUND)
+                .getCompound(0).getCompound("values")
+                .putString("block_entity", "not-a-compound");
+
+        assertThrows(IllegalArgumentException.class, () -> MiningTaskCodec.decode(encoded));
     }
 
     @Test

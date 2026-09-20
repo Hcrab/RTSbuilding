@@ -34,6 +34,14 @@ public final class ClientPayloadDispatcher {
     private ClientPayloadDispatcher() {
     }
 
+    public static void dispatchServerConfig(
+            com.rtsbuilding.rtsbuilding.network.config.S2CRtsServerConfigResultPayload payload,
+            net.neoforged.neoforge.network.handling.IPayloadContext context) {
+        if (!IS_CLIENT) return;
+        context.enqueueWork(() -> com.rtsbuilding.rtsbuilding.client.network.RtsClientServerConfigNetwork
+                .receive(payload.data()));
+    }
+
     // ======================================================================
     //  Camera domain
     // ======================================================================

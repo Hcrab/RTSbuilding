@@ -109,7 +109,7 @@ final class QuickBuildConvenienceController {
         QuickBuildUiConvenienceSettings settings = preferences.convenienceSettings();
         return switch (preferences.convenienceTool()) {
             case REPEAT_BOX -> settings.sizeX() + "×" + settings.sizeY() + "×" + settings.sizeZ();
-            case CHUNK_QUARRY -> "16×" + (settings.chunkUp() + settings.chunkDown() + 1) + "×16";
+            case CHUNK_QUARRY -> "16×" + ((long) settings.chunkUp() + settings.chunkDown() + 1L) + "×16";
             case TREE_FELL -> "≤ " + settings.treeMaxBlocks();
         };
     }

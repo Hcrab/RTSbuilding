@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 import com.rtsbuilding.rtsbuilding.common.RtsHistoryConstants;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelCraftDockLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
 import net.minecraft.resources.ResourceLocation;
@@ -89,7 +90,7 @@ public final class BuilderScreenConstants {
 
     // ======================== Chain Destroy Limits ========================
     public static final int ULTIMINE_MIN_LIMIT = 1;
-    public static final int ULTIMINE_MAX_LIMIT = 256;
+    public static final int ULTIMINE_MAX_LIMIT = MiningLimits.MAX_CHAIN_LIMIT;
 
     // ======================== Shape wheel ========================
     /** Shape wheel radius */
@@ -102,6 +103,18 @@ public final class BuilderScreenConstants {
     public static final int SHAPE_MAX_OFFSET = SHAPE_MAX_DIMENSION - 1;
     /** Shape maximum radius */
     public static final int SHAPE_MAX_RADIUS = 32;
+
+    public static int shapeMaxDimension() {
+        return com.rtsbuilding.rtsbuilding.Config.maxShapeDimension();
+    }
+
+    public static int shapeMaxOffset() {
+        return Math.max(0, shapeMaxDimension() - 1);
+    }
+
+    public static int shapeMaxRadius() {
+        return com.rtsbuilding.rtsbuilding.Config.maxShapeRadius();
+    }
     /** Shape rotation step degrees */
     public static final int SHAPE_ROTATE_STEP_DEGREES = 15;
     /** Shape history limit */

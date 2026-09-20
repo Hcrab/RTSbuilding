@@ -58,7 +58,8 @@ public record WorkflowStartPipe(RtsWorkflowType defaultType, RtsWorkflowPriority
         if (token == null) {
             RtsbuildingMod.LOGGER.debug("[WorkflowStartPipe] Workflow queue full for {}, type={}",
                     ctx.player().getGameProfile().getName(), type);
-            return PipelineResult.failure("Workflow queue full (" + RtsWorkflowSlotManager.MAX_SLOTS + "/" + RtsWorkflowSlotManager.MAX_SLOTS + ")");
+            int capacity = com.rtsbuilding.rtsbuilding.Config.maxActiveWorkflowsPerPlayer();
+            return PipelineResult.failure("Workflow queue full (" + capacity + "/" + capacity + ")");
         }
 
         ctx.setData(KEY_WORKFLOW_ENTRY_ID, token.entryId());

@@ -12,6 +12,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeConfirmedDestroyWork
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDestroyTargetClassifier;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGenerationResult;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGenerationStatus;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGhostPreviewProvider;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeModeState;
@@ -296,7 +298,7 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
                         ShapePlacementTargetResolver.minecraftWorld(
                                 this.screen.getMinecraft(),
                                 this.worldOperations.placementStack()));
-                BlockState pendingState = resolvePendingGhostBlockState(placePos);
+                BlockState pendingState = this.worldOperations.pendingGhostState(placePos);
                 if (placePos != null) {
                     PlacementAnimationRenderer.addPendingBatch(List.of(placePos.immutable()), pendingState);
                 }
@@ -319,9 +321,9 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
             clearShapeBuildSession();
             List<BlockPos> breakable = ShapeDestroyTargetClassifier.breakableTargets(
                     List.of(hit.getBlockPos().immutable()),
-                    this::isBreakableDestroyTarget);
+                    this.worldOperations::isBreakable);
             if (!breakable.isEmpty()) {
-                List<BlockPos> boundsFiltered = filterToBounds(breakable);
+                    List<BlockPos> boundsFiltered = this.worldOperations.filterToBounds(breakable);
                 if (!boundsFiltered.isEmpty()) {
                     rememberConfirmedRangeDestroyPreview(
                             new ShapeDestroyTargetClassifier.Selection(boundsFiltered, List.of()));
@@ -352,11 +354,15 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         }
         ShapeBuildTypes.Input input = resolveCurrentShapeBuildInput(null, true);
         if (input == null) return false;
-        List<BlockPos> raw = generateShapePositions(input);
+        ShapeGenerationResult generation = generationPlan(input);
+        if (generation.status() == ShapeGenerationStatus.TOO_LARGE) {
+            return false;
+        }
+        List<BlockPos> raw = generation.positions();
         List<BlockPos> breakable =
-                ShapeDestroyTargetClassifier.breakableTargets(raw, this::isBreakableDestroyTarget);
-        List<BlockPos> boundedBreakable = filterToBounds(breakable);
-        List<BlockPos> boundedEnvelope = filterToBounds(
+                ShapeDestroyTargetClassifier.breakableTargets(raw, this.worldOperations::isBreakable);
+        List<BlockPos> boundedBreakable = this.worldOperations.filterToBounds(breakable);
+        List<BlockPos> boundedEnvelope = this.worldOperations.filterToBounds(
                 ShapeDestroyTargetClassifier.envelopeTargets(raw, boundedBreakable));
         clearShapeBuildSession();
         if (boundedBreakable.isEmpty()) {
@@ -396,7 +402,7 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         if (input == null) {
             return null;
         }
-        generateShapePositions(input);
+        this.worldOperations.generate(input);
         return this.selectionBox.renderAabb(this.worldOperations.generatedBounds());
     }
 
@@ -456,7 +462,7 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
 
         return this.worldOperations.execute(
                 input,
-                (in, raw) -> filterOccupiedReadyShapeTargets(in, raw),
+                (in, raw) -> this.worldOperations.filterPlacementTargets(in, raw),
                 bounded -> {
                     List<BlockHitResult> hits = ShapeWorldOperationPlanner.wrapPlacementHits(
                             bounded, input.placementFace());
@@ -490,17 +496,17 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
 
     @Override
     public List<BlockPos> generate(ShapeBuildTypes.Input input) {
-        return generateShapePositions(input);
+        return this.worldOperations.generate(input);
     }
 
     @Override
     public List<BlockPos> filterPlacementTargets(ShapeBuildTypes.Input input, List<BlockPos> targets) {
-        return filterOccupiedReadyShapeTargets(input, targets);
+        return this.worldOperations.filterPlacementTargets(input, targets);
     }
 
     @Override
     public boolean isBreakable(BlockPos pos) {
-        return isBreakableDestroyTarget(pos);
+        return this.worldOperations.isBreakable(pos);
     }
 
     @Override
@@ -592,7 +598,7 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         if (input == null) {
             return ShapeSelectionTextPresenter.sizeText(shape, List.of());
         }
-        return ShapeSelectionTextPresenter.sizeText(shape, generateShapePositions(input));
+        return ShapeSelectionTextPresenter.sizeText(shape, this.worldOperations.generate(input));
     }
 
     public String currentShapeCostText() {
@@ -611,10 +617,11 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         if (this.screen.isQuickBuildRangeDestroyMode()) {
             return ShapeSelectionTextPresenter.countText(
                     ShapeDestroyTargetClassifier.breakableTargets(
-                            generateShapePositions(input),
-                            this::isBreakableDestroyTarget).size());
+                            this.worldOperations.generate(input),
+                            this.worldOperations::isBreakable).size());
         }
-        List<BlockPos> blocks = filterOccupiedReadyShapeTargets(input, generateShapePositions(input));
+        List<BlockPos> blocks = this.worldOperations.filterPlacementTargets(
+                input, this.worldOperations.generate(input));
         return ShapeSelectionTextPresenter.countText(blocks.size());
     }
 
@@ -630,7 +637,9 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         return ShapeSelectionTextPresenter.pendingStatusText(
                 status,
                 () -> confirmKeyLabel(destroyMode),
-                this.screen::text);
+                this.screen::text,
+                this.worldOperations.generationStatus(
+                        resolveCurrentShapeBuildInput(this.screen.pickBlockHit(), false)));
     }
 
     private String confirmKeyLabel(boolean destroyMode) {
@@ -648,10 +657,6 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
 
     // ===== Internal helpers =====
 
-    private BlockState resolvePendingGhostBlockState(BlockPos targetPos) {
-        return this.worldOperations.pendingGhostState(targetPos);
-    }
-
     private ShapeBuildTypes.Input resolveCurrentShapeBuildInput(BlockHitResult cursorHit, boolean requireReady) {
         return this.selectionSession.resolveInput(
                 cursorHit,
@@ -666,22 +671,9 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
     }
 
 
-    private List<BlockPos> filterToBounds(List<BlockPos> blocks) {
-        return this.worldOperations.filterToBounds(blocks);
-    }
-
-    private boolean isBreakableDestroyTarget(BlockPos pos) {
-        return this.worldOperations.isBreakable(pos);
-    }
-
-    private List<BlockPos> generateShapePositions(ShapeBuildTypes.Input input) {
-        return this.worldOperations.generate(input);
-    }
-
-    private List<BlockPos> filterOccupiedReadyShapeTargets(
-            ShapeBuildTypes.Input input,
-            List<BlockPos> targets) {
-        return this.worldOperations.filterPlacementTargets(input, targets);
+    @Override
+    public ShapeGenerationResult generationPlan(ShapeBuildTypes.Input input) {
+        return this.worldOperations.generationPlan(input);
     }
 
 

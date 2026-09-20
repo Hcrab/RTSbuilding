@@ -38,10 +38,26 @@ public final class RtsMiningDropBufferState {
      * Accepts a logical item count while keeping every buffered stack within the item's legal stack size.
      */
     public int enqueueMerged(ItemStack prototype, int requestedCount) {
-        if (prototype == null || prototype.isEmpty() || requestedCount <= 0 || isFull()) {
+        return enqueueMerged(prototype, requestedCount, MAX_STACKS, true);
+    }
+
+    /** 从存档恢复已经接纳的掉落；恢复不重新套用当前软容量。 */
+    public int restoreMerged(ItemStack prototype, int requestedCount) {
+        return enqueueMerged(prototype, requestedCount, MAX_STACKS, false);
+    }
+
+    private int enqueueMerged(ItemStack prototype, int requestedCount, int stackLimit,
+            boolean enforceConfiguredCapacity) {
+        if (prototype == null || prototype.isEmpty() || requestedCount <= 0
+                || (enforceConfiguredCapacity && isFull())) {
             return 0;
         }
-        int remaining = Math.min(requestedCount, remainingCapacity());
+        int safeBufferedItems = Math.clamp(bufferedItems, 0, MAX_BUFFERED_ITEMS);
+        int physicalRemaining = MAX_BUFFERED_ITEMS - safeBufferedItems;
+        int configuredRemaining = enforceConfiguredCapacity
+                ? RtsMiningDropBufferPolicy.remainingCapacity(safeBufferedItems)
+                : physicalRemaining;
+        int remaining = Math.min(requestedCount, Math.min(physicalRemaining, configuredRemaining));
         int requested = remaining;
         int maxStackSize = Math.max(1, prototype.getMaxStackSize());
 
@@ -55,14 +71,17 @@ public final class RtsMiningDropBufferState {
             remaining -= moved;
         }
 
-        while (remaining > 0 && stacks.size() < MAX_STACKS) {
+        int safeStackLimit = Math.clamp(stackLimit, 1, MAX_STACKS);
+        while (remaining > 0 && stacks.size() < safeStackLimit) {
             int chunkSize = Math.min(remaining, maxStackSize);
             stacks.addLast(prototype.copyWithCount(chunkSize));
             remaining -= chunkSize;
         }
 
         int accepted = requested - remaining;
-        bufferedItems += accepted;
+        // 存档或热重载期间字段可能已被外部数据污染；累计也必须继续保持物理上限，
+        // 不能在 int 溢出后让下一次排空反向增加数量。
+        bufferedItems = Math.min(MAX_BUFFERED_ITEMS, safeBufferedItems + accepted);
         return accepted;
     }
 

@@ -177,7 +177,14 @@ public final class AreaOperationExecutor {
                 new BlockPos(maxX, maxY, maxZ),
                 maxY - minY,
                 Direction.DOWN,
-                Direction.DOWN);
+                Direction.DOWN,
+                com.rtsbuilding.rtsbuilding.common.mining.MiningLimits.MAX_VOLUME - 1);
+
+        // 挖掘先按真实形状体积校验，再生成完整坐标；不沿用建造生成器的旧 64 格截断。
+        AreaShape[] shapes = AreaShape.values();
+        AreaShape shape = shapeOrdinal >= 0 && shapeOrdinal < shapes.length ? shapes[shapeOrdinal] : AreaShape.BLOCK;
+        if (!com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningRequestLimits.acceptsShape(
+                player, shape, input)) return List.of();
 
         List<BlockPos> candidates = generator.generatePositions(input, fillMode);
         return filterBreakableTargets(level, candidates, player);

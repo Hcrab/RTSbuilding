@@ -140,6 +140,11 @@ public static ClientRtsController get() {
     public List<LinkedStorageEntry> getLinkedStorageEntries() { return this.stateQueryOwner.getLinkedStorageEntries(); }
     public int getStoragePage() { return this.stateQueryOwner.getStoragePage(); }
     public int getStoragePageSize() { return this.stateQueryOwner.getStoragePageSize(); }
+    public int getStorageEffectivePageSize() { return this.storageStateManager.getStorageEffectivePageSize(); }
+    public long getStorageGlobalIndex() { return this.storageStateManager.getStorageGlobalIndex(); }
+    public long getStorageSessionId() { return this.storageStateManager.getStorageSessionId(); }
+    public long getStorageQueryId() { return this.storageStateManager.getStorageQueryId(); }
+    public long getStorageServerDataRevision() { return this.storageStateManager.getStorageServerDataRevision(); }
     public int getStorageTotalPages() { return this.stateQueryOwner.getStorageTotalPages(); }
     public int getStorageTotalEntries() { return this.stateQueryOwner.getStorageTotalEntries(); }
     public int getStorageRevision() { return this.stateQueryOwner.getStorageRevision(); }

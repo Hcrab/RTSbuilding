@@ -40,11 +40,20 @@ public final class RtsProgressionManager {
     }
 
     public static int getUltimineLimit(ServerPlayer player) {
-        return DEFAULT_ULTIMINE_LIMIT;
+        // 插件控制功能解锁，数量由服务端挖掘配置统一管理，不能再叠一层固定 256。
+        return com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator.ultimineMaxBlocks();
     }
 
     public static boolean canBypassHomeRadius(ServerPlayer player) {
         return RtsPluginService.canBypassHomeRadius(player);
+    }
+
+    public static int homeSelectionRadiusBlocks() {
+        return Config.homeSelectionRadiusBlocks();
+    }
+
+    public static long homeRelocationCooldownTicks() {
+        return Math.max(0L, (long) Config.homeRelocationCooldownDays()) * TICKS_PER_GAME_DAY;
     }
 
     public static String sharedProgressionKey(ServerPlayer player) {

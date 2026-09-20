@@ -89,7 +89,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
         recenterVisibleArea();
         ClientRtsController controller = ClientRtsController.get();
         this.previousPageSize = controller.getStoragePageSize();
-        controller.updateStoragePageSize(CraftTerminalScrollState.PAGE_SIZE);
+        controller.updateStoragePageSize(CraftTerminalScrollState.DEFAULT_PAGE_SIZE);
         controller.setStorageSort(CraftTerminalSortAdapter.normalize(
                 controller.getStorageSort()));
         this.scrollState.reset(controller);

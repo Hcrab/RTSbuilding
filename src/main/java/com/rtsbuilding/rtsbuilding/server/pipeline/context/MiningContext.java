@@ -286,6 +286,12 @@ public class MiningContext extends PipelineContext {
             return this;
         }
 
+        /** 仅服务端连通组规划器设置；客户端显式坐标请求始终使用体积规则。 */
+        public Builder connectedGroup(boolean connectedGroup) {
+            args.put(UltimineExecutePipe.ARG_CONNECTED_GROUP.name(), connectedGroup);
+            return this;
+        }
+
         /** 构建 {@link MiningContext}。 */
         public MiningContext build() {
             return new MiningContext(player, args);

@@ -63,6 +63,15 @@ public final class RtsPageServiceImpl implements PageService {
     public void requestPage(ServerPlayer player, int page, String search, String category,
                             RtsStorageSort sort, boolean ascending, int pageSize,
                             boolean pinyinSearchEnabled, List<String> localizedSearchMatches) {
+        requestPage(player, page, search, category, sort, ascending, pageSize,
+                pinyinSearchEnabled, localizedSearchMatches, 0L, 0L, 0L);
+    }
+
+    @Override
+    public void requestPage(ServerPlayer player, int page, String search, String category,
+                            RtsStorageSort sort, boolean ascending, int pageSize,
+                            boolean pinyinSearchEnabled, List<String> localizedSearchMatches,
+                            long sessionId, long queryId, long requestId) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
             return;
         }
@@ -74,13 +83,15 @@ public final class RtsPageServiceImpl implements PageService {
                 RtsStoragePageBuilder.sanitizeLocalizedSearchMatches(localizedSearchMatches));
         RtsStoragePageRequestCoalescer.enqueue(player, () -> buildPageNow(
                 player, page, safeSearch, safeCategory, safeSort, ascending,
-                safePageSize, pinyinSearchEnabled, safeLocalizedMatches));
+                pageSize, safePageSize, pinyinSearchEnabled, safeLocalizedMatches,
+                sessionId, queryId, requestId));
     }
 
     /** Tick 末由合并器调用；只有这里允许真正解析储存网络并构建页面。 */
     private void buildPageNow(ServerPlayer player, int page, String search, String category,
-                              RtsStorageSort sort, boolean ascending, int pageSize,
-                              boolean pinyinSearchEnabled, List<String> localizedSearchMatches) {
+                              RtsStorageSort sort, boolean ascending, int requestedPageSize, int pageSize,
+                              boolean pinyinSearchEnabled, List<String> localizedSearchMatches,
+                              long sessionId, long queryId, long requestId) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
             return;
         }
@@ -104,8 +115,8 @@ public final class RtsPageServiceImpl implements PageService {
         List<LinkedFluidHandler> activeFluidHandlers = RtsLinkedStorageResolver.resolveLinkedFluidHandlers(player, session);
         RtsLinkedHandlerResolutionService.registerStorageCaches(player, activeHandlers);
         var result = RtsStoragePageBuilder.build(
-                player, session, page, session.browser.pageSize,
-                activeHandlers, activeFluidHandlers);
+                player, session, page, requestedPageSize,
+                activeHandlers, activeFluidHandlers, sessionId, queryId, requestId);
         RtsClientboundPackets.sendToPlayer(player, result.payload());
         RtsDeveloperMetrics.recordPageSend(player);
         session.transfer.storageViewDirty = false;

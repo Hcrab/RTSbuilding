@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.task;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintWriters;
 import com.rtsbuilding.rtsbuilding.common.blueprint.io.VanillaStructureNbtReader;
@@ -406,7 +407,8 @@ public final class DurableBlueprintTaskBridge {
         if (snapshot.state().terminal()) return;
         persistence.coordinator().replace(snapshot.nextRevision(
                 TaskLifecycleState.FAILED, null, gameTime,
-                snapshot.cursorUnits(), snapshot.succeededUnits(), snapshot.failedUnits(), snapshot.payload()));
+                snapshot.cursorUnits(), snapshot.succeededUnits(), snapshot.failedUnits(), snapshot.payload(),
+                RtsOperationReason.EXECUTION_ERROR, "blueprint_snapshot_failed"));
         persistence.coordinator().requestTombstone(snapshot.id(), gameTime);
     }
 
@@ -414,9 +416,15 @@ public final class DurableBlueprintTaskBridge {
             TaskRecord record, TaskLifecycleState state, long gameTime) {
         TaskWaitKey waitKey = state == TaskLifecycleState.WAITING_RESOURCE
                 ? new TaskWaitKey("blueprint_material", "any") : null;
+        RtsOperationReason reason = state == TaskLifecycleState.WAITING_RESOURCE
+                ? RtsOperationReason.RESOURCE_MISSING
+                : state == TaskLifecycleState.COMPLETED
+                ? RtsOperationReason.SUCCESS : RtsOperationReason.UNKNOWN;
+        String detail = state == TaskLifecycleState.WAITING_RESOURCE
+                ? "blueprint_material_wait sources=linked_cache|linked_handlers|player_main" : "";
         return before.nextRevision(state, waitKey, gameTime,
                 record.cursorUnits(), record.succeededUnits(), record.failedUnits(),
-                runtimePayload(before.payload(), context));
+                runtimePayload(before.payload(), context), reason, detail);
     }
 
     private static CompoundTag runtimePayload(CompoundTag base, BlueprintContext context) {

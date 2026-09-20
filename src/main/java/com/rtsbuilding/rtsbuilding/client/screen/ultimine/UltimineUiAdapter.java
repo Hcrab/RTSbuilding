@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.ultimine;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
@@ -8,12 +9,12 @@ import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiPhase;
 import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiState;
 import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiTransition;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.BlockHitResult;
 
 import java.util.List;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.ULTIMINE_MAX_LIMIT;
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.ULTIMINE_MIN_LIMIT;
 
 /**
@@ -34,9 +35,18 @@ public final class UltimineUiAdapter {
         UltimineUiPhase phase = processed >= 0 && total > 0 && processed < total
                 ? UltimineUiPhase.RUNNING
                 : previewBlocks > 0 ? UltimineUiPhase.PREVIEW : UltimineUiPhase.IDLE;
+        int chainMaximum = chainMaximum();
         return new UltimineUiState(enabled, enabled ? "" : "chain_not_active", phase,
                 previewBlocks > 0, previewBlocks, 0, screen.getUltimineLimit(),
-                ULTIMINE_MIN_LIMIT, ULTIMINE_MAX_LIMIT, processed, total);
+                ULTIMINE_MIN_LIMIT, chainMaximum, processed, total);
+    }
+
+    private static int chainMaximum() {
+        try {
+            return MiningLimits.clampChainLimit(Config.ultimineMaxBlocks());
+        } catch (IllegalStateException ignored) {
+            return MiningLimits.DEFAULT_CHAIN_LIMIT;
+        }
     }
 
     /** 通过 Core 确认绿色连锁预览，再执行原有撤回记录与服务端请求。 */

@@ -23,7 +23,7 @@ public class BallShapeGenerator extends AreaShapeGenerator {
         int dx = input.end().getX() - input.start().getX();
         int dy = input.end().getY() - input.start().getY();
         int dz = input.end().getZ() - input.start().getZ();
-        int radius = Math.min(64, Math.max(0, (int) Math.round(Math.sqrt(
+        int radius = Math.min(input.maxOffset(), Math.max(0, (int) Math.round(Math.sqrt(
                 dx * (double) dx + dy * (double) dy + dz * (double) dz))));
         int outer2 = radius * radius;
         int inner = Math.max(0, radius - 1);

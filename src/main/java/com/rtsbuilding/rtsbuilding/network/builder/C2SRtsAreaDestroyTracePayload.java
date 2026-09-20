@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import com.rtsbuilding.rtsbuilding.network.RtsTracedPayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -30,20 +31,28 @@ public record C2SRtsAreaDestroyTracePayload(
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsAreaDestroyTracePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
+                int start = buf.writerIndex();
                 C2SRtsMineTracePayload.writeTraceHeader(buf, payload.traceId(), payload.sequence(),
                         payload.clientTick(), payload.heldMs(), payload.inputKind(), payload.stopOrigin());
                 List<BlockPos> positions = payload.positions() == null ? List.of() : payload.positions();
-                int size = Math.min(positions.size(), C2SRtsAreaDestroyPayload.MAX_POSITIONS);
+                if (positions.size() > MiningLimits.MAX_VOLUME) {
+                    throw new IllegalArgumentException(
+                            "RTS area destroy target count exceeds legacy trace payload limit: "
+                                    + positions.size() + " > " + MiningLimits.MAX_VOLUME);
+                }
+                int size = positions.size();
                 buf.writeVarInt(size);
                 for (int i = 0; i < size; i++) buf.writeBlockPos(positions.get(i));
                 buf.writeByte(payload.toolSlot());
                 C2SRtsMineTracePayload.writeTool(buf, payload.toolItemId(), payload.toolPrototype());
                 buf.writeBoolean(payload.toolProtectionEnabled());
+                C2SRtsAreaDestroyPayload.requireSinglePacketBudget(buf.writerIndex() - start);
             },
             buf -> {
                 var header = C2SRtsMineTracePayload.readTraceHeader(buf);
                 int size = buf.readVarInt();
-                if (size < 0 || size > C2SRtsAreaDestroyPayload.MAX_POSITIONS) {
+                if (size < 0 || size > C2SRtsAreaDestroyPayload.MAX_POSITIONS
+                        || size > buf.readableBytes() / Long.BYTES) {
                     throw new IllegalArgumentException("Invalid RTS area destroy target count: " + size);
                 }
                 List<BlockPos> positions = new ArrayList<>(size);

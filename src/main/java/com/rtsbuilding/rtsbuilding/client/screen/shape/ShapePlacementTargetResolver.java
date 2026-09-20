@@ -173,10 +173,13 @@ public final class ShapePlacementTargetResolver {
         if (anchorPlaced == null) {
             return clickedPos;
         }
-        return clickedPos.offset(
-                anchorPlaced.getX() - anchor.getX(),
-                anchorPlaced.getY() - anchor.getY(),
-                anchorPlaced.getZ() - anchor.getZ());
+        return new BlockPos(
+                ShapeGeometryUtil.clampCoordinate(
+                        (long) clickedPos.getX() + anchorPlaced.getX() - anchor.getX()),
+                ShapeGeometryUtil.clampCoordinate(
+                        (long) clickedPos.getY() + anchorPlaced.getY() - anchor.getY()),
+                ShapeGeometryUtil.clampCoordinate(
+                        (long) clickedPos.getZ() + anchorPlaced.getZ() - anchor.getZ()));
     }
 
     private static List<BlockPos> immutableDistinct(List<BlockPos> positions) {

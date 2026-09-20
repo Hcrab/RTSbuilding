@@ -43,18 +43,37 @@ final class WorkflowPanelRenderer {
                 row.suspended,
                 row.protectedWorkflow,
                 rowHover);
+        int rowTextLeft = (int) geometry.row.getX() + WorkflowWindowLayout.LABEL_X;
+        int rowTextRight = (int) geometry.row.right() - WorkflowWindowLayout.LABEL_X;
+        String statusText = RtsClientUiUtil.trimToWidth(
+                font,
+                row.statusText,
+                Math.min(WorkflowWindowLayout.STATUS_MAX_WIDTH, Math.max(0, rowTextRight - rowTextLeft)));
+        int statusWidth = statusText.isEmpty() ? 0 : font.width(statusText);
+        int labelWidth = Math.max(
+                1,
+                rowTextRight - rowTextLeft
+                        - (statusWidth == 0 ? 0 : statusWidth + WorkflowWindowLayout.STATUS_GAP));
         graphics.drawString(
                 font,
                 RtsClientUiUtil.trimToWidth(
                         font,
                         row.label,
-                        (int) geometry.row.getWidth() - 8),
-                (int) geometry.row.getX()
-                        + WorkflowWindowLayout.LABEL_X,
+                        labelWidth),
+                rowTextLeft,
                 (int) geometry.row.getY()
                         + WorkflowWindowLayout.LABEL_Y,
                 rowVisual.labelText.toArgb(),
                 false);
+        if (!statusText.isEmpty()) {
+            graphics.drawString(
+                    font,
+                    statusText,
+                    rowTextRight - statusWidth,
+                    (int) geometry.row.getY() + WorkflowWindowLayout.LABEL_Y,
+                    rowVisual.labelText.toArgb(),
+                    false);
+        }
         graphics.drawString(
                 font,
                 RtsClientUiUtil.trimToWidth(

@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.shape;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.compat.sable.RtsSableSpatialCompat;
 import net.minecraft.client.Minecraft;
@@ -138,13 +139,15 @@ public final class ShapeSelectionSession {
         }
         boolean vertical = isVerticalLine(this.session.shape());
         BlockPos pointB = vertical
-                ? ShapeSessionInputResolver.resolveVerticalLinePoint(this.session, hit)
+                ? ShapeSessionInputResolver.resolveVerticalLinePoint(
+                        this.session, hit, Config.maxShapeDimension())
                 : resolvePlanePoint(this.session, hit);
         this.session = new ShapeBuildTypes.Session(
                 this.session.shape(), this.session.planeFace(), this.session.placementFace(),
                 this.session.pointA(), pointB, ShapeBuildTypes.Phase.READY_CONFIRM,
                 vertical && pointB != null && this.session.pointA() != null
-                        ? pointB.getY() - this.session.pointA().getY()
+                        ? ShapeGeometryPlaneSupport.toInt(
+                                (long) pointB.getY() - this.session.pointA().getY())
                         : 0,
                 this.session.boxHeightMouseBaseY());
     }
@@ -189,7 +192,8 @@ public final class ShapeSelectionSession {
                     this.session.shape(), this.session.planeFace(), this.session.placementFace(),
                     this.session.pointA(), pointB,
                     advanced ? ShapeBuildTypes.Phase.READY_CONFIRM : ShapeBuildTypes.Phase.NEED_THIRD_POINT,
-                    advanced ? pointB.getY() - this.session.pointA().getY() : 0,
+                    advanced ? ShapeGeometryPlaneSupport.toInt(
+                            (long) pointB.getY() - this.session.pointA().getY()) : 0,
                     mouseY);
             this.session = advanced
                     ? AdvancedShapeSelectionGeometry.sessionFromBox(
@@ -251,7 +255,8 @@ public final class ShapeSelectionSession {
         RtsSableClientSpatialCompat.Ray localRay = localRay(this.session.pointA(), rayOrigin, rayDirection);
         return ShapeSessionInputResolver.resolve(
                 this.session, cursorHit, requireReady, isVerticalLine(this.session.shape()), lineConnected,
-                this.footprintNudgeA, this.footprintNudgeB, localRay.origin(), localRay.direction());
+                this.footprintNudgeA, this.footprintNudgeB, localRay.origin(), localRay.direction(),
+                Config.maxShapeDimension(), Config.maxShapeRadius());
     }
 
     private BlockPos resolvePlanePoint(ShapeBuildTypes.Session base, BlockHitResult cursorHit) {
@@ -303,9 +308,13 @@ public final class ShapeSelectionSession {
             return false;
         }
         if (secondary) {
-            this.footprintNudgeB = ShapeGeometryUtil.clampShapeOffset(this.footprintNudgeB + delta);
+            this.footprintNudgeB = ShapeGeometryUtil.clampShapeOffset(
+                    ShapeGeometryUtil.clampCoordinate((long) this.footprintNudgeB + delta),
+                    footprintNudgeLimit());
         } else {
-            this.footprintNudgeA = ShapeGeometryUtil.clampShapeOffset(this.footprintNudgeA + delta);
+            this.footprintNudgeA = ShapeGeometryUtil.clampShapeOffset(
+                    ShapeGeometryUtil.clampCoordinate((long) this.footprintNudgeA + delta),
+                    footprintNudgeLimit());
         }
         return true;
     }
@@ -322,6 +331,13 @@ public final class ShapeSelectionSession {
                 || shape == BuildShape.CYLINDER || shape == BuildShape.BOX;
     }
 
+    private int footprintNudgeLimit() {
+        BuildShape shape = this.session == null ? null : this.session.shape();
+        return shape == BuildShape.CIRCLE || shape == BuildShape.CYLINDER || shape == BuildShape.BALL
+                ? Math.max(0, Config.maxShapeRadius())
+                : Math.max(0, Config.maxShapeDimension() - 1);
+    }
+
     public boolean adjustHeight(int delta) {
         if (delta == 0 || this.session == null || !supportsHeight(this.session.shape())) {
             return false;
@@ -335,10 +351,11 @@ public final class ShapeSelectionSession {
                 && this.session.phase() != ShapeBuildTypes.Phase.NEED_THIRD_POINT) {
             return false;
         }
-        int nextOffset = ShapeGeometryUtil.clampShapeOffset(this.session.boxHeightOffset() + delta);
+        int nextOffset = ShapeGeometryUtil.clampShapeOffset(
+                ShapeGeometryUtil.clampCoordinate((long) this.session.boxHeightOffset() + delta));
         BlockPos nextPointB = this.session.pointB();
         if (this.session.shape() == BuildShape.LINE && this.session.pointA() != null) {
-            nextPointB = this.session.pointA().offset(0, nextOffset, 0);
+            nextPointB = ShapeGeometryUtil.offsetPos(this.session.pointA(), 0, nextOffset, 0);
         }
         this.session = new ShapeBuildTypes.Session(
                 this.session.shape(), this.session.planeFace(), this.session.placementFace(),

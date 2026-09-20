@@ -20,7 +20,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 普通、高级和范围破坏必须通过同一份有界且可复用的形状计划。
  */
+@org.junit.jupiter.api.extension.ExtendWith(com.rtsbuilding.rtsbuilding.test.ShapeConfigFixture.class)
 class ShapeGenerationPlanCacheTest {
+    @Test
+    void advancedBuildingKeepsAxisRuleWhileRangeDestroyKeepsValidLongBox() {
+        var box = new RtsCullingBox(0, BlockPos.ZERO, new BlockPos(511, 0, 0));
+        var input = input(BuildShape.BOX, new BlockPos(511, 0, 0), 0);
+        var cache = new ShapeGenerationPlanCache();
+        assertEquals(64, cache.positions(request(input, ShapeFillMode.FILL, box, false,
+                new RangeDestroySelectionLimiter.Limits(512), 64)).size());
+        assertEquals(512, cache.positions(request(input, ShapeFillMode.FILL, box, true,
+                new RangeDestroySelectionLimiter.Limits(512), 64)).size());
+    }
     @Test
     void normalBuildClampsBeforeGeneratingAndPublishesInclusiveBounds() {
         ShapeGenerationPlanCache cache = new ShapeGenerationPlanCache();
@@ -101,7 +112,7 @@ class ShapeGenerationPlanCacheTest {
     }
 
     @Test
-    void rangeDestroyRectilinearPlanHonorsAxisAndVolumeLimits() {
+    void rangeDestroyRectilinearPlanHonorsVolumeLimit() {
         ShapeGenerationPlanCache cache = new ShapeGenerationPlanCache();
         RangeDestroySelectionLimiter.Limits limits = limits(4, 3, 2, 12);
 
@@ -115,14 +126,12 @@ class ShapeGenerationPlanCacheTest {
 
         RtsCullingBox bounds = cache.bounds();
         assertNotNull(bounds);
-        assertTrue(bounds.width() <= 4);
-        assertTrue(bounds.height() <= 3);
-        assertTrue(bounds.depth() <= 2);
+        assertTrue((long) bounds.width() * bounds.height() * bounds.depth() <= 12);
         assertTrue(positions.size() <= 12);
     }
 
     @Test
-    void roundRangeDestroyPlanCannotEscapeCenteredCaps() {
+    void roundRangeDestroyPlanCannotEscapeVolumeCap() {
         ShapeGenerationPlanCache cache = new ShapeGenerationPlanCache();
         RangeDestroySelectionLimiter.Limits limits = limits(7, 1, 7, 49);
 
@@ -135,9 +144,9 @@ class ShapeGenerationPlanCacheTest {
                 32));
 
         assertFalse(positions.isEmpty());
-        assertTrue(cache.bounds().width() <= 7);
         assertEquals(1, cache.bounds().height());
-        assertTrue(cache.bounds().depth() <= 7);
+        assertTrue((long) cache.bounds().width() * cache.bounds().height()
+                * cache.bounds().depth() <= 49);
         assertTrue(positions.size() <= 49);
     }
 

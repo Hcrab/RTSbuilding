@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.state;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason;
+import com.rtsbuilding.rtsbuilding.network.builder.RtsWorkflowWireLimits;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressBatchPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressPayload;
@@ -19,7 +21,13 @@ import java.util.List;
  * {@code ClientRtsController} 继续作为对 UI 的公开门面。</p>
  */
 public final class ClientWorkflowStateManager {
-    private static final int MAX_WORKFLOWS = 8;
+    /**
+     * 客户端接收缓存沿用工作流 payload 的解码预算。
+     *
+     * <p>窗口只绘制当前可见行，但状态不能因为旧的 8 槽位 UI 限制而丢掉第 9
+     * 条及其后的任务；真正的玩家容量仍由服务端配置决定。</p>
+     */
+    private static final int MAX_WORKFLOWS = RtsWorkflowWireLimits.MAX_WORKFLOW_COUNT;
 
     private final RtsWorkflowStatus[] statuses =
             new RtsWorkflowStatus[MAX_WORKFLOWS];
@@ -32,13 +40,12 @@ public final class ClientWorkflowStateManager {
             clearStatuses();
             return;
         }
-        this.activeCount = payload.workflowCount() & 0xFF;
-        int index = payload.workflowIndex() & 0xFF;
-        if (index >= MAX_WORKFLOWS) {
+        this.activeCount = Math.min(MAX_WORKFLOWS, Math.max(0, payload.workflowCount()));
+        int index = payload.workflowIndex();
+        if (index < 0 || index >= MAX_WORKFLOWS) {
             return;
         }
-        RtsWorkflowType type = enumValue(
-                RtsWorkflowType.values(), payload.workflowType());
+        RtsWorkflowType type = RtsWorkflowType.fromWireId(payload.workflowType());
         if (type == null) {
             this.statuses[index] = RtsWorkflowStatus.idle();
             return;
@@ -59,6 +66,7 @@ public final class ClientWorkflowStateManager {
                 payload.suspended() != 0,
                 payload.paused() != 0,
                 payload.protectedWorkflow() != 0,
+                RtsOperationReason.fromWireId(payload.reasonId()),
                 payload.workflowEntryId());
     }
 
@@ -94,7 +102,10 @@ public final class ClientWorkflowStateManager {
     }
 
     /**
-     * 保留旧门面的原始数组语义，供现有只读 UI 循环使用。
+     * 保留旧门面的原始数组语义，供兼容调用方使用。
+     *
+     * <p>工作流面板应优先使用 {@link #activeWorkflows()}，避免把协议预算误当成
+     * 需要一次绘制的行数。</p>
      */
     public RtsWorkflowStatus[] rawStatuses() {
         return this.statuses;

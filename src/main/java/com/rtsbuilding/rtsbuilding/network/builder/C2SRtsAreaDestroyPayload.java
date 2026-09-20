@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -17,15 +18,22 @@ public record C2SRtsAreaDestroyPayload(
         String toolItemId,
         ItemStack toolPrototype,
         boolean toolProtectionEnabled) implements CustomPacketPayload {
-    public static final int MAX_POSITIONS = 98304;
+    /** 旧包仍可接收，但不能再把合法的大区域静默截断。 */
+    public static final int MAX_POSITIONS = MiningLimits.MAX_VOLUME;
 
     public static final Type<C2SRtsAreaDestroyPayload> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_area_destroy"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsAreaDestroyPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
+                int start = buf.writerIndex();
                 List<BlockPos> payloadPositions = payload.positions() == null ? List.of() : payload.positions();
-                int size = Math.min(payloadPositions.size(), MAX_POSITIONS);
+                if (payloadPositions.size() > MAX_POSITIONS) {
+                    throw new IllegalArgumentException(
+                            "RTS area destroy target count exceeds legacy payload limit: "
+                                    + payloadPositions.size() + " > " + MAX_POSITIONS);
+                }
+                int size = payloadPositions.size();
                 buf.writeVarInt(size);
                 for (int i = 0; i < size; i++) {
                     buf.writeBlockPos(payloadPositions.get(i));
@@ -38,10 +46,11 @@ public record C2SRtsAreaDestroyPayload(
                     ItemStack.STREAM_CODEC.encode(buf, toolPrototype);
                 }
                 buf.writeBoolean(payload.toolProtectionEnabled());
+                requireSinglePacketBudget(buf.writerIndex() - start);
             },
             (buf) -> {
                 int size = buf.readVarInt();
-                if (size < 0 || size > MAX_POSITIONS) {
+                if (size < 0 || size > MAX_POSITIONS || size > buf.readableBytes() / Long.BYTES) {
                     throw new IllegalArgumentException("Invalid RTS area destroy target count: " + size);
                 }
                 List<BlockPos> positions = new ArrayList<>(size);
@@ -59,5 +68,12 @@ public record C2SRtsAreaDestroyPayload(
     @Override
     public Type<? extends CustomPacketPayload> type() {
         return TYPE;
+    }
+
+    /** 旧入口不能发送大包；大区域应使用新分片协议，不能在编码中静默裁掉后半部分。 */
+    static void requireSinglePacketBudget(int encodedBytes) {
+        if (encodedBytes > C2SRtsAreaDestroyFragmentPayload.MAX_FRAGMENT_BYTES) {
+            throw new IllegalArgumentException("区域破坏超过单包预算，请使用分片协议");
+        }
     }
 }

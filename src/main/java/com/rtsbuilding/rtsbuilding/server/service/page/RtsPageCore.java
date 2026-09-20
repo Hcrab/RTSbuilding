@@ -60,8 +60,27 @@ public final class RtsPageCore {
             int requestedPageSize,
             List<LinkedHandler> activeHandlers,
             List<LinkedFluidHandler> activeFluidHandlers) {
+        return build(player, session, requestedPage, requestedPageSize,
+                activeHandlers, activeFluidHandlers, 0L, 0L, 0L);
+    }
+
+    /**
+     * 构建带请求上下文的页面。上下文只用于客户端丢弃旧查询/旧页响应，
+     * 不参与物品聚合或权限判断。
+     */
+    public static PageResult build(
+            ServerPlayer player,
+            RtsStorageSession session,
+            int requestedPage,
+            int requestedPageSize,
+            List<LinkedHandler> activeHandlers,
+            List<LinkedFluidHandler> activeFluidHandlers,
+            long sessionId,
+            long queryId,
+            long requestId) {
         List<LinkedHandler> itemHandlers = activeHandlers == null ? List.of() : activeHandlers;
         List<LinkedFluidHandler> fluidHandlers = activeFluidHandlers == null ? List.of() : activeFluidHandlers;
+        int effectivePageSize = RtsPageSharedHelpers.sanitizePageSize(requestedPageSize);
         boolean includePlayerMainInventory = RtsPageSharedHelpers.shouldIncludePlayerMainInventoryInStorageView(player, session);
         LinkedRefPayload linkedRefs = RtsPagePayloadFactory.buildLinkedRefPayload(player, session);
         List<Long> linkedPackedPositions = linkedRefs.positions();
@@ -70,13 +89,15 @@ public final class RtsPageCore {
                 && fluidHandlers.isEmpty()
                 && !hasPositiveInternalFluid(session)
                 && !includePlayerMainInventory) {
-            return new PageResult(RtsPagePayloadFactory.buildEmpty(player, session), 0);
+            return new PageResult(RtsPagePayloadFactory.buildEmpty(
+                    player, session, requestedPage, requestedPageSize, effectivePageSize,
+                    sessionId, queryId, requestId, session.transfer.pageDataVersion.get()), 0);
         }
 
         // ── Page cache check: avoid O(n log n) sort + filter rebuild on pure pagination ──
         RtsPageCache.CachedPageKey cacheKey = new RtsPageCache.CachedPageKey(
                 session.browser.search, session.browser.sort, session.browser.category, session.browser.ascending,
-                requestedPageSize, session.browser.pinyinSearchEnabled, includePlayerMainInventory);
+                effectivePageSize, session.browser.pinyinSearchEnabled, includePlayerMainInventory);
         RtsPageCache.CachedPage cached = RtsPageCache.INSTANCE.get(player.getUUID());
 
         final Map<String, Long> counts;
@@ -275,15 +296,11 @@ public final class RtsPageCore {
                     counts, namespaceTotals, categories));
         }
 
-        int pageSize = RtsPageSharedHelpers.sanitizePageSize(requestedPageSize);
-        int totalPages = Math.max(1, (totalEntries + pageSize - 1) / pageSize);
-        int safePage = Math.max(0, Math.min(requestedPage, totalPages - 1));
-        int from = safePage * pageSize;
-        int to = Math.min(from + pageSize, totalEntries);
+        RtsPageWindow window = RtsPageWindow.calculate(requestedPage, requestedPageSize, totalEntries);
 
         List<ItemStack> itemStacks = new ArrayList<>();
         List<Long> itemCounts = new ArrayList<>();
-        for (int i = from; i < to; i++) {
+        for (int i = window.fromIndex(); i < window.toIndex(); i++) {
             Entry e = sortedEntries.get(i);
             itemStacks.add(e.stack().copy());
             itemCounts.add(e.count());
@@ -337,7 +354,7 @@ public final class RtsPageCore {
                 linkedPackedPositions,
                 linkedRefs.dimensions(), linkedRefs.names(), linkedRefs.modes(), linkedRefs.priorities(),
                 linkedRefs.iconItemIds(), linkedRefs.worldAvailable(),
-                safePage, totalPages, totalEntries,
+                window.safePage(), window.totalPages(), totalEntries,
                 totalCountsSnapshot,
                 session.browser.search, session.browser.category,
                 (byte) session.browser.sort.ordinal(), session.browser.ascending,
@@ -351,7 +368,9 @@ public final class RtsPageCore {
                 RtsStorageUiPayloads.buildQuickSlotPreviewPayload(session, qSlotCount),
                 RtsStorageUiPayloads.buildGuiBindingLabelPayload(session, gbSlotCount),
                 RtsStorageUiPayloads.buildGuiBindingItemIdPayload(session, gbSlotCount),
-                session.funnel.funnelEnabled, funnelBufferItemIds, funnelBufferCounts), safePage);
+                session.funnel.funnelEnabled, funnelBufferItemIds, funnelBufferCounts,
+                requestedPage, requestedPageSize, window.effectivePageSize(), window.globalIndex(),
+                sessionId, queryId, requestId, session.transfer.pageDataVersion.get()), window.safePage());
     }
 
     // ---- helpers ---------------------------------------------------------------

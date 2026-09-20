@@ -27,6 +27,17 @@ public final class ShapeGhostPreviewProvider {
 
         List<BlockPos> generate(ShapeBuildTypes.Input input);
 
+        /** 默认兼容端口；正式控制器可返回带 TOO_LARGE 状态的同一份计划。 */
+        default ShapeGenerationResult generationPlan(ShapeBuildTypes.Input input) {
+            List<BlockPos> positions = generate(input);
+            return new ShapeGenerationResult(
+                    positions == null || positions.isEmpty()
+                            ? ShapeGenerationStatus.EMPTY
+                            : ShapeGenerationStatus.READY,
+                    positions,
+                    positions == null ? 0 : positions.size());
+        }
+
         List<BlockPos> filterPlacementTargets(ShapeBuildTypes.Input input, List<BlockPos> targets);
 
         boolean isBreakable(BlockPos pos);
@@ -92,8 +103,9 @@ public final class ShapeGhostPreviewProvider {
         if (input == null) {
             return ShapeDataRecords.GhostPreview.EMPTY;
         }
+        ShapeGenerationResult generation = this.runtime.generationPlan(input);
         ShapeDestroyTargetClassifier.Selection selection = ShapeDestroyTargetClassifier.classify(
-                this.runtime.generate(input), this.runtime::isBreakable);
+                generation.positions(), this.runtime::isBreakable);
         boolean ready = ready();
         if (selection.breakableBlocks().isEmpty()) {
             return selection.envelopeBlocks().isEmpty()
@@ -117,7 +129,8 @@ public final class ShapeGhostPreviewProvider {
         if (input == null) {
             return ShapeDataRecords.GhostPreview.EMPTY;
         }
-        List<BlockPos> blocks = this.runtime.filterPlacementTargets(input, this.runtime.generate(input));
+        ShapeGenerationResult generation = this.runtime.generationPlan(input);
+        List<BlockPos> blocks = this.runtime.filterPlacementTargets(input, generation.positions());
         return blocks.isEmpty() ? ShapeDataRecords.GhostPreview.EMPTY : new ShapeDataRecords.GhostPreview(blocks, ready());
     }
 

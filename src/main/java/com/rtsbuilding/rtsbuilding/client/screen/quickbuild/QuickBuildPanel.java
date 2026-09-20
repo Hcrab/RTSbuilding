@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
@@ -7,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyPlanner;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiAction;
@@ -131,7 +133,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     public int getChainDestroyLimit() {
-        return this.preferences.chainLimit();
+        // 服务器上限仅限制本次有效值，不抹掉玩家在其它服务器保存的较大偏好。
+        return sanitizeChainLimit(this.preferences.chainLimit());
     }
 
     QuickBuildUiCatalogPage getCatalogPage() {
@@ -224,7 +227,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     private void setChainDestroyLimit(int limit, boolean persist) {
-        int clamped = sanitizeChainLimit(limit);
+        int clamped = persist ? sanitizeChainLimit(limit) : MiningLimits.clampChainLimit(limit);
         if (this.preferences.chainLimit() == clamped) {
             syncSliderValue();
             return;
@@ -248,8 +251,16 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         }
     }
 
-    private static int sanitizeChainLimit(int value) {
-        return Mth.clamp(value, ULTIMINE_MIN_LIMIT, ULTIMINE_MAX_LIMIT);
+    int chainMaximum() {
+        try {
+            return MiningLimits.clampChainLimit(Config.ultimineMaxBlocks());
+        } catch (IllegalStateException ignored) {
+            return MiningLimits.DEFAULT_CHAIN_LIMIT;
+        }
+    }
+
+    private int sanitizeChainLimit(int value) {
+        return Mth.clamp(value, ULTIMINE_MIN_LIMIT, chainMaximum());
     }
 
     public boolean isSmartFillMode() {

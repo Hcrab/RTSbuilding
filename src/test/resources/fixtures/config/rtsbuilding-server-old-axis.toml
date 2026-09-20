@@ -1,0 +1,85 @@
+# Forge/NeoForge ConfigSpec generated server file from the pre-canonical schema.
+[diagnostics]
+level = "BASIC"
+maxTraces = 1024
+maxWorkflowLinks = 2048
+maxTaskLinks = 2048
+
+[mining]
+ultimineMaxBlocks = 256
+areaMineMaxSize = 36
+areaMineMaxVolume = 46656
+areaMineMaxWidth = 80
+areaMineMaxHeight = 36
+areaMineMaxDepth = 36
+areaMineMaxHarvestTier = "UNLIMITED"
+maxTreeBlocks = 8192
+ultimineBlocksPerTick = 32
+areaDestroyMaxTargets = 98304
+
+[progression]
+homeSelectionRadiusBlocks = 34
+homeRelocationCooldownDays = 20
+
+[building]
+maxShapeDimension = 32
+maxShapeRadius = 32
+
+[smartFill]
+maxBlocks = 1024
+defaultBlocks = 512
+maxDiameter = 32
+defaultDiameter = 16
+
+[storage]
+maxBatchBindingSelectionVolume = 262144
+maxBatchBindingSizeX = 64
+maxBatchBindingSizeY = 64
+maxBatchBindingSizeZ = 64
+maxLinkedStorages = 200
+pickupRadiusBlocks = 2.0
+enableCrossDimensionStorage = true
+maxCrossDimensionAwakeChunks = 32
+dropCacheSoftCapacity = 4096
+ae2NetworkRefreshThrottle = 10
+refinedStorageNetworkRefreshThrottle = 10
+pageCacheMaxPlayers = 256
+defaultStoragePageSize = 90
+maxStoragePageSize = 180
+
+[workflows]
+maxActivePerPlayer = 8
+
+[history]
+maxEntriesPerStack = 3
+retentionSeconds = 600
+
+[funnel]
+maxEntitiesPerTick = 24
+maxItemsPerTick = 48
+bufferMaxStacks = 16
+tickInterval = 2
+
+[placement]
+buildBatchBlocksPerTick = 64
+buildBatchMaxQueuedJobs = 4
+
+[taskEngine]
+maxUnitsPerTick = 256
+maxUnitsPerSlice = 32
+maxNanosPerTick = 8000000
+
+[interaction]
+remotePovBlockReach = 4.0
+
+[mining.dropScanRadius]
+value = 1.25
+
+[placement.remoteBlockActionSoundsPerTick]
+value = 16
+
+[fluid]
+internalFluidCapacityBuckets = 100
+
+[internal]
+configRevision = 0

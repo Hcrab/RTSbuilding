@@ -38,7 +38,8 @@ public final class StorageStateManager {
     public static final int QUICK_SLOT_COUNT = StorageBindingState.QUICK_SLOT_COUNT;
     public static final int GUI_BINDING_SLOT_COUNT = StorageBindingState.GUI_BINDING_SLOT_COUNT;
     private static final int DEFAULT_STORAGE_PAGE_SIZE = 90;
-    private static final int MAX_STORAGE_PAGE_SIZE = 180;
+    /** 客户端只限制请求值的协议安全上界，服务端配置决定实际批准窗口。 */
+    private static final int CLIENT_MAX_STORAGE_PAGE_SIZE = 8192;
     private static final String CATEGORY_ALL = "all";
 
     // =========================================================================
@@ -51,15 +52,8 @@ public final class StorageStateManager {
     private String linkedStorageName = "No Storage";
     private final List<BlockPos> linkedStoragePositions = new ArrayList<>();
     private final List<LinkedStorageEntry> linkedStorageEntries = new ArrayList<>();
-    private int storagePage;
-    private int storagePageSize = DEFAULT_STORAGE_PAGE_SIZE;
-    private int storageTotalPages = 1;
-    private int storageTotalEntries;
     private int storageRevision;
-    private String storageSearch = "";
-    private String storageCategory = CATEGORY_ALL;
-    private RtsStorageSort storageSort = RtsStorageSort.QUANTITY;
-    private boolean storageSortAscending;
+    private final StoragePageRequestState pageRequestState = new StoragePageRequestState(DEFAULT_STORAGE_PAGE_SIZE);
     private final List<String> storageCategories = new ArrayList<>();
     private final List<StorageEntry> storageEntries = new ArrayList<>();
     private final Map<String, Long> storageTotalCounts = new HashMap<>();
@@ -153,19 +147,40 @@ public final class StorageStateManager {
     }
 
     public int getStoragePage() {
-        return this.storagePage;
+        return this.pageRequestState.page();
     }
 
     public int getStoragePageSize() {
-        return this.storagePageSize;
+        return this.pageRequestState.requestedPageSize();
+    }
+
+    /** 客户端本次响应实际采用的服务端页窗口。 */
+    public int getStorageEffectivePageSize() {
+        return this.pageRequestState.effectivePageSize();
+    }
+
+    public long getStorageGlobalIndex() {
+        return this.pageRequestState.globalIndex();
+    }
+
+    public long getStorageSessionId() {
+        return this.pageRequestState.sessionId();
+    }
+
+    public long getStorageQueryId() {
+        return this.pageRequestState.queryId();
+    }
+
+    public long getStorageServerDataRevision() {
+        return this.pageRequestState.serverDataRevision();
     }
 
     public int getStorageTotalPages() {
-        return this.storageTotalPages;
+        return this.pageRequestState.totalPages();
     }
 
     public int getStorageTotalEntries() {
-        return this.storageTotalEntries;
+        return this.pageRequestState.totalEntries();
     }
 
     public int getStorageRevision() {
@@ -173,19 +188,19 @@ public final class StorageStateManager {
     }
 
     public String getStorageSearch() {
-        return this.storageSearch;
+        return this.pageRequestState.search();
     }
 
     public String getStorageCategory() {
-        return this.storageCategory;
+        return this.pageRequestState.category();
     }
 
     public RtsStorageSort getStorageSort() {
-        return this.storageSort;
+        return this.pageRequestState.sort();
     }
 
     public boolean isStorageSortAscending() {
-        return this.storageSortAscending;
+        return this.pageRequestState.sortAscending();
     }
 
     public List<String> getStorageCategories() {
@@ -384,24 +399,25 @@ public final class StorageStateManager {
     // =========================================================================
 
     public void requestStoragePage(int page) {
+        StoragePageRequestState.Request request = this.pageRequestState.beginRequest(page);
         markStorageScanStarted();
         RtsClientPacketGateway.sendRequestStoragePage(
                 page,
-                this.storageSearch,
-                this.storageCategory,
-                this.storageSort,
-                this.storageSortAscending,
-                this.storagePageSize);
+                this.pageRequestState.search(),
+                this.pageRequestState.category(),
+                this.pageRequestState.sort(),
+                this.pageRequestState.sortAscending(),
+                this.pageRequestState.requestedPageSize(),
+                request.sessionId(), request.queryId(), request.requestId());
     }
 
     public void updateStoragePageSize(int pageSize) {
-        int safePageSize = Mth.clamp(pageSize, 1, MAX_STORAGE_PAGE_SIZE);
-        if (this.storagePageSize == safePageSize) {
+        int safePageSize = Mth.clamp(pageSize, 1, CLIENT_MAX_STORAGE_PAGE_SIZE);
+        if (!this.pageRequestState.setRequestedPageSize(safePageSize)) {
             return;
         }
-        this.storagePageSize = safePageSize;
         if (hasStoragePageSnapshot() && !this.refreshState.scanRunning()) {
-            requestStoragePage(this.storagePage);
+            requestStoragePage(this.pageRequestState.page());
         }
     }
 
@@ -412,26 +428,23 @@ public final class StorageStateManager {
     }
 
     public void refreshStoragePage() {
-        requestStoragePage(this.storagePage);
+        requestStoragePage(this.pageRequestState.page());
     }
 
     public void setStorageSearch(String search) {
-        this.storageSearch = search == null ? "" : search;
+        this.pageRequestState.setSearch(search);
         requestStoragePage(0);
     }
 
     public void setStorageCategory(String category) {
-        String normalized = StorageUiValueSanitizer.normalizeCategory(category);
-        if (this.storageCategory.equals(normalized)) {
+        if (!this.pageRequestState.setCategory(category)) {
             return;
         }
-        this.storageCategory = normalized;
         requestStoragePage(0);
     }
 
     public void cycleSort() {
-        int next = (this.storageSort.ordinal() + 1) % RtsStorageSort.values().length;
-        this.storageSort = RtsStorageSort.byId(next);
+        this.pageRequestState.cycleSort();
         requestStoragePage(0);
     }
 
@@ -443,24 +456,23 @@ public final class StorageStateManager {
      */
     public void setStorageSort(RtsStorageSort sort) {
         RtsStorageSort normalized = Objects.requireNonNull(sort, "sort");
-        if (this.storageSort == normalized) {
+        if (!this.pageRequestState.setSort(normalized)) {
             return;
         }
-        this.storageSort = normalized;
         requestStoragePage(0);
     }
 
     public void toggleSortDirection() {
-        this.storageSortAscending = !this.storageSortAscending;
+        this.pageRequestState.toggleSortDirection();
         requestStoragePage(0);
     }
 
     public void prevPage() {
-        requestStoragePage(Math.max(0, this.storagePage - 1));
+        requestStoragePage(Math.max(0, this.pageRequestState.page() - 1));
     }
 
     public void nextPage() {
-        requestStoragePage(Math.min(this.storageTotalPages - 1, this.storagePage + 1));
+        requestStoragePage(Math.min(this.pageRequestState.totalPages() - 1, this.pageRequestState.page() + 1));
     }
 
     // =========================================================================
@@ -597,6 +609,9 @@ public final class StorageStateManager {
      *                         (used by the controller for cross-cutting concerns)
      */
     public void applyStoragePage(S2CRtsStoragePagePayload payload, Runnable afterPageApplied) {
+        if (!this.pageRequestState.accept(payload)) {
+            return;
+        }
         markStorageScanFinished();
         clearStorageViewDirty();
         StoragePagePayloadDecoder.DecodedPage decoded = StoragePagePayloadDecoder.decode(payload, this.linkedStorageName);
@@ -608,13 +623,6 @@ public final class StorageStateManager {
         this.linkedStoragePositions.addAll(decoded.positions());
         this.linkedStorageEntries.clear();
         this.linkedStorageEntries.addAll(decoded.linked());
-        this.storagePage = payload.page();
-        this.storageTotalPages = Math.max(1, payload.totalPages());
-        this.storageTotalEntries = payload.totalEntries();
-        this.storageSearch = payload.search();
-        this.storageCategory = StorageUiValueSanitizer.normalizeCategory(payload.category());
-        this.storageSort = RtsStorageSort.byId(payload.sort());
-        this.storageSortAscending = payload.ascending();
         this.storageCategories.clear();
         this.storageCategories.add(CATEGORY_ALL);
         for (String category : payload.categories()) {
@@ -622,9 +630,6 @@ public final class StorageStateManager {
             if (!this.storageCategories.contains(normalized)) {
                 this.storageCategories.add(normalized);
             }
-        }
-        if (!this.storageCategories.contains(this.storageCategory)) {
-            this.storageCategory = CATEGORY_ALL;
         }
         this.storageEntries.clear();
         this.storageEntries.addAll(decoded.items());
@@ -674,13 +679,7 @@ public final class StorageStateManager {
         this.linkedStorageName = "No Storage";
         this.linkedStoragePositions.clear();
         this.linkedStorageEntries.clear();
-        this.storagePage = 0;
-        this.storageTotalPages = 1;
-        this.storageTotalEntries = 0;
-        this.storageSearch = "";
-        this.storageCategory = CATEGORY_ALL;
-        this.storageSort = RtsStorageSort.QUANTITY;
-        this.storageSortAscending = false;
+        this.pageRequestState.reset();
         this.storageCategories.clear();
         this.storageCategories.add(CATEGORY_ALL);
         this.storageCollapsed = false;
@@ -696,6 +695,7 @@ public final class StorageStateManager {
     }
 
     void clearStorageStateOnDisable() {
+        this.pageRequestState.resetRequestContext();
         clearStorageScanState();
         clearStorageViewDirty();
         this.refreshState.forgetSnapshot();
@@ -708,7 +708,7 @@ public final class StorageStateManager {
 
     void tickStorageAutoRefresh(boolean storageViewVisible) {
         if (this.refreshState.shouldRequestRefresh(storageViewVisible, hasStoragePageSnapshot())) {
-            requestStoragePage(this.storagePage);
+            requestStoragePage(this.pageRequestState.page());
         }
     }
 

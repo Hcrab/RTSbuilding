@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.undo;
 
 import com.rtsbuilding.rtsbuilding.common.RtsHistoryConstants;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryCapacityPolicy;
@@ -59,11 +60,13 @@ class HistoryModelTest {
 
     @Test
     void capacityRejectsWholeOversizedEntry() {
+        assertEquals(MiningLimits.MAX_VOLUME, RtsHistoryConstants.MAX_BLOCKS_PER_ENTRY);
+        assertEquals(MiningLimits.MAX_VOLUME * 7,
+                RtsHistoryConstants.MAX_HISTORY_RECORDS_PER_ENTRY);
         HistoryBlockRecord record = record(BlockPos.ZERO);
-        List<HistoryBlockRecord> oversized = Collections.nCopies(
-                RtsHistoryConstants.MAX_BLOCKS_PER_ENTRY + 1, record);
+        List<HistoryBlockRecord> oversized = Collections.nCopies(5, record);
 
-        assertFalse(HistoryCapacityPolicy.accepts(oversized));
+        assertFalse(HistoryCapacityPolicy.accepts(oversized, 4, 1_024));
         assertTrue(HistoryCapacityPolicy.accepts(List.of(record)));
     }
 
@@ -76,6 +79,12 @@ class HistoryModelTest {
 
         assertFalse(HistoryCapacityPolicy.accepts(
                 List.of(new HistoryBlockRecord(BlockPos.ZERO, null, nbt, null)), 10, 64));
+    }
+
+    @Test
+    void capacityRejectsNullRecordWithoutPartiallyBuildingHistory() {
+        assertFalse(HistoryCapacityPolicy.accepts(
+                java.util.Arrays.asList(record(BlockPos.ZERO), null), 4, 1024));
     }
 
     @Test

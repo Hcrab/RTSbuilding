@@ -1,8 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.service.destruction;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyPlanner;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings;
+import com.rtsbuilding.rtsbuilding.common.mining.SelectionVolumeLimit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.BlockHitResult;
@@ -21,6 +23,9 @@ public final class RtsDestroyPreviewPlanner {
     private RtsConvenienceDestroyMode lastMode;
     private RtsConvenienceDestroySettings lastSettings;
     private long lastComputedAt;
+    private int lastMaxVolume;
+    private int lastMaxTreeBlocks;
+    private SelectionVolumeLimit lastSelectionLimit;
     private RtsConvenienceDestroyPlanner.Plan lastPlan = new RtsConvenienceDestroyPlanner.Plan(
             RtsConvenienceDestroyPlanner.ResultCode.INVALID_TARGET, java.util.List.of(), 0);
 
@@ -32,12 +37,17 @@ public final class RtsDestroyPreviewPlanner {
                     RtsConvenienceDestroyPlanner.ResultCode.INVALID_TARGET, java.util.List.of(), 0);
         }
         RtsConvenienceDestroySettings clean = RtsConvenienceDestroyPlanner.sanitize(settings);
+        SelectionVolumeLimit selectionLimit = com.rtsbuilding.rtsbuilding.Config.areaMineSelectionLimit();
+        int maxVolume = selectionLimit.maxVolume();
         ResourceLocation dimension = minecraft.level.dimension().location();
         long now = System.currentTimeMillis();
         if (dimension.equals(this.lastDimension)
                 && sameHit(hit, this.lastHit)
                 && mode == this.lastMode
                 && clean.equals(this.lastSettings)
+                && selectionLimit.equals(this.lastSelectionLimit)
+                && this.lastMaxVolume == maxVolume
+                && this.lastMaxTreeBlocks == Config.maxTreeBlocks()
                 && now - this.lastComputedAt < CACHE_MILLIS) {
             return this.lastPlan;
         }
@@ -45,9 +55,13 @@ public final class RtsDestroyPreviewPlanner {
         this.lastHit = hit;
         this.lastMode = mode;
         this.lastSettings = clean;
+        this.lastMaxVolume = maxVolume;
+        this.lastMaxTreeBlocks = com.rtsbuilding.rtsbuilding.Config.maxTreeBlocks();
+        this.lastSelectionLimit = selectionLimit;
         this.lastComputedAt = now;
         this.lastPlan = RtsConvenienceDestroyPlanner.plan(
-                minecraft.level, mode, hit.getBlockPos(), hit.getDirection(), clean);
+                minecraft.level, mode, hit.getBlockPos(), hit.getDirection(), clean, selectionLimit,
+                com.rtsbuilding.rtsbuilding.Config.maxTreeBlocks());
         return this.lastPlan;
     }
 

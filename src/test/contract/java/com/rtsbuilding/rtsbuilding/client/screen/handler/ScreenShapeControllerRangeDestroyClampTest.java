@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.shape.RangeDestroySelectionLimi
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningSelectionBounds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@org.junit.jupiter.api.extension.ExtendWith(com.rtsbuilding.rtsbuilding.test.ShapeConfigFixture.class)
 class ScreenShapeControllerRangeDestroyClampTest {
     @Test
     void oversizedCircleClampsRadiusBeforeGeneratingTargets() {
@@ -42,8 +44,10 @@ class ScreenShapeControllerRangeDestroyClampTest {
         assertTrue(capped.contains(new BlockPos(-5, 64, 0)));
         assertTrue(capped.contains(new BlockPos(0, 64, 5)));
         assertTrue(capped.contains(new BlockPos(0, 64, -5)));
+        // 体积有剩余也不能绕过每轴12格；中心对称圆的最大整格半径是5。
         assertFalse(capped.contains(new BlockPos(6, 64, 0)));
         assertFalse(capped.contains(new BlockPos(5, 64, 5)));
+        assertTrue(MiningSelectionBounds.accepts(capped, 1728));
     }
 
     @Test
@@ -71,6 +75,7 @@ class ScreenShapeControllerRangeDestroyClampTest {
         assertTrue(capped.contains(new BlockPos(0, 75, 0)));
         assertFalse(capped.contains(new BlockPos(6, 64, 0)));
         assertFalse(capped.contains(new BlockPos(0, 76, 0)));
+        assertTrue(MiningSelectionBounds.accepts(capped, 1728));
     }
 
     @Test

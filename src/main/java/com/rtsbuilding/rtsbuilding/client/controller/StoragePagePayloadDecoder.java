@@ -48,7 +48,9 @@ final class StoragePagePayloadDecoder {
             if (stack == null || stack.isEmpty()) continue;
             ItemStack preview = stack.copyWithCount(1);
             ResourceLocation id = BuiltInRegistries.ITEM.getKey(preview.getItem());
-            if (id != null) items.add(new StorageEntry(preview, id.toString(), payload.counts().get(i), id.getNamespace(), id.getPath()));
+            Long rawCount = payload.counts().get(i);
+            long count = rawCount == null ? 0L : Math.max(0L, rawCount);
+            if (id != null) items.add(new StorageEntry(preview, id.toString(), count, id.getNamespace(), id.getPath()));
         }
 
         Map<String, Long> totals = new LinkedHashMap<>();
@@ -58,7 +60,8 @@ final class StoragePagePayloadDecoder {
                 String itemId = payload.totalItemIds().get(i);
                 ResourceLocation id = ResourceLocation.tryParse(itemId);
                 if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-                    totals.put(itemId, Math.max(0L, payload.totalItemCounts().get(i)));
+                    Long rawCount = payload.totalItemCounts().get(i);
+                    totals.put(itemId, rawCount == null ? 0L : Math.max(0L, rawCount));
                 }
             }
         }
@@ -72,7 +75,9 @@ final class StoragePagePayloadDecoder {
             Fluid fluid = BuiltInRegistries.FLUID.get(id);
             FluidStack stack = new FluidStack(fluid, FluidType.BUCKET_VOLUME);
             fluids.add(new FluidEntry(fluidId, fluid.getFluidType().getDescription(stack).getString(),
-                    payload.fluidAmounts().get(i), payload.fluidCapacities().get(i), id.getNamespace(), id.getPath(),
+                    payload.fluidAmounts().get(i) == null ? 0L : Math.max(0L, payload.fluidAmounts().get(i)),
+                    payload.fluidCapacities().get(i) == null ? 0L : Math.max(0L, payload.fluidCapacities().get(i)),
+                    id.getNamespace(), id.getPath(),
                     FluidUtil.getFilledBucket(stack)));
         }
 
@@ -90,7 +95,8 @@ final class StoragePagePayloadDecoder {
         for (int i = 0; i < funnelSize; i++) {
             String itemId = payload.funnelBufferItemIds().get(i);
             ResourceLocation id = ResourceLocation.tryParse(itemId);
-            long count = Math.max(0L, payload.funnelBufferCounts().get(i));
+            Long rawCount = payload.funnelBufferCounts().get(i);
+            long count = rawCount == null ? 0L : Math.max(0L, rawCount);
             if (id != null && BuiltInRegistries.ITEM.containsKey(id) && count > 0L) {
                 funnel.add(new FunnelBufferEntry(new ItemStack(BuiltInRegistries.ITEM.get(id)), itemId, count));
             }
@@ -114,9 +120,11 @@ final class StoragePagePayloadDecoder {
         return new LinkedStorageEntry(pos, dimensionId, label, mode, priority, preview, available);
     }
 
-    private static RecentEntry decodeRecent(String idText, long amount, long capacity, byte kind) {
+    private static RecentEntry decodeRecent(String idText, Long amount, Long capacity, byte kind) {
         ResourceLocation id = idText == null ? null : ResourceLocation.tryParse(idText);
         if (id == null) return null;
+        long safeAmount = amount == null ? 0L : Math.max(0L, amount);
+        long safeCapacity = capacity == null ? 0L : Math.max(0L, capacity);
         boolean fluidKind = kind == S2CRtsStoragePagePayload.RECENT_FLUID_PLACED
                 || kind == S2CRtsStoragePagePayload.RECENT_FLUID_USED
                 || kind == S2CRtsStoragePagePayload.RECENT_FLUID_CRAFTED;
@@ -125,11 +133,11 @@ final class StoragePagePayloadDecoder {
             Fluid fluid = BuiltInRegistries.FLUID.get(id);
             FluidStack stack = new FluidStack(fluid, FluidType.BUCKET_VOLUME);
             return new RecentEntry(true, idText, fluid.getFluidType().getDescription(stack).getString(),
-                    Math.max(0L, amount), Math.max(0L, capacity), kind, FluidUtil.getFilledBucket(stack));
+                    safeAmount, safeCapacity, kind, FluidUtil.getFilledBucket(stack));
         }
         if (!BuiltInRegistries.ITEM.containsKey(id)) return null;
         ItemStack preview = new ItemStack(BuiltInRegistries.ITEM.get(id));
-        return new RecentEntry(false, idText, preview.getHoverName().getString(), Math.max(0L, amount), 0L, kind, preview);
+        return new RecentEntry(false, idText, preview.getHoverName().getString(), safeAmount, 0L, kind, preview);
     }
 
     record DecodedPage(List<BlockPos> positions, List<LinkedStorageEntry> linked, List<StorageEntry> items,

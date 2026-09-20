@@ -38,7 +38,8 @@ public final class RtsBatchStorageBindingService {
             return RtsStorageBindings.UpdateResult.none();
         }
         RtsBatchStorageSelectionBounds.Bounds bounds =
-                RtsBatchStorageSelectionBounds.normalize(first, second);
+                RtsBatchStorageSelectionBounds.normalize(first, second,
+                        com.rtsbuilding.rtsbuilding.Config.batchBindingSelectionLimit());
         if (bounds == null) {
             return RtsStorageBindings.UpdateResult.none();
         }

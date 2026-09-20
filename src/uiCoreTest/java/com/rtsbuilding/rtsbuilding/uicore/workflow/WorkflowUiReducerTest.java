@@ -35,6 +35,28 @@ final class WorkflowUiReducerTest {
         assertEquals(0.2D, row.progress());
     }
 
+    @Test
+    void localActionsPreserveIndependentStatusDetails() {
+        WorkflowUiRow row = new WorkflowUiRow(5, "place_batch", "Batch", "4/10",
+                4, 10, 0, 6, true, false, false, false,
+                "Need materials", Arrays.asList("Missing: minecraft:stone", "Resume after refill"),
+                Arrays.asList("minecraft:stone", "minecraft:glass"),
+                "Materials are still missing", "Refill and resume");
+        WorkflowUiState state = new WorkflowUiState(true, false, Arrays.asList(row));
+
+        WorkflowUiState next = WorkflowUiReducer.apply(
+                state,
+                WorkflowUiAction.of(WorkflowUiAction.Type.TOGGLE_PROTECTED, 5)).state;
+
+        assertEquals("Need materials", next.rows.get(0).statusText);
+        assertEquals(row.detailLines, next.rows.get(0).detailLines);
+        assertEquals(row.missingItemIds, next.rows.get(0).missingItemIds);
+        assertEquals(row.detailText, next.rows.get(0).detailText);
+        assertEquals(row.nextStepText, next.rows.get(0).nextStepText);
+        assertEquals(5, next.rows.get(0).entryId);
+        assertEquals(true, next.rows.get(0).protectedWorkflow);
+    }
+
     private static WorkflowUiState state() {
         return new WorkflowUiState(true, false, Arrays.asList(
                 new WorkflowUiRow(1, "quick_build", "Quick Build", "24/80",

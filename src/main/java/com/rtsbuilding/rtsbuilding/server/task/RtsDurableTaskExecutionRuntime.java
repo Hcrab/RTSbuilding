@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.task;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.destruction.RtsDestructionBatch;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
@@ -74,11 +75,27 @@ final class RtsDurableTaskExecutionRuntime {
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState lifecycle,
             long gameTime) {
+        return transitionPlacementSnapshot(snapshot, lifecycle, gameTime, null, null);
+    }
+
+    /** 合并 placement 热路径镜像，并允许调用方保留明确终态原因。 */
+    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot transitionPlacementSnapshot(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState lifecycle,
+            long gameTime,
+            com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason terminalReason,
+            String reasonDetail) {
         PlacementProgressOverlay overlay = placementProgressOverlays.remove(snapshot.id());
         PlacementTaskPayload payload = overlay != null && overlay.baseRevision() == snapshot.revision()
                 ? overlay.payload()
                 : com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.decode(snapshot.payload());
         var state = payload.state();
+        if (terminalReason != null) {
+            return snapshot.nextRevision(lifecycle, null, gameTime,
+                    state.cursorUnits(), state.succeededUnits(), state.failedUnits(),
+                    com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(payload),
+                    terminalReason, reasonDetail);
+        }
         return snapshot.nextRevision(lifecycle, null, gameTime,
                 state.cursorUnits(), state.succeededUnits(), state.failedUnits(),
                 com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(payload));
@@ -98,11 +115,27 @@ final class RtsDurableTaskExecutionRuntime {
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState lifecycle,
             long gameTime) {
+        return transitionMiningSnapshot(snapshot, lifecycle, gameTime, null, null);
+    }
+
+    /** 合并 mining 热路径镜像，并保留调用方指定的终态原因。 */
+    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot transitionMiningSnapshot(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState lifecycle,
+            long gameTime,
+            com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason terminalReason,
+            String reasonDetail) {
         MiningProgressOverlay overlay = miningProgressOverlays.remove(snapshot.id());
         MiningTaskPayload payload = overlay != null && overlay.baseRevision() == snapshot.revision()
                 ? overlay.payload()
                 : com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec.decode(snapshot.payload());
         var state = payload.state();
+        if (terminalReason != null) {
+            return snapshot.nextRevision(lifecycle, null, gameTime,
+                    state.cursorUnits(), state.succeededUnits(), state.failedUnits(),
+                    com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec.encode(payload),
+                    terminalReason, reasonDetail);
+        }
         return snapshot.nextRevision(lifecycle, null, gameTime,
                 state.cursorUnits(), state.succeededUnits(), state.failedUnits(),
                 com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec.encode(payload));
@@ -120,6 +153,16 @@ final class RtsDurableTaskExecutionRuntime {
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState lifecycle,
             long gameTime) {
+        return transitionDestructionSnapshot(snapshot, lifecycle, gameTime, null, null);
+    }
+
+    /** 合并 destruction 热路径镜像，并保留调用方指定的终态原因。 */
+    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot transitionDestructionSnapshot(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState lifecycle,
+            long gameTime,
+            com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason terminalReason,
+            String reasonDetail) {
         DestructionProgressOverlay overlay = destructionProgressOverlays.remove(snapshot.id());
         DestructionTaskPayload payload = overlay != null && overlay.baseRevision() == snapshot.revision()
                 ? overlay.payload()
@@ -127,6 +170,12 @@ final class RtsDurableTaskExecutionRuntime {
         var state = payload.state();
         var nextPayload = new DestructionTaskPayload(
                 payload.ownerId(), payload.dimension(), payload.workflowEntryId(), state);
+        if (terminalReason != null) {
+            return snapshot.nextRevision(lifecycle, null, gameTime,
+                    state.cursorUnits(), state.succeededUnits(), state.failedUnits(),
+                    com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.encode(nextPayload),
+                    terminalReason, reasonDetail);
+        }
         return snapshot.nextRevision(lifecycle, null, gameTime,
                 state.cursorUnits(), state.succeededUnits(), state.failedUnits(),
                 com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.encode(nextPayload));
@@ -228,7 +277,8 @@ final class RtsDurableTaskExecutionRuntime {
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.FAILED,
                     null, player.serverLevel().getGameTime(), payload.state().cursorUnits(),
                     payload.state().succeededUnits(), payload.state().failedUnits(),
-                    com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(payload));
+                    com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(payload),
+                    RtsOperationReason.EXECUTION_ERROR, "workflow_missing");
             return new DurableTaskScheduler.SliceResult(failed, 0);
         }
         var result = RtsPlacementBatch.tickDetachedPlacementSlice(
@@ -248,7 +298,8 @@ final class RtsDurableTaskExecutionRuntime {
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.RUNNING,
                     null, player.serverLevel().getGameTime(), result.state().cursorUnits(),
                     result.state().succeededUnits(), result.state().failedUnits(),
-                    com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(nextPayload));
+                    com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(nextPayload),
+                    RtsOperationReason.UNKNOWN, "");
             placementProgressOverlays.put(snapshot.id(), new PlacementProgressOverlay(
                     checkpoint.revision(), nextPayload, 0));
             return new DurableTaskScheduler.SliceResult(checkpoint, result.processedUnits());
@@ -265,6 +316,10 @@ final class RtsDurableTaskExecutionRuntime {
             case CONTINUE -> com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.RUNNING;
             case WAITING_RESOURCE ->
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.WAITING_RESOURCE;
+            case WAITING_CHUNK ->
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.WAITING_CHUNK;
+            case FAILED ->
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.FAILED;
             case COMPLETE -> com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.COMPLETED;
         };
         com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey waitKey = null;
@@ -273,10 +328,19 @@ final class RtsDurableTaskExecutionRuntime {
             String itemId = result.state().definition().getString("itemId");
             waitKey = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
                     "item", itemId.isBlank() ? "rtsbuilding:any-placement-item" : itemId);
+        } else if (result.outcome()
+                == com.rtsbuilding.rtsbuilding.server.task.placement.PlacementSliceResult.Outcome.WAITING_CHUNK) {
+            waitKey = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
+                    "chunk", snapshot.dimensionId());
         }
+        RtsOperationReason placementReason = lifecycle
+                == com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.COMPLETED
+                && result.reason() == RtsOperationReason.UNKNOWN
+                ? RtsOperationReason.SUCCESS : result.reason();
         var next = snapshot.nextRevision(lifecycle, waitKey, player.serverLevel().getGameTime(),
                 result.state().cursorUnits(), result.state().succeededUnits(), result.state().failedUnits(),
-                com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(nextPayload));
+                com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(nextPayload),
+                placementReason, result.detail());
         if (lifecycle.terminal()) {
             RtsPlacementBatch.recordDetachedHistory(player, result.state());
             projectDurableTerminal(player, next);
@@ -315,7 +379,8 @@ final class RtsDurableTaskExecutionRuntime {
             var failed = snapshot.nextRevision(
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.FAILED,
                     null, player.serverLevel().getGameTime(), payload.state().cursorUnits(),
-                    payload.state().succeededUnits(), payload.state().failedUnits(), snapshot.payload());
+                    payload.state().succeededUnits(), payload.state().failedUnits(), snapshot.payload(),
+                    RtsOperationReason.EXECUTION_ERROR, "workflow_missing");
             return new DurableTaskScheduler.SliceResult(failed, 0);
         }
         var result = RtsDestructionBatch.tickDetachedDestructionSlice(
@@ -338,7 +403,8 @@ final class RtsDurableTaskExecutionRuntime {
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.RUNNING,
                     null, player.serverLevel().getGameTime(), result.state().cursorUnits(),
                     result.state().succeededUnits(), result.state().failedUnits(),
-                    com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.encode(nextPayload));
+                    com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.encode(nextPayload),
+                    RtsOperationReason.UNKNOWN, "");
             destructionProgressOverlays.put(snapshot.id(), new DestructionProgressOverlay(
                     checkpoint.revision(), nextPayload, 0));
             return new DurableTaskScheduler.SliceResult(checkpoint, result.processedUnits());
@@ -364,7 +430,12 @@ final class RtsDurableTaskExecutionRuntime {
                 : null;
         var next = snapshot.nextRevision(lifecycle, waitKey, player.serverLevel().getGameTime(),
                 result.state().cursorUnits(), result.state().succeededUnits(), result.state().failedUnits(),
-                com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.encode(nextPayload));
+                com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.encode(nextPayload),
+                result.outcome() == com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionSliceResult.Outcome.WAITING_RESOURCE
+                        ? RtsOperationReason.TOOL_MISSING
+                        : (lifecycle.terminal() ? RtsOperationReason.SUCCESS : RtsOperationReason.UNKNOWN),
+                result.outcome() == com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionSliceResult.Outcome.WAITING_RESOURCE
+                        ? "tool_missing:hotbar:" + Byte.toUnsignedInt(result.state().toolSlot()) : "");
         if (lifecycle.terminal()) {
             RtsDestructionBatch.recordDetachedHistory(player, result.state());
             projectDurableTerminal(player, next);
@@ -392,9 +463,10 @@ final class RtsDurableTaskExecutionRuntime {
                 .from(player, snapshot.workflowEntryId()).orElse(null);
         if (token == null) return;
         if (snapshot.state() == com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.COMPLETED) {
-            token.complete();
+            token.completeWithReason(snapshot.reason(), snapshot.reasonDetail());
         } else {
-            token.cancel();
+            token.cancelWithReason(snapshot.reason() == RtsOperationReason.UNKNOWN
+                    ? RtsOperationReason.CANCELLED : snapshot.reason());
         }
     }
 
@@ -439,7 +511,8 @@ final class RtsDurableTaskExecutionRuntime {
             var failed = snapshot.nextRevision(
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.FAILED,
                     null, player.serverLevel().getGameTime(), payload.state().cursorUnits(),
-                    payload.state().succeededUnits(), payload.state().failedUnits(), snapshot.payload());
+                    payload.state().succeededUnits(), payload.state().failedUnits(), snapshot.payload(),
+                    RtsOperationReason.EXECUTION_ERROR, "workflow_missing");
             return new DurableTaskScheduler.SliceResult(failed, 0);
         }
         var result = RtsMiningStateMachine.tickDetachedMiningSlice(
@@ -497,8 +570,14 @@ final class RtsDurableTaskExecutionRuntime {
         var next = snapshot.nextRevision(lifecycle, waitKey, player.serverLevel().getGameTime(),
                 result.state().cursorUnits(), result.state().succeededUnits(), result.state().failedUnits(),
                 com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec
-                        .encode(payload.withState(result.state())));
+                        .encode(payload.withState(result.state())),
+                result.outcome() == com.rtsbuilding.rtsbuilding.server.task.mining.MiningSliceResult.Outcome.WAITING
+                        ? (result.waitHint() != null && "chunk".equals(result.waitHint().kind())
+                        ? RtsOperationReason.CHUNK_UNLOADED : RtsOperationReason.TOOL_MISSING)
+                        : (lifecycle.terminal() ? RtsOperationReason.SUCCESS : RtsOperationReason.UNKNOWN),
+                result.waitHint() == null ? "" : result.waitHint().kind() + ":" + result.waitHint().value());
         if (lifecycle.terminal()) {
+            RtsMiningStateMachine.finalizeDetachedCompletion(player, session, result.state());
             projectDurableTerminal(player, next);
         }
         return new DurableTaskScheduler.SliceResult(next, result.processedUnits());

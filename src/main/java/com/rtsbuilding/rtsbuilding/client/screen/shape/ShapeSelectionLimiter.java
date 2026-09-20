@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
@@ -32,10 +33,29 @@ public final class ShapeSelectionLimiter {
     }
 
     /**
-     * 同时限制范围挖掘的三个轴向尺寸和覆盖体积。
+     * 普通建造的几何限幅：直线/矩形只看 dimension，圆、圆柱底面和球只看 radius。
+     * 圆柱的高度仍使用 dimension；不能把半径偷偷折算成旧的轴向上限。
+     */
+    public static ShapeBuildTypes.Input clampShapeDimensions(
+            ShapeBuildTypes.Input input, int maxDimension, int maxRadius) {
+        if (input == null || input.pointA() == null || input.pointB() == null || input.shape() == null) {
+            return input;
+        }
+        int safeDimension = Math.max(1, maxDimension);
+        int safeRadius = Math.max(0, maxRadius);
+        return switch (input.shape()) {
+            case CIRCLE, CYLINDER -> clampRoundRadius(input, safeRadius, safeDimension);
+            case BALL -> clampBallRadius(input, safeRadius);
+            default -> clampRectilinear(input, safeDimension, safeDimension, safeDimension);
+        };
+    }
+
+    /**
+     * 同时限制普通形状的三个轴向尺寸和范围挖掘的覆盖体积。
      *
      * <p>覆盖体积按形状包围盒计算，而不是按最终非空气方块数量计算。这样与服务端
-     * {@code areaMineMaxVolume} 的含义一致，也能保证客户端不会先分配一个超大预览列表。</p>
+     * {@code maxSelectionVolume} 的含义一致，也能保证客户端不会先分配一个超大预览列表。
+     * 该重载保留普通建造的轴向限制；范围破坏使用下面的体积-only 重载。</p>
      */
     public static ShapeBuildTypes.Input clampDimensionsAndVolume(
             ShapeBuildTypes.Input input,
@@ -43,8 +63,9 @@ public final class ShapeSelectionLimiter {
             int maxHeight,
             int maxDepth,
             int maxVolume) {
+        int safeMaxVolume = MiningLimits.clampVolume(maxVolume);
         ShapeBuildTypes.Input dimensionClamped = clampDimensions(input, maxWidth, maxHeight, maxDepth);
-        if (dimensionClamped == null || envelopeVolume(dimensionClamped) <= Math.max(1, maxVolume)) {
+        if (dimensionClamped == null || envelopeVolume(dimensionClamped) <= safeMaxVolume) {
             return dimensionClamped;
         }
 
@@ -54,7 +75,38 @@ public final class ShapeSelectionLimiter {
         for (int i = 0; i < 32; i++) {
             double middle = (low + high) * 0.5D;
             ShapeBuildTypes.Input candidate = scaleSelection(dimensionClamped, middle);
-            if (envelopeVolume(candidate) <= Math.max(1, maxVolume)) {
+            if (envelopeVolume(candidate) <= safeMaxVolume) {
+                best = candidate;
+                low = middle;
+            } else {
+                high = middle;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * 只按包围盒体积限制范围挖掘/范围破坏输入，不给任何单独轴设置隐含上限。
+     * 长条形选区只要乘积合法就保持原状；超限时沿三个选区偏移按比例收缩，避免在生成
+     * 坐标列表后才截断造成预览与实际请求不一致。
+     */
+    public static ShapeBuildTypes.Input clampDimensionsAndVolume(
+            ShapeBuildTypes.Input input, int maxVolume) {
+        if (input == null || input.pointA() == null || input.pointB() == null || input.shape() == null) {
+            return input;
+        }
+        int safeMaxVolume = MiningLimits.clampVolume(maxVolume);
+        if (envelopeVolume(input) <= safeMaxVolume) {
+            return input;
+        }
+
+        ShapeBuildTypes.Input best = scaleSelection(input, 0.0D);
+        double low = 0.0D;
+        double high = 1.0D;
+        for (int i = 0; i < 32; i++) {
+            double middle = (low + high) * 0.5D;
+            ShapeBuildTypes.Input candidate = scaleSelection(input, middle);
+            if (envelopeVolume(candidate) <= safeMaxVolume) {
                 best = candidate;
                 low = middle;
             } else {
@@ -68,10 +120,10 @@ public final class ShapeSelectionLimiter {
             ShapeBuildTypes.Input input, int maxWidth, int maxHeight, int maxDepth) {
         BlockPos a = input.pointA();
         BlockPos b = input.pointB();
-        BlockPos limitedB = a.offset(
-                clampSignedOffset(b.getX() - a.getX(), maxWidth - 1),
-                clampSignedOffset(b.getY() - a.getY(), maxHeight - 1),
-                clampSignedOffset(b.getZ() - a.getZ(), maxDepth - 1));
+        BlockPos limitedB = ShapeGeometryUtil.offsetPos(a,
+                clampSignedOffset((long) b.getX() - a.getX(), maxWidth - 1),
+                clampSignedOffset((long) b.getY() - a.getY(), maxHeight - 1),
+                clampSignedOffset((long) b.getZ() - a.getZ(), maxDepth - 1));
         int limitedHeight = clampSignedOffset(input.boxHeightOffset(), maxHeight - 1);
         return copy(input, limitedB, limitedHeight);
     }
@@ -81,21 +133,21 @@ public final class ShapeSelectionLimiter {
         Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(input.shape(), input.planeFace());
         BlockPos a = input.pointA();
         BlockPos b = input.pointB();
-        int dx = b.getX() - a.getX();
-        int dy = b.getY() - a.getY();
-        int dz = b.getZ() - a.getZ();
-        int axisA = ShapeGeometryUtil.dotDelta(dx, dy, dz, axes[0]);
-        int axisB = ShapeGeometryUtil.dotDelta(dx, dy, dz, axes[1]);
-        int maxRadius = Math.max(0, (Math.min(
+        long dx = (long) b.getX() - a.getX();
+        long dy = (long) b.getY() - a.getY();
+        long dz = (long) b.getZ() - a.getZ();
+        long axisA = dotDelta(dx, dy, dz, axes[0]);
+        long axisB = dotDelta(dx, dy, dz, axes[1]);
+        long maxRadius = Math.max(0L, (Math.min(
                 maxLengthForAxis(axes[0].getAxis(), maxWidth, maxHeight, maxDepth),
-                maxLengthForAxis(axes[1].getAxis(), maxWidth, maxHeight, maxDepth)) - 1) / 2);
-        int radius = (int) Math.round(Math.sqrt(axisA * (double) axisA + axisB * (double) axisB));
+                maxLengthForAxis(axes[1].getAxis(), maxWidth, maxHeight, maxDepth)) - 1L) / 2L);
+        long radius = Math.round(Math.sqrt(axisA * (double) axisA + axisB * (double) axisB));
         if (radius > maxRadius && radius > 0) {
             double scale = maxRadius / (double) radius;
             b = ShapeGeometryUtil.offsetPos(
                     a,
-                    axes[0], (int) Math.round(axisA * scale),
-                    axes[1], (int) Math.round(axisB * scale));
+                    axes[0], toInt(Math.round(axisA * scale)),
+                    axes[1], toInt(Math.round(axisB * scale)));
         }
         Direction normal = input.planeFace() == null ? Direction.UP : input.planeFace();
         int height = input.shape() == BuildShape.CYLINDER
@@ -106,21 +158,64 @@ public final class ShapeSelectionLimiter {
         return copy(input, b, height);
     }
 
+    private static ShapeBuildTypes.Input clampRoundRadius(
+            ShapeBuildTypes.Input input, int maxRadius, int maxDimension) {
+        Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(input.shape(), input.planeFace());
+        BlockPos a = input.pointA();
+        BlockPos b = input.pointB();
+        long dx = (long) b.getX() - a.getX();
+        long dy = (long) b.getY() - a.getY();
+        long dz = (long) b.getZ() - a.getZ();
+        long axisA = dotDelta(dx, dy, dz, axes[0]);
+        long axisB = dotDelta(dx, dy, dz, axes[1]);
+        long radius = Math.round(Math.sqrt(axisA * (double) axisA + axisB * (double) axisB));
+        if (radius > maxRadius && radius > 0L) {
+            double scale = maxRadius / (double) radius;
+            b = ShapeGeometryUtil.offsetPos(
+                    a,
+                    axes[0], toInt(Math.round(axisA * scale)),
+                    axes[1], toInt(Math.round(axisB * scale)));
+        }
+        int height = input.shape() == BuildShape.CYLINDER
+                ? clampSignedOffset(input.boxHeightOffset(), maxDimension - 1)
+                : input.boxHeightOffset();
+        return copy(input, b, height);
+    }
+
     private static ShapeBuildTypes.Input clampBall(
             ShapeBuildTypes.Input input, int maxWidth, int maxHeight, int maxDepth) {
         BlockPos a = input.pointA();
         BlockPos b = input.pointB();
-        int dx = b.getX() - a.getX();
-        int dy = b.getY() - a.getY();
-        int dz = b.getZ() - a.getZ();
-        int maxRadius = Math.max(0, (Math.min(maxWidth, Math.min(maxHeight, maxDepth)) - 1) / 2);
-        int radius = (int) Math.round(Math.sqrt(dx * (double) dx + dy * (double) dy + dz * (double) dz));
+        long dx = (long) b.getX() - a.getX();
+        long dy = (long) b.getY() - a.getY();
+        long dz = (long) b.getZ() - a.getZ();
+        long maxRadius = Math.max(0L, (Math.min(maxWidth, Math.min(maxHeight, maxDepth)) - 1L) / 2L);
+        long radius = Math.round(Math.sqrt(dx * (double) dx + dy * (double) dy + dz * (double) dz));
         if (radius > maxRadius && radius > 0) {
             double scale = maxRadius / (double) radius;
-            b = a.offset(
-                    (int) Math.round(dx * scale),
-                    (int) Math.round(dy * scale),
-                    (int) Math.round(dz * scale));
+            b = ShapeGeometryUtil.offsetPos(a,
+                    toInt(Math.round(dx * scale)),
+                    toInt(Math.round(dy * scale)),
+                    toInt(Math.round(dz * scale)));
+        }
+        return copy(input, b, input.boxHeightOffset());
+    }
+
+    private static ShapeBuildTypes.Input clampBallRadius(
+            ShapeBuildTypes.Input input, int maxRadius) {
+        BlockPos a = input.pointA();
+        BlockPos b = input.pointB();
+        long dx = (long) b.getX() - a.getX();
+        long dy = (long) b.getY() - a.getY();
+        long dz = (long) b.getZ() - a.getZ();
+        long radius = Math.round(Math.sqrt(
+                dx * (double) dx + dy * (double) dy + dz * (double) dz));
+        if (radius > maxRadius && radius > 0L) {
+            double scale = maxRadius / (double) radius;
+            b = ShapeGeometryUtil.offsetPos(a,
+                    toInt(Math.round(dx * scale)),
+                    toInt(Math.round(dy * scale)),
+                    toInt(Math.round(dz * scale)));
         }
         return copy(input, b, input.boxHeightOffset());
     }
@@ -128,15 +223,19 @@ public final class ShapeSelectionLimiter {
     private static ShapeBuildTypes.Input scaleSelection(ShapeBuildTypes.Input input, double scale) {
         BlockPos a = input.pointA();
         BlockPos b = input.pointB();
-        BlockPos scaledB = a.offset(
-                scaleSignedOffset(b.getX() - a.getX(), scale),
-                scaleSignedOffset(b.getY() - a.getY(), scale),
-                scaleSignedOffset(b.getZ() - a.getZ(), scale));
+        BlockPos scaledB = new BlockPos(
+                scaledCoordinate(a.getX(), b.getX(), scale),
+                scaledCoordinate(a.getY(), b.getY(), scale),
+                scaledCoordinate(a.getZ(), b.getZ(), scale));
         return copy(input, scaledB, scaleSignedOffset(input.boxHeightOffset(), scale));
     }
 
     private static int scaleSignedOffset(int offset, double scale) {
         return (int) Math.round(offset * Mth.clamp(scale, 0.0D, 1.0D));
+    }
+
+    private static int scaledCoordinate(int anchor, int target, double scale) {
+        return (int) (anchor + Math.round(((long) target - anchor) * Mth.clamp(scale, 0.0D, 1.0D)));
     }
 
     static long envelopeVolume(ShapeBuildTypes.Input input) {
@@ -145,21 +244,21 @@ public final class ShapeSelectionLimiter {
         }
         BlockPos a = input.pointA();
         BlockPos b = input.pointB();
-        int dx = b.getX() - a.getX();
-        int dy = b.getY() - a.getY();
-        int dz = b.getZ() - a.getZ();
+        long dx = (long) b.getX() - a.getX();
+        long dy = (long) b.getY() - a.getY();
+        long dz = (long) b.getZ() - a.getZ();
         return switch (input.shape()) {
             case CIRCLE -> roundEnvelopeVolume(input, dx, dy, dz, false);
             case CYLINDER -> roundEnvelopeVolume(input, dx, dy, dz, true);
             case BALL -> {
-                int radius = roundedSpatialRadius(dx, dy, dz);
+                long radius = roundedSpatialRadius(dx, dy, dz);
                 long diameter = (radius * 2L) + 1L;
                 yield saturatedProduct(diameter, diameter, diameter);
             }
             case SQUARE -> {
                 Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(input.shape(), input.planeFace());
-                long axisA = Math.abs((long) ShapeGeometryUtil.dotDelta(dx, dy, dz, axes[0])) + 1L;
-                long axisB = Math.abs((long) ShapeGeometryUtil.dotDelta(dx, dy, dz, axes[1])) + 1L;
+                long axisA = Math.abs(dotDelta(dx, dy, dz, axes[0])) + 1L;
+                long axisB = Math.abs(dotDelta(dx, dy, dz, axes[1])) + 1L;
                 yield saturatedProduct(axisA, axisB, 1L);
             }
             case WALL -> saturatedProduct(
@@ -178,18 +277,22 @@ public final class ShapeSelectionLimiter {
     }
 
     private static long roundEnvelopeVolume(
-            ShapeBuildTypes.Input input, int dx, int dy, int dz, boolean includeHeight) {
+            ShapeBuildTypes.Input input, long dx, long dy, long dz, boolean includeHeight) {
         Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(input.shape(), input.planeFace());
-        int axisA = ShapeGeometryUtil.dotDelta(dx, dy, dz, axes[0]);
-        int axisB = ShapeGeometryUtil.dotDelta(dx, dy, dz, axes[1]);
-        int radius = (int) Math.round(Math.sqrt(axisA * (double) axisA + axisB * (double) axisB));
+        long axisA = dotDelta(dx, dy, dz, axes[0]);
+        long axisB = dotDelta(dx, dy, dz, axes[1]);
+        long radius = Math.round(Math.sqrt(axisA * (double) axisA + axisB * (double) axisB));
         long diameter = (radius * 2L) + 1L;
         long height = includeHeight ? Math.abs((long) input.boxHeightOffset()) + 1L : 1L;
         return saturatedProduct(diameter, diameter, height);
     }
 
-    private static int roundedSpatialRadius(int dx, int dy, int dz) {
-        return (int) Math.round(Math.sqrt(dx * (double) dx + dy * (double) dy + dz * (double) dz));
+    private static long roundedSpatialRadius(long dx, long dy, long dz) {
+        return Math.round(Math.sqrt(dx * (double) dx + dy * (double) dy + dz * (double) dz));
+    }
+
+    private static long dotDelta(long dx, long dy, long dz, Direction axis) {
+        return dx * axis.getStepX() + dy * axis.getStepY() + dz * axis.getStepZ();
     }
 
     private static long saturatedProduct(long a, long b, long c) {
@@ -225,5 +328,15 @@ public final class ShapeSelectionLimiter {
 
     private static int clampSignedOffset(int offset, int maxMagnitude) {
         return Mth.clamp(offset, -Math.max(0, maxMagnitude), Math.max(0, maxMagnitude));
+    }
+
+    private static int clampSignedOffset(long offset, int maxMagnitude) {
+        long bound = Math.max(0L, maxMagnitude);
+        return toInt(Math.max(-bound, Math.min(bound, offset)));
+    }
+
+    private static int toInt(long value) {
+        return value <= Integer.MIN_VALUE ? Integer.MIN_VALUE
+                : value >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) value;
     }
 }

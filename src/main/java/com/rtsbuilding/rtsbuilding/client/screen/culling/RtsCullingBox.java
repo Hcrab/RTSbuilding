@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
@@ -14,7 +15,8 @@ import net.minecraft.world.phys.Vec3;
  */
 public record RtsCullingBox(int id, BlockPos min, BlockPos max) {
     private static final double EPSILON = 1.0E-7D;
-    private static final int MAX_EDGE = 256;
+    /** 几何盒只保留公共体积允许的单轴最大值，不再给范围破坏暗加 256 轴长上限。 */
+    private static final int MAX_EDGE = MiningLimits.MAX_VOLUME;
 
     public RtsCullingBox {
         BlockPos rawMin = min;

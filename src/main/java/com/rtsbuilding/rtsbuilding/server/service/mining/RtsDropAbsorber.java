@@ -336,17 +336,17 @@ public final class RtsDropAbsorber {
                 if (!remainder.isEmpty()) {
                     mergeRemainder(timedOutRemainders, remainder);
                 }
-                buffer.bufferedItems -= original.getCount();
+                subtractBufferedItems(buffer, original.getCount());
                 fellBack = true;
             } else if (!remainder.isEmpty()) {
                 buffer.stacks.addFirst(remainder);
-                buffer.bufferedItems -= stored;
+                subtractBufferedItems(buffer, stored);
                 if (stored <= 0) {
                     buffer.markStorageBlocked(gameTime);
                     break;
                 }
             } else {
-                buffer.bufferedItems -= original.getCount();
+                subtractBufferedItems(buffer, original.getCount());
             }
             processed++;
         }
@@ -389,6 +389,15 @@ public final class RtsDropAbsorber {
             merged.add(remaining.copyWithCount(count));
             remaining.shrink(count);
         }
+    }
+
+    /** 让损坏的存档/第三方插入返回值也不能把缓存计数减成负数或溢出。 */
+    private static void subtractBufferedItems(
+            com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState buffer,
+            int amount) {
+        if (buffer == null || amount <= 0) return;
+        int safeAmount = Math.min(amount, Math.max(0, buffer.bufferedItems));
+        buffer.bufferedItems = Math.max(0, buffer.bufferedItems - safeAmount);
     }
 
     /** 退出时同步回退，确保未持久化缓存不会吞掉物品。 */

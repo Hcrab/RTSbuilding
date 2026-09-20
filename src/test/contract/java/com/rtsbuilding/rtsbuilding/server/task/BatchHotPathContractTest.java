@@ -200,12 +200,12 @@ class BatchHotPathContractTest {
         assertTrue(projectionBody.contains("inspectDurableProjection(player, snapshot)"));
         assertTrue(projectionBody.contains("restoreDurableProjection("),
                 "持久任务缺少 UI 条目时必须重建投影，不能让真实任务在后台隐身");
-        assertTrue(projectionBody.indexOf("if (token == null) continue;")
+        assertTrue(projectionBody.indexOf("if (token == null) {")
                         < projectionBody.lastIndexOf(
                                 "projectedDurableStates.put(snapshot.id(), snapshot.revision())"),
                 "重建失败时不能把状态误记为已投影");
-        assertTrue(projectionBody.contains("case COMPLETED -> token.complete()"));
-        assertTrue(projectionBody.contains("case FAILED, CANCELLED -> token.cancel()"));
+        assertTrue(projectionBody.contains("case COMPLETED -> token.completeWithReason("));
+        assertTrue(projectionBody.contains("case FAILED, CANCELLED -> token.cancelWithReason("));
 
         String runtime = readMain("server/task/RtsDurableTaskExecutionRuntime.java");
         int placementExecutor = runtime.indexOf("executeDurablePlacement(");

@@ -129,6 +129,10 @@ tasks.register('verifyPinyinDictionary') {
 
 tasks.named('processResources').configure {
     dependsOn tasks.named('verifyPinyinDictionary')
+    // 独立配置生命周期测试必须有独立模板 namespace，不能被普通 GameTest 一起发现。
+    from('src/main/resources/data/rtsbuilding/structure/gametest/empty.nbt') {
+        into 'data/rtsbuilding_config_test/structure/gametest'
+    }
 }
 
 // ======================================================================
@@ -180,6 +184,7 @@ apply from: 'gradle/rts-ui.gradle'
 // ======================================================================
 
 tasks.named('test', Test).configure {
+    systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
     useJUnitPlatform {
         excludeTags 'known-performance-debt'
     }
@@ -198,6 +203,7 @@ tasks.named('test', Test).configure {
 }
 
 tasks.register('performanceDebt', Test) {
+    systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
     group = 'verification'
     description = '运行已知性能债测试；失败会明确报告，但暂不阻断正常构建。'
     useJUnitPlatform {

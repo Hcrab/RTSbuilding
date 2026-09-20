@@ -1,5 +1,10 @@
-﻿{
+{
   "key.categories.rtsbuilding": "RTSbuilding",
+  "message.rtsbuilding.mining.selection_too_large": "选区超过服务器体积上限（%s 格）。请刷新预览后重试。",
+  "message.rtsbuilding.mining.transfer_incomplete": "选区未完整传输，没有执行部分挖掘。请重试。",
+  "message.rtsbuilding.mining.tool_data_too_large": "当前工具的数据超过传输预算，尚未开始挖掘；请更换工具后重试。",
+  "message.rtsbuilding.mining.history_capacity": "部分目标的快照超过存档／撤回预算，已保持原状；已完成的部分仍可撤回。",
+  "config.rtsbuilding.mining_server_owned": "此设置属于当前世界。多人游戏请服主修改 serverconfig/rts_building/rtsbuilding-server.toml；单人游戏进入世界后可在此修改。",
   "rtsbuilding.configuration.enableUiAnimations": "RTS UI 过渡动画",
   "rtsbuilding.configuration.enableUiAnimations.tooltip": "启用悬停与选中状态的过渡动画；输入与操作仍会立即生效。",
   "screen.rtsbuilding.ai_help.title": "不会操作？问 AI",
@@ -214,6 +219,7 @@
   "screen.rtsbuilding.shape_status.destroy_confirm_wall": "%s：确认破坏；滚轮调整墙高",
   "screen.rtsbuilding.shape_status.destroy_confirm_cylinder": "%s：确认破坏；滚轮调整圆柱高度",
   "screen.rtsbuilding.shape_status.destroy_chain": "左键：连锁破坏相连的同类方块",
+  "screen.rtsbuilding.shape_status.too_large": "形状超过本次操作上限，请缩小选区",
   "screen.rtsbuilding.settings.title": "RTS 控制设置",
   "screen.rtsbuilding.settings.controls": "控制",
   "screen.rtsbuilding.settings.category.controls": "操作",
@@ -299,6 +305,52 @@
   "screen.rtsbuilding.workflow.empty": "暂无工作流",
   "screen.rtsbuilding.workflow.keep": "不被覆盖",
   "screen.rtsbuilding.workflow.allow_replace": "允许自动覆盖",
+  "screen.rtsbuilding.workflow.status.running": "运行中",
+  "screen.rtsbuilding.workflow.status.complete": "已完成",
+  "screen.rtsbuilding.workflow.status.need_items": "缺材料",
+  "screen.rtsbuilding.workflow.status.need_tool": "缺工具",
+  "screen.rtsbuilding.workflow.status.loading": "等待区块",
+  "screen.rtsbuilding.workflow.status.disabled": "已禁用",
+  "screen.rtsbuilding.workflow.status.no_access": "无权限",
+  "screen.rtsbuilding.workflow.status.paused": "已暂停",
+  "screen.rtsbuilding.workflow.status.error": "执行错误",
+  "screen.rtsbuilding.workflow.status.queue_full": "队列已满",
+  "screen.rtsbuilding.workflow.status.waiting": "等待中",
+  "screen.rtsbuilding.workflow.detail.status": "状态：%s",
+  "screen.rtsbuilding.workflow.detail.progress": "进度：%s",
+  "screen.rtsbuilding.workflow.detail.missing": "缺少：%s",
+  "screen.rtsbuilding.workflow.detail.missing_count": "缺少材料种类：%s",
+  "screen.rtsbuilding.workflow.detail.missing_item": "材料：%s",
+  "screen.rtsbuilding.workflow.detail.missing_generic": "任务正在等待材料。",
+  "screen.rtsbuilding.workflow.detail.tool_missing": "缺少所需工具。",
+  "screen.rtsbuilding.workflow.detail.chunk_waiting": "目标区域正在等待区块加载。",
+  "screen.rtsbuilding.workflow.detail.config_disabled": "相关服务器设置已禁用。",
+  "screen.rtsbuilding.workflow.detail.permission_denied": "服务器未授予此任务权限。",
+  "screen.rtsbuilding.workflow.detail.queue_full": "服务器队列已满。",
+  "screen.rtsbuilding.workflow.detail.execution_error": "服务器报告了执行错误。",
+  "screen.rtsbuilding.workflow.detail.workflow_missing": "任务记录已不存在。",
+  "screen.rtsbuilding.workflow.detail.waiting_unknown": "服务器未提供更具体的等待原因。",
+  "screen.rtsbuilding.workflow.detail.skipped": "服务器跳过了此任务。",
+  "screen.rtsbuilding.workflow.detail.cancelled": "任务已取消。",
+  "screen.rtsbuilding.workflow.detail.replaced": "任务已被更新的任务替换。",
+  "screen.rtsbuilding.workflow.detail.server": "详情：%s",
+  "screen.rtsbuilding.workflow.detail.more": "……还有 %s 项",
+  "screen.rtsbuilding.workflow.details.title": "工作流详情：%s",
+  "screen.rtsbuilding.workflow.details.final": "此任务已不再活动；以下是最后收到的快照。",
+  "screen.rtsbuilding.workflow.details.live": "实时任务",
+  "screen.rtsbuilding.workflow.details.close": "关闭",
+  "screen.rtsbuilding.workflow.details.scroll": "滚动查看更多",
+  "screen.rtsbuilding.workflow.next.running": "任务正在运行。",
+  "screen.rtsbuilding.workflow.next.complete": "任务已完成。",
+  "screen.rtsbuilding.workflow.next.items": "补齐缺少的材料后再继续。",
+  "screen.rtsbuilding.workflow.next.tool": "提供所需工具后再继续。",
+  "screen.rtsbuilding.workflow.next.loading": "等待目标区块加载。",
+  "screen.rtsbuilding.workflow.next.disabled": "启用相关服务器设置。",
+  "screen.rtsbuilding.workflow.next.access": "服务器未授予此任务权限。",
+  "screen.rtsbuilding.workflow.next.resume": "点击继续以恢复任务。",
+  "screen.rtsbuilding.workflow.next.error": "查看简短错误详情后重试。",
+  "screen.rtsbuilding.workflow.next.waiting": "服务器会继续检查此任务。",
+  "screen.rtsbuilding.workflow.pending": "正在等待工作流更新……",
   "screen.rtsbuilding.workflow.type.idle": "空闲",
   "screen.rtsbuilding.workflow.type.mine_single": "挖掘",
   "screen.rtsbuilding.workflow.type.ultimine": "连锁挖掘",
@@ -429,7 +481,7 @@
   "config.rtsbuilding.area_mine_max_depth": "最大深度",
   "config.rtsbuilding.area_mine_max_depth.hint": "服务端 Z 轴上限，1-256 格。",
   "config.rtsbuilding.area_mine_max_volume": "最大体积",
-  "config.rtsbuilding.area_mine_max_volume.hint": "服务端宽 x 高 x 深上限。",
+  "config.rtsbuilding.area_mine_max_volume.hint": "服务端包围盒宽 x 高 x 深体积上限，1-262144 格；不限制单独轴长。",
   "config.rtsbuilding.area_destroy_max_targets": "最大目标数",
   "config.rtsbuilding.area_destroy_max_targets.hint": "服务端显式范围破坏位置上限。",
   "config.rtsbuilding.survival_on": "生存平衡：开启",
@@ -484,6 +536,8 @@
   "message.rtsbuilding.developer.run_mismatch": "开发者指标 Run ID 不匹配；当前服务端样本未被清除。",
   "rtsbuilding.configuration.ultimineMaxBlocks": "连锁挖掘最大方块数",
   "rtsbuilding.configuration.ultimineMaxBlocks.tooltip": "一次 RTS 连锁挖掘请求最多收集的方块数。",
+  "rtsbuilding.configuration.maxSelectionVolume": "挖掘选区最大体积",
+  "rtsbuilding.configuration.maxSelectionVolume.tooltip": "一次 RTS 范围挖掘或范围破坏允许的包围盒体积（宽 x 高 x 深），范围 1-262144 格；不再限制单独轴长。",
   "rtsbuilding.configuration.areaMineMaxSize": "范围挖掘最大尺寸",
   "rtsbuilding.configuration.areaMineMaxSize.tooltip": "RTS 范围挖掘每个维度允许的最大方块数。",
   "rtsbuilding.configuration.areaMineMaxVolume": "范围挖掘最大体积",
@@ -630,6 +684,7 @@
   "screen.rtsbuilding.blueprints.materials_all_ready": "所需材料均可用。",
   "screen.rtsbuilding.blueprints.materials_creative": "创造模式：不消耗材料。",
   "screen.rtsbuilding.blueprints.status.ready": "蓝图空间就绪。",
+  "screen.rtsbuilding.blueprints.status.loading": "正在加载蓝图……",
   "screen.rtsbuilding.blueprints.status.disabled": "蓝图放置已被配置关闭。",
   "screen.rtsbuilding.blueprints.status.locked": "请先安装蓝图插件。",
   "screen.rtsbuilding.blueprints.status.folder_opened": "已打开蓝图文件夹。",
@@ -1180,4 +1235,127 @@
   ,"message.rtsbuilding.storage_batch.too_large": "选区过大（最大 64 × 64 × 64）。"
   ,"message.rtsbuilding.storage_batch.selection_cleared": "已清空当前选区，请重新选择第一个角点。"
   ,"message.rtsbuilding.storage_batch.exited": "已退出范围绑定。"
+  ,"screen.rtsbuilding.settings.title": "RTSBuilding 设置"
+  ,"screen.rtsbuilding.settings.personal": "个人设置"
+  ,"screen.rtsbuilding.settings.world": "世界/服务器设置"
+  ,"screen.rtsbuilding.settings.enabled": "已启用"
+  ,"screen.rtsbuilding.settings.disabled": "已禁用"
+  ,"screen.rtsbuilding.settings.save_personal": "保存个人"
+  ,"screen.rtsbuilding.settings.save_world": "保存世界"
+  ,"screen.rtsbuilding.settings.cancel": "取消"
+  ,"screen.rtsbuilding.settings.personal_group": "本机玩家偏好"
+  ,"screen.rtsbuilding.settings.personal_group.hint": "仅保存在此客户端"
+  ,"screen.rtsbuilding.settings.status.personal_ready": "个人设置已就绪。"
+  ,"screen.rtsbuilding.settings.status.no_world": "当前未进入世界；个人设置仍可保存。"
+  ,"screen.rtsbuilding.settings.status.loading": "正在读取当前世界设置……"
+  ,"screen.rtsbuilding.settings.status.ready": "世界设置已加载，可以编辑。"
+  ,"screen.rtsbuilding.settings.status.read_only": "当前玩家只能查看世界设置。"
+  ,"screen.rtsbuilding.settings.status.pending": "正在保存世界设置……"
+  ,"screen.rtsbuilding.settings.status.no_change": "没有需要保存的修改。"
+  ,"screen.rtsbuilding.settings.status.world_saved": "世界设置已保存。"
+  ,"screen.rtsbuilding.settings.status.personal_saved": "个人设置已保存。"
+  ,"screen.rtsbuilding.settings.status.personal_failed": "个人设置未能全部保存。"
+  ,"screen.rtsbuilding.settings.status.conflict": "世界设置已变化；已保留你的草稿，请检查后重试。"
+  ,"screen.rtsbuilding.settings.status.invalid": "请先检查输入值。"
+  ,"screen.rtsbuilding.settings.status.save_failed": "服务器未能保存设置；已保留你的草稿。"
+  ,"screen.rtsbuilding.personal.ui_animations": "界面动画"
+  ,"screen.rtsbuilding.personal.ui_animations.hint": "为 RTS 控件和面板显示动画。"
+  ,"screen.rtsbuilding.personal.block_ghost_preview": "方块放置预览"
+  ,"screen.rtsbuilding.personal.block_ghost_preview.hint": "放置前显示方块预览。"
+  ,"screen.rtsbuilding.personal.place_ghost_animation": "放置预览动画"
+  ,"screen.rtsbuilding.personal.place_ghost_animation.hint": "放置时播放方块预览动画。"
+  ,"screen.rtsbuilding.personal.destroy_ghost_animation": "破坏预览动画"
+  ,"screen.rtsbuilding.personal.destroy_ghost_animation.hint": "播放破坏预览动画。"
+  ,"screen.rtsbuilding.personal.wireframe_preview": "线框预览"
+  ,"screen.rtsbuilding.personal.wireframe_preview.hint": "显示放置线框预览。"
+  ,"screen.rtsbuilding.personal.place_wireframe_animation": "放置线框动画"
+  ,"screen.rtsbuilding.personal.place_wireframe_animation.hint": "放置时播放线框动画。"
+  ,"screen.rtsbuilding.personal.destroy_wireframe_animation": "破坏线框动画"
+  ,"screen.rtsbuilding.personal.destroy_wireframe_animation.hint": "破坏时播放线框动画。"
+  ,"screen.rtsbuilding.personal.range_destroy_skeleton": "范围破坏轮廓"
+  ,"screen.rtsbuilding.personal.range_destroy_skeleton.hint": "显示范围破坏操作的轮廓。"
+  ,"screen.rtsbuilding.personal.keyboard_confirm": "键盘批量确认"
+  ,"screen.rtsbuilding.personal.keyboard_confirm.hint": "批量操作需要键盘确认。"
+  ,"screen.rtsbuilding.personal.inventory_button": "背包 RTS 按钮"
+  ,"screen.rtsbuilding.personal.inventory_button.hint": "在兼容的背包界面显示 RTS 按钮。"
+  ,"screen.rtsbuilding.personal.developer_mode": "开发者模式"
+  ,"screen.rtsbuilding.personal.developer_mode.hint": "显示开发诊断和工具。"
+  ,"screen.rtsbuilding.world.group.rules": "规则"
+  ,"screen.rtsbuilding.world.group.rules.hint": "当前世界的核心规则"
+  ,"screen.rtsbuilding.world.group.home": "家园"
+  ,"screen.rtsbuilding.world.group.home.hint": "家园选择和迁移"
+  ,"screen.rtsbuilding.world.group.building": "建造"
+  ,"screen.rtsbuilding.world.group.building.hint": "形状与智能填充上限"
+  ,"screen.rtsbuilding.world.group.mining": "挖掘"
+  ,"screen.rtsbuilding.world.group.mining.hint": "选择、连锁和采集上限"
+  ,"screen.rtsbuilding.world.group.blueprint": "蓝图"
+  ,"screen.rtsbuilding.world.group.blueprint.hint": "蓝图可用性和大小"
+  ,"screen.rtsbuilding.world.group.storage": "存储"
+  ,"screen.rtsbuilding.world.group.storage.hint": "绑定和拾取上限"
+  ,"screen.rtsbuilding.world.group.workflows": "任务"
+  ,"screen.rtsbuilding.world.group.workflows.hint": "活动任务容量"
+  ,"screen.rtsbuilding.world.group.history": "撤销历史"
+  ,"screen.rtsbuilding.world.group.history.hint": "撤销／重做历史栈容量和保留时间"
+  ,"screen.rtsbuilding.world.field.survival": "生存进度"
+  ,"screen.rtsbuilding.world.field.survival.hint": "启用生存进度规则。"
+  ,"screen.rtsbuilding.world.field.share_teams": "与队伍共享进度"
+  ,"screen.rtsbuilding.world.field.share_teams.hint": "允许队友共享进度。"
+  ,"screen.rtsbuilding.world.field.action_radius": "操作半径（格）"
+  ,"screen.rtsbuilding.world.field.action_radius.hint": "RTS 操作的最大半径。"
+  ,"screen.rtsbuilding.world.field.home_radius": "家园选择半径（格）"
+  ,"screen.rtsbuilding.world.field.home_radius.hint": "选择家园时允许的最大距离。"
+  ,"screen.rtsbuilding.world.field.home_cooldown": "家园迁移冷却（游戏日）"
+  ,"screen.rtsbuilding.world.field.home_cooldown.hint": "再次迁移家园前需要等待的游戏日。"
+  ,"screen.rtsbuilding.world.field.shape_dimension": "形状最大边长（格）"
+  ,"screen.rtsbuilding.world.field.shape_dimension.hint": "建造形状的最大边长。"
+  ,"screen.rtsbuilding.world.field.shape_radius": "形状最大半径（格）"
+  ,"screen.rtsbuilding.world.field.shape_radius.hint": "建造形状的最大半径。"
+  ,"screen.rtsbuilding.world.field.smart_max_blocks": "智能填充最大方块数"
+  ,"screen.rtsbuilding.world.field.smart_max_blocks.hint": "一次智能填充预览允许的最大方块数。"
+  ,"screen.rtsbuilding.world.field.smart_default_blocks": "智能填充默认方块数"
+  ,"screen.rtsbuilding.world.field.smart_default_blocks.hint": "智能填充使用的默认方块数。"
+  ,"screen.rtsbuilding.world.field.smart_max_diameter": "智能填充最大直径"
+  ,"screen.rtsbuilding.world.field.smart_max_diameter.hint": "智能填充预览的最大直径。"
+  ,"screen.rtsbuilding.world.field.smart_default_diameter": "智能填充默认直径"
+  ,"screen.rtsbuilding.world.field.smart_default_diameter.hint": "智能填充使用的默认直径。"
+  ,"screen.rtsbuilding.world.field.selection_volume": "挖掘选择体积"
+  ,"screen.rtsbuilding.world.field.selection_volume.hint": "一次挖掘选择允许的最大方块数。上限：262144。"
+  ,"screen.rtsbuilding.world.field.selection_x": "挖掘选择 X 长度"
+  ,"screen.rtsbuilding.world.field.selection_x.hint": "沿世界 X 轴的最大长度，含端点。上限：262144。"
+  ,"screen.rtsbuilding.world.field.selection_y": "挖掘选择 Y 长度"
+  ,"screen.rtsbuilding.world.field.selection_y.hint": "沿世界 Y 轴的最大长度，含端点。上限：262144。"
+  ,"screen.rtsbuilding.world.field.selection_z": "挖掘选择 Z 长度"
+  ,"screen.rtsbuilding.world.field.selection_z.hint": "沿世界 Z 轴的最大长度，含端点。上限：262144。"
+  ,"screen.rtsbuilding.world.field.ultimine_max": "连锁挖掘最大方块数"
+  ,"screen.rtsbuilding.world.field.ultimine_max.hint": "一次连锁挖掘允许的最大方块数。"
+  ,"screen.rtsbuilding.world.field.harvest_tier": "范围采集等级"
+  ,"screen.rtsbuilding.world.field.harvest_tier.hint": "范围挖掘允许的最高采集等级。"
+  ,"screen.rtsbuilding.world.field.tree_max": "砍树最大方块数"
+  ,"screen.rtsbuilding.world.field.tree_max.hint": "一次砍树操作允许的最大方块数。"
+  ,"screen.rtsbuilding.world.field.blueprints": "启用蓝图"
+  ,"screen.rtsbuilding.world.field.blueprints.hint": "允许捕获和放置蓝图。"
+  ,"screen.rtsbuilding.world.field.blueprint_max": "蓝图最大方块数"
+  ,"screen.rtsbuilding.world.field.blueprint_max.hint": "一份蓝图允许的最大方块数。"
+  ,"screen.rtsbuilding.world.field.batch_volume": "存储绑定选择体积"
+  ,"screen.rtsbuilding.world.field.batch_volume.hint": "一次范围绑定允许的最大方块数。上限：262144。"
+  ,"screen.rtsbuilding.world.field.batch_x": "存储绑定 X 长度"
+  ,"screen.rtsbuilding.world.field.batch_x.hint": "沿世界 X 轴的最大绑定长度，含端点。上限：262144。"
+  ,"screen.rtsbuilding.world.field.batch_y": "存储绑定 Y 长度"
+  ,"screen.rtsbuilding.world.field.batch_y.hint": "沿世界 Y 轴的最大绑定长度，含端点。上限：262144。"
+  ,"screen.rtsbuilding.world.field.batch_z": "存储绑定 Z 长度"
+  ,"screen.rtsbuilding.world.field.batch_z.hint": "沿世界 Z 轴的最大绑定长度，含端点。上限：262144。"
+  ,"screen.rtsbuilding.world.field.linked_storage_max": "最大连接存储"
+  ,"screen.rtsbuilding.world.field.linked_storage_max.hint": "每名玩家允许连接的最大存储数。"
+  ,"screen.rtsbuilding.world.field.funnel_radius": "漏斗拾取半径（格）"
+  ,"screen.rtsbuilding.world.field.funnel_radius.hint": "拾取附近掉落物时使用的半径。"
+  ,"screen.rtsbuilding.world.field.workflow_max": "每名玩家的活动任务数"
+  ,"screen.rtsbuilding.world.field.workflow_max.hint": "每名玩家允许的最大活动任务数。"
+  ,"screen.rtsbuilding.world.field.history_entries": "每个历史栈的撤销／重做条目数"
+  ,"screen.rtsbuilding.world.field.history_entries.hint": "一个撤销／重做历史栈保留的最大条目数。"
+  ,"screen.rtsbuilding.world.field.history_retention": "撤销／重做历史保留（秒）"
+  ,"screen.rtsbuilding.world.field.history_retention.hint": "一个历史栈的撤销／重做记录可保留多久。"
+  ,"screen.rtsbuilding.world.tier.stone": "石质"
+  ,"screen.rtsbuilding.world.tier.iron": "铁质"
+  ,"screen.rtsbuilding.world.tier.diamond": "钻石"
+  ,"screen.rtsbuilding.world.tier.unlimited": "无限"
 }

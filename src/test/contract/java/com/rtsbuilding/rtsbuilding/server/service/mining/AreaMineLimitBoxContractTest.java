@@ -1,82 +1,69 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningSelectionBounds;
 import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
+/** 验证确认后的区域整体接纳，不再维护旧的服务器静默裁剪契约。 */
 class AreaMineLimitBoxContractTest {
     @Test
-    void oversizedAreaMineBoxIsClampedByAxisAndVolumeCaps() {
-        RtsUltimineProcessor.AreaMineLimitBox box =
-                RtsUltimineProcessor.limitAreaMineBox(10, 49, 20, 59, 30, 69);
-
-        int width = box.maxX() - box.minX() + 1;
-        int height = box.maxY() - box.minY() + 1;
-        int depth = box.maxZ() - box.minZ() + 1;
-
-        assertEquals(10, box.minX());
-        assertEquals(20, box.minY());
-        assertEquals(30, box.minZ());
-        assertTrue(width <= RtsMiningValidator.areaMineMaxWidth());
-        assertTrue(height <= RtsMiningValidator.areaMineMaxHeight());
-        assertTrue(depth <= RtsMiningValidator.areaMineMaxDepth());
-        assertTrue((long) width * height * depth <= RtsMiningValidator.areaMineMaxVolume());
+    void defaultVolumeAllowsCubeAndLongThinSelectionWithoutAxisCaps() {
+        assertTrue(MiningSelectionBounds.between(0, 35, 0, 35, 0, 35).fits(MiningLimits.DEFAULT_VOLUME));
+        assertTrue(MiningSelectionBounds.between(0, 511, 64, 64, 0, 63).fits(MiningLimits.DEFAULT_VOLUME));
+        assertFalse(MiningSelectionBounds.between(0, 36, 0, 36, 0, 36).fits(MiningLimits.DEFAULT_VOLUME));
     }
 
     @Test
-    void reversedCornersAreNormalizedBeforeClamping() {
-        RtsUltimineProcessor.AreaMineLimitBox box =
-                RtsUltimineProcessor.limitAreaMineBox(49, 10, 59, 20, 69, 30);
-
-        assertEquals(10, box.minX());
-        assertEquals(20, box.minY());
-        assertEquals(30, box.minZ());
-        assertTrue(box.maxX() >= box.minX());
-        assertTrue(box.maxY() >= box.minY());
-        assertTrue(box.maxZ() >= box.minZ());
+    void explicitSupportedCapPreservesWhole48And64Cubes() {
+        assertTrue(MiningSelectionBounds.between(0, 47, 0, 47, 0, 47).fits(MiningLimits.MAX_VOLUME));
+        assertTrue(MiningSelectionBounds.between(0, 63, 0, 63, 0, 63).fits(MiningLimits.MAX_VOLUME));
+        assertFalse(MiningSelectionBounds.between(0, 64, 0, 63, 0, 63).fits(MiningLimits.MAX_VOLUME));
     }
 
     @Test
-    void queuedAreaMineUsesAxisAndVolumeLimitBox() throws IOException {
+    void reversedCornersAreNormalizedButNeverShrunk() {
+        var box = MiningSelectionBounds.between(49, 10, 59, 20, 69, 30);
+        assertEquals(new MiningSelectionBounds(10, 49, 20, 59, 30, 69), box);
+        assertFalse(box.fits(MiningLimits.DEFAULT_VOLUME));
+        assertTrue(box.fits(64_000));
+    }
+
+    @Test
+    void extremeCoordinatesCannotOverflowIntoSmallVolume() {
+        assertFalse(MiningSelectionBounds.between(Integer.MIN_VALUE, Integer.MAX_VALUE,
+                Integer.MIN_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE).fits(MiningLimits.MAX_VOLUME));
+        assertFalse(MiningLimits.fitsVolume(Long.MAX_VALUE, Long.MAX_VALUE, Long.MAX_VALUE, MiningLimits.MAX_VOLUME));
+        assertFalse(MiningLimits.fitsVolume(0, 1, 1, MiningLimits.MAX_VOLUME));
+    }
+
+    @Test
+    void sparseOrHollowTargetsStillUseTheirSelectionEnvelope() {
+        List<BlockPos> endpoints = List.of(new BlockPos(-6, 64, 0), new BlockPos(6, 64, 0));
+        assertTrue(MiningSelectionBounds.accepts(endpoints, 13));
+        assertFalse(MiningSelectionBounds.accepts(endpoints, 12));
+        assertFalse(MiningSelectionBounds.accepts(List.of(new BlockPos(0, 0, 0), new BlockPos(1000, 1000, 1000)), 262144));
+        assertFalse(MiningSelectionBounds.accepts(List.of(), 100));
+    }
+
+    @Test
+    void newAndQueuedAreaMineValidateWholeRequestBeforeScanning() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/mining/RtsUltimineProcessor.java"));
-        String method = slice(source, "public static int queueAreaMine", "static AreaMineLimitBox limitAreaMineBox");
-
-        assertTrue(method.contains("limitAreaMineBox(minX, maxX, minY, maxY, minZ, maxZ)"));
-        assertFalse(method.contains("areaMineMaxSize"));
-    }
-
-    @Test
-    void explicitRoundAreaDestroyEnvelopeAllowsCenteredDiameterMargin() {
-        List<BlockPos> centeredDiameter = new ArrayList<>();
-        for (int x = -6; x <= 6; x++) {
-            centeredDiameter.add(new BlockPos(x, 64, 0));
+        for (String method : List.of("public static boolean areaMine", "public static int queueAreaMine")) {
+            int start = source.indexOf(method);
+            int validation = source.indexOf("RtsMiningRequestLimits.accepts(player,", start);
+            int scan = source.indexOf("AreaOperationExecutor.scanAreaMineTargets", start);
+            assertTrue(start >= 0 && validation > start && scan > validation);
         }
-        List<BlockPos> tooWide = new ArrayList<>();
-        for (int x = -7; x <= 6; x++) {
-            tooWide.add(new BlockPos(x, 64, 0));
-        }
-
-        assertTrue(RtsUltimineProcessor.explicitAreaDestroyFitsSoftEnvelopeForCaps(
-                centeredDiameter, 12, 12, 12, 1728));
-        assertFalse(RtsUltimineProcessor.explicitAreaDestroyFitsSoftEnvelopeForCaps(
-                tooWide, 12, 12, 12, 1728));
-    }
-
-    private static String slice(String source, String start, String end) {
-        int startIndex = source.indexOf(start);
-        int endIndex = source.indexOf(end, startIndex);
-        assertTrue(startIndex >= 0, "Missing start marker: " + start);
-        assertTrue(endIndex > startIndex, "Missing end marker after: " + start);
-        return source.substring(startIndex, endIndex);
+        assertFalse(source.contains("limitAreaMineBox("));
+        assertFalse(source.contains("explicitAreaDestroyFitsSoftEnvelopeForCaps"));
     }
 }

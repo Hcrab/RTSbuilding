@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
+import com.rtsbuilding.rtsbuilding.server.service.placement.ConstructionMaterialSources;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -141,10 +141,7 @@ public final class RtsPendingPlacementService {
         final ItemStack finalTemplate = template;
         long availableItems = 0;
         if (!finalTemplate.isEmpty()) {
-            availableItems = ServiceRegistry.getInstance().transfer().countLinkedItemsMatching(player,
-                    stack -> ItemStack.isSameItemSameComponents(stack, finalTemplate));
-            availableItems = RtsCountUtil.saturatedAdd(availableItems,
-                    RtsProgressRefresher.countItemsInPlayerInventory(player, finalTemplate));
+            availableItems = ConstructionMaterialSources.countMatching(player, session, finalTemplate);
         }
 
         if (player.isCreative()) {

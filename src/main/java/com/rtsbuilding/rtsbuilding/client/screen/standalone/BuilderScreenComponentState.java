@@ -50,6 +50,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.storage.StorageBatchSelectionSe
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
+import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsWorkflowDetailPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsResumePlacementPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsWorkflowPanel;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
@@ -132,6 +133,7 @@ abstract class BuilderScreenComponentState extends Screen {
     RtsFloatingWindowLayer floatingWindowLayer;
     StorageLinkDetailHandler storageLinkDetailHandler;
     final RtsWorkflowPanel workflowPanel = new RtsWorkflowPanel();
+    final RtsWorkflowDetailPanel workflowDetailPanel = new RtsWorkflowDetailPanel();
     final RtsResumePlacementPanel resumePlacementPanel = new RtsResumePlacementPanel();
     final RtsBlueprintResumePanel blueprintResumePanel = new RtsBlueprintResumePanel();
     boolean funnelHotkeyHeld = false;

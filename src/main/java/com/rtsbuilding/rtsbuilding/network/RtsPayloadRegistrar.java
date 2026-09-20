@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.network.RtsNetworkProtocol;
 import com.rtsbuilding.rtsbuilding.network.blueprint.BlueprintPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsBuilderPackets;
 import com.rtsbuilding.rtsbuilding.network.camera.RtsCameraPackets;
@@ -12,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.network.pathfinding.RtsPathfindingPackets;
 import com.rtsbuilding.rtsbuilding.network.plugin.RtsPluginPackets;
 import com.rtsbuilding.rtsbuilding.network.progression.RtsProgressionPackets;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStoragePackets;
+import com.rtsbuilding.rtsbuilding.network.config.RtsServerConfigPackets;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -32,11 +34,12 @@ public final class RtsPayloadRegistrar {
 
     @SubscribeEvent
     public static void register(final RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("1");
+        PayloadRegistrar registrar = event.registrar(RtsNetworkProtocol.VERSION);
 
         RtsCameraPackets.register(registrar);
         RtsCreateValueSettingsPackets.register(registrar);
         RtsStoragePackets.register(registrar);
+        RtsServerConfigPackets.register(registrar);
         RtsBuilderPackets.register(registrar);
         RtsCraftPackets.register(registrar);
         RtsCullingPackets.register(registrar);

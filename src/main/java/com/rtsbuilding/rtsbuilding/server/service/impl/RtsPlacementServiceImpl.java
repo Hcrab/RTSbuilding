@@ -131,14 +131,15 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                                   double rayDirX, double rayDirY, double rayDirZ) {
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
 
+        if (clickedPositions != null && clickedPositions.size() > C2SRtsPlaceBatchPayload.MAX_POSITIONS) {
+            return false;
+        }
+
         if (player != null && session != null && clickedPositions != null && !clickedPositions.isEmpty()) {
-            List<BlockPos> sanitized = new ArrayList<>(Math.min(clickedPositions.size(), C2SRtsPlaceBatchPayload.MAX_POSITIONS));
+            List<BlockPos> sanitized = new ArrayList<>(clickedPositions.size());
             for (BlockPos pos : clickedPositions) {
                 if (pos != null && RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
                     sanitized.add(pos.immutable());
-                    if (sanitized.size() >= C2SRtsPlaceBatchPayload.MAX_POSITIONS) {
-                        break;
-                    }
                 }
             }
 

@@ -39,6 +39,23 @@ class PlacedBlockTrackerDataTest {
     }
 
     @Test
+    void replacingSameBlockIdAfterClearAllocatesNewGeneration() {
+        PlacedBlockTrackerData data = new PlacedBlockTrackerData();
+        BlockPos pos = new BlockPos(6, 64, 6);
+        UUID owner = UUID.randomUUID();
+
+        PlacedBlockTrackerData.CredentialSnapshot first = data.markPlaced(pos, owner, STONE);
+        data.clear(pos);
+        PlacedBlockTrackerData.CredentialSnapshot replacement = data.markPlaced(pos, owner, STONE);
+
+        assertTrue(first != null && replacement != null);
+        assertTrue(replacement.generation() != first.generation(),
+                "同一 owner/同一方块 ID 在清除后重新放置必须进入新 generation");
+        assertEquals(PlacedBlockTrackerData.RecoveryStatus.MATCH,
+                data.checkRecovery(pos, owner, STONE, false).status());
+    }
+
+    @Test
     void legacyCredentialBindsCurrentBlockWithoutOwnerClaim() {
         PlacedBlockTrackerData data = new PlacedBlockTrackerData();
         BlockPos pos = new BlockPos(1, 70, 2);

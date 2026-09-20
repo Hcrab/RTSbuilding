@@ -71,7 +71,8 @@ public final class StorageBatchSelectionSession {
             return true;
         }
         if (phase == Phase.SELECT_SECOND) {
-            if (RtsBatchStorageSelectionBounds.normalize(first, clickedPos) == null) {
+            if (RtsBatchStorageSelectionBounds.normalize(first, clickedPos,
+                    com.rtsbuilding.rtsbuilding.Config.batchBindingSelectionLimit()) == null) {
                 show(minecraft, "message.rtsbuilding.storage_batch.too_large");
                 return true;
             }
@@ -87,7 +88,8 @@ public final class StorageBatchSelectionSession {
         if (!active || phase != Phase.COMPLETE || first == null || second == null) {
             return false;
         }
-        if (RtsBatchStorageSelectionBounds.normalize(first, second) == null) {
+        if (RtsBatchStorageSelectionBounds.normalize(first, second,
+                com.rtsbuilding.rtsbuilding.Config.batchBindingSelectionLimit()) == null) {
             show(minecraft, "message.rtsbuilding.storage_batch.too_large");
             return true;
         }
@@ -104,7 +106,8 @@ public final class StorageBatchSelectionSession {
         int delta = scrollY > 0.0D ? 1 : -1;
         if (fast) delta *= 4;
         BlockPos adjusted = new BlockPos(second.getX(), second.getY() + delta, second.getZ());
-        if (RtsBatchStorageSelectionBounds.normalize(first, adjusted) == null) {
+        if (RtsBatchStorageSelectionBounds.normalize(first, adjusted,
+                com.rtsbuilding.rtsbuilding.Config.batchBindingSelectionLimit()) == null) {
             show(minecraft, "message.rtsbuilding.storage_batch.too_large");
             return true;
         }
@@ -150,7 +153,8 @@ public final class StorageBatchSelectionSession {
         }
         if (start == null || end == null) return null;
         RtsBatchStorageSelectionBounds.Bounds bounds =
-                RtsBatchStorageSelectionBounds.normalize(start, end);
+                RtsBatchStorageSelectionBounds.normalize(start, end,
+                        com.rtsbuilding.rtsbuilding.Config.batchBindingSelectionLimit());
         if (bounds == null) return null;
         return new SelectionBox(bounds.min(), bounds.max(), phase == Phase.COMPLETE, visualRevision);
     }

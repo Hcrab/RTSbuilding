@@ -366,7 +366,7 @@ public final class ServerHistoryManager {
     }
 
     private static void trimToLimit(ArrayDeque<HistoryEntry> stack) {
-        while (stack.size() > RtsHistoryConstants.SHAPE_HISTORY_LIMIT) {
+        while (stack.size() > com.rtsbuilding.rtsbuilding.Config.historyMaxEntriesPerStack()) {
             stack.removeFirst();
         }
     }

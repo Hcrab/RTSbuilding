@@ -66,7 +66,8 @@ public final class SessionSerializer {
         int count = 0;
         for (ItemStack stack : session.miningDropBuffer.stacks) {
             if (stack == null || stack.isEmpty()
-                    || stacks.size() >= com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
+                    || !com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferPolicy
+                    .canRestorePersistedStack(stacks.size())) {
                 continue;
             }
             int accepted = Math.min(stack.getCount(),
@@ -75,8 +76,8 @@ public final class SessionSerializer {
             int remaining = accepted;
             int maxStackSize = Math.max(1, stack.getMaxStackSize());
             while (remaining > 0
-                    && stacks.size()
-                    < com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
+                    && com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferPolicy
+                    .canRestorePersistedStack(stacks.size())) {
                 int chunkSize = Math.min(remaining, maxStackSize);
                 stacks.add(stack.copyWithCount(chunkSize).save(player.registryAccess()));
                 count += chunkSize;
@@ -95,11 +96,12 @@ public final class SessionSerializer {
         buffer.bufferedItems = 0;
         ListTag stacks = root.getList("drop_buffer_stacks", Tag.TAG_COMPOUND);
         for (int i = 0; i < stacks.size()
-                && buffer.stacks.size() < com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS;
+                && com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferPolicy
+                .canRestorePersistedStack(buffer.stacks.size());
                 i++) {
             ItemStack stack = ItemStack.parseOptional(player.registryAccess(), stacks.getCompound(i));
             if (stack.isEmpty()) continue;
-            int accepted = buffer.enqueueMerged(stack, stack.getCount());
+            int accepted = buffer.restoreMerged(stack, stack.getCount());
             if (accepted <= 0) break;
         }
         // 旧存档的 since 表示“进入缓存的时间”，不能继续当成真实储存堵塞时间，否则登录即误回退。
@@ -122,7 +124,9 @@ public final class SessionSerializer {
         ListTag stacks = new ListTag();
         for (ItemStack stack : session.funnel.funnelBuffer) {
             if (stack != null && !stack.isEmpty()
-                    && stacks.size() < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.FUNNEL_BUFFER_MAX_STACKS) {
+                    // 降低配置只影响后续接纳；保存时必须保留已接纳的旧缓冲，直到它们被写出。
+                    && com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferPolicy
+                    .canRestorePersistedStack(stacks.size())) {
                 stacks.add(stack.save(player.registryAccess()));
             }
         }
@@ -146,8 +150,8 @@ public final class SessionSerializer {
         session.funnel.funnelBuffer.clear();
         ListTag stacks = root.getList("funnel_buffer", Tag.TAG_COMPOUND);
         for (int i = 0; i < stacks.size()
-                && session.funnel.funnelBuffer.size()
-                < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.FUNNEL_BUFFER_MAX_STACKS; i++) {
+                && com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferPolicy
+                .canRestorePersistedStack(session.funnel.funnelBuffer.size()); i++) {
             ItemStack stack = ItemStack.parseOptional(player.registryAccess(), stacks.getCompound(i));
             if (!stack.isEmpty()) session.funnel.funnelBuffer.add(stack);
         }

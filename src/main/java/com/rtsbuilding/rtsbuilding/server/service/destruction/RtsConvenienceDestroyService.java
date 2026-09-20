@@ -53,24 +53,41 @@ public final class RtsConvenienceDestroyService {
                     RtsConvenienceDestroyPlanner.ResultCode.INVALID_TARGET, java.util.List.of(), 0);
         }
         RtsConvenienceDestroyPlanner.Plan plan = RtsConvenienceDestroyPlanner.plan(
-                player.serverLevel(), mode, anchor, face, settings);
+                player.serverLevel(), mode, anchor, face, settings,
+                com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator.areaMineSelectionLimit(),
+                com.rtsbuilding.rtsbuilding.Config.maxTreeBlocks());
         if (!plan.ready()) {
-            notifyRejected(player, plan.code(), settings);
+            notifyRejected(player, plan.code(), settings, mode);
             RtsServerTraceRegistry.terminalWithoutWorkflow(
                     player, trace, RtsWorkflowType.AREA_DESTROY, "REJECTED", plan.code().name());
             return plan;
         }
-        ServiceRegistry.getInstance().mining().areaDestroy(
+        if (mode == RtsConvenienceDestroyMode.TREE_FELL) {
+            ServiceRegistry.getInstance().mining().destroyConnectedGroup(player, plan.targets(), toolSlot,
+                    toolItemId == null ? "" : toolItemId,
+                    toolPrototype == null ? ItemStack.EMPTY : toolPrototype, toolProtectionEnabled, trace);
+        } else {
+            ServiceRegistry.getInstance().mining().areaDestroy(
                 player, plan.targets(), toolSlot,
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
                 toolProtectionEnabled, trace);
+        }
         return plan;
     }
 
     private static void notifyRejected(ServerPlayer player,
             RtsConvenienceDestroyPlanner.ResultCode code,
-            RtsConvenienceDestroySettings rawSettings) {
+            RtsConvenienceDestroySettings rawSettings,
+            RtsConvenienceDestroyMode mode) {
+        int volume = com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator.areaMineMaxVolume();
+        if (code == RtsConvenienceDestroyPlanner.ResultCode.OVER_LIMIT
+                && mode != RtsConvenienceDestroyMode.TREE_FELL) {
+            player.displayClientMessage(Component.translatableWithFallback(
+                    "message.rtsbuilding.mining.selection_too_large",
+                    "Selection exceeds the server volume limit (%s blocks). Refresh the preview and try again.", volume), true);
+            return;
+        }
         String key = switch (code) {
             case OVER_LIMIT -> "message.rtsbuilding.convenience_destroy.over_limit";
             case UNLOADED_CHUNK -> "message.rtsbuilding.convenience_destroy.unloaded";
@@ -79,7 +96,7 @@ public final class RtsConvenienceDestroyService {
         };
         Component message = code == RtsConvenienceDestroyPlanner.ResultCode.OVER_LIMIT
                 ? Component.translatable(key,
-                        RtsConvenienceDestroyPlanner.sanitize(rawSettings).treeMaxBlocks())
+                        Math.min(RtsConvenienceDestroyPlanner.sanitize(rawSettings).treeMaxBlocks(), volume))
                 : Component.translatable(key);
         player.displayClientMessage(message, true);
     }

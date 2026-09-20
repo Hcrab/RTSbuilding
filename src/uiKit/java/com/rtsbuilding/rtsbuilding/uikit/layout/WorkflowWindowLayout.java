@@ -22,6 +22,9 @@ public final class WorkflowWindowLayout {
     public static final int ROW_BUTTON_GAP = 2;
     public static final int LABEL_X = 4;
     public static final int LABEL_Y = 2;
+    // 状态优先保留空间；生产字体和离屏字体分别度量，但使用同一列上限与间距。
+    public static final int STATUS_GAP = 5;
+    public static final int STATUS_MAX_WIDTH = 72;
     public static final int PROGRESS_X = 4;
     public static final int PROGRESS_Y = 12;
     public static final int PROGRESS_TEXT_X = 2;
@@ -54,7 +57,23 @@ public final class WorkflowWindowLayout {
     }
 
     public static Geometry geometry(int contentX, int firstRowY, int rowCount) {
-        return new Geometry(contentX, firstRowY, Math.max(0, rowCount));
+        return geometry(contentX, firstRowY, rowCount, 0);
+    }
+
+    /**
+     * 为滚动视口生成一段行几何；{@code firstRowIndex} 是原列表中的绝对索引。
+     * 旧的三参数入口保持零基索引，预览和既有命中测试无需改变。
+     */
+    public static Geometry geometry(
+            int contentX,
+            int firstRowY,
+            int rowCount,
+            int firstRowIndex) {
+        return new Geometry(
+                contentX,
+                firstRowY,
+                Math.max(0, rowCount),
+                Math.max(0, firstRowIndex));
     }
 
     public enum Control {
@@ -100,11 +119,13 @@ public final class WorkflowWindowLayout {
     public static final class Geometry {
         public final int contentX;
         public final int firstRowY;
+        public final int firstRowIndex;
         public final List<RowGeometry> rows;
 
-        private Geometry(int contentX, int firstRowY, int rowCount) {
+        private Geometry(int contentX, int firstRowY, int rowCount, int firstRowIndex) {
             this.contentX = contentX;
             this.firstRowY = firstRowY;
+            this.firstRowIndex = firstRowIndex;
             List<RowGeometry> result =
                     new ArrayList<RowGeometry>(rowCount);
             for (int index = 0; index < rowCount; index++) {
@@ -119,16 +140,34 @@ public final class WorkflowWindowLayout {
             for (int index = 0; index < rows.size(); index++) {
                 RowGeometry row = rows.get(index);
                 if (row.protect.contains(mouseX, mouseY)) {
-                    return new Hit(index, Control.PROTECT);
+                    return new Hit(firstRowIndex + index, Control.PROTECT);
                 }
                 if (row.action.contains(mouseX, mouseY)) {
-                    return new Hit(index, Control.ACTION);
+                    return new Hit(firstRowIndex + index, Control.ACTION);
                 }
                 if (row.delete.contains(mouseX, mouseY)) {
-                    return new Hit(index, Control.DELETE);
+                    return new Hit(firstRowIndex + index, Control.DELETE);
                 }
             }
             return null;
+        }
+
+        /** 返回正文所在的绝对行索引；按钮或空白区域返回 {@code -1}。 */
+        public int rowAt(double mouseX, double mouseY) {
+            for (int index = 0; index < rows.size(); index++) {
+                if (rows.get(index).row.contains(mouseX, mouseY)) {
+                    return firstRowIndex + index;
+                }
+            }
+            return -1;
+        }
+
+        /** 通过绝对索引取得可见行几何，避免滚动后把局部索引误当列表索引。 */
+        public RowGeometry rowGeometryAt(int rowIndex) {
+            int localIndex = rowIndex - firstRowIndex;
+            return localIndex < 0 || localIndex >= rows.size()
+                    ? null
+                    : rows.get(localIndex);
         }
     }
 }

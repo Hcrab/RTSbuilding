@@ -13,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsOperationTerminalPayloa
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot;
+import com.rtsbuilding.rtsbuilding.server.task.TaskType;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -29,9 +30,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>注册表不拥有业务对象，不参与包去重、任务接纳或取消判断。即使状态被容量淘汰，游戏行为也不变。</p>
  */
 public final class RtsServerTraceRegistry {
-    private static final int MAX_TRACES = 1024;
-    private static final int MAX_WORKFLOWS = 2048;
-    private static final int MAX_TASKS = 2048;
     private static final AtomicLong NEXT_OPERATION_ID = new AtomicLong();
 
     private static final LinkedHashMap<TraceKey, TraceState> BY_TRACE = new LinkedHashMap<>();
@@ -108,7 +106,7 @@ public final class RtsServerTraceRegistry {
         state.lastServerTick = player == null ? state.lastServerTick : player.serverLevel().getGameTime();
         if (workflowId >= 0 && player != null) {
             BY_WORKFLOW.put(new WorkflowKey(player.getUUID(), workflowId), state);
-            trim(BY_WORKFLOW, MAX_WORKFLOWS);
+            trim(BY_WORKFLOW, Config.diagnosticsMaxWorkflowLinks());
         }
         if (firstBinding) {
             infoDiag("WORKFLOW_CREATED", state,
@@ -125,7 +123,7 @@ public final class RtsServerTraceRegistry {
         if (state == null) {
             state = recoveredState(snapshot);
             BY_WORKFLOW.put(new WorkflowKey(snapshot.ownerId(), snapshot.workflowEntryId()), state);
-            trim(BY_WORKFLOW, MAX_WORKFLOWS);
+            trim(BY_WORKFLOW, Config.diagnosticsMaxWorkflowLinks());
         }
         String taskId = snapshot.id().toString();
         if (taskId.equals(state.taskId)) return;
@@ -133,12 +131,14 @@ public final class RtsServerTraceRegistry {
         state.createdTick = snapshot.createdGameTime();
         state.lastServerTick = Math.max(state.lastServerTick, snapshot.updatedGameTime());
         BY_TASK.put(taskId, state);
-        trim(BY_TASK, MAX_TASKS);
+        trim(BY_TASK, Config.diagnosticsMaxTaskLinks());
         infoDiag("TASK_SUBMITTED", state,
                 "task_type", snapshot.type(),
                 "created_tick", snapshot.createdGameTime(),
                 "total", snapshot.totalUnits(),
-                "cursor", snapshot.cursorUnits());
+                "cursor", snapshot.cursorUnits(),
+                "reason", snapshot.reason().diagnosticId(),
+                "reason_detail", snapshot.reasonDetail());
     }
 
     public static synchronized void onTaskSlice(
@@ -178,9 +178,11 @@ public final class RtsServerTraceRegistry {
                 default -> after.state().name();
             };
             String reason = after.state() == TaskLifecycleState.CANCELLED
-                    ? ("NONE".equals(state.cancelOrigin) ? "TASK_CANCELLED_UNKNOWN" : state.cancelOrigin)
+                    ? ("NONE".equals(state.cancelOrigin)
+                    ? after.reason().diagnosticId() : state.cancelOrigin)
                     : after.state() == TaskLifecycleState.FAILED
-                    ? "TASK_FAILED" : after.failedUnits() > 0 ? "PARTIAL_FAILURE" : "NONE";
+                    ? after.reason().diagnosticId()
+                    : after.failedUnits() > 0 ? "PARTIAL_FAILURE" : after.reason().diagnosticId();
             terminal(state, outcome, reason, after.succeededUnits(), after.failedUnits(), tick);
         }
     }
@@ -291,6 +293,21 @@ public final class RtsServerTraceRegistry {
         ORDER.clear();
     }
 
+    /** 记录隐藏 durable family 的替换/满额决定；不参与容量判断。 */
+    public static synchronized void durableAdmissionEvent(
+            ServerPlayer player, TaskType taskType, int limit, int queued, String reason) {
+        if (player == null) return;
+        RtsStructuredDiagnostics.appendServer("TASK_ADMISSION",
+                "run", RtsTraceIds.runId(),
+                "player", player.getGameProfile().getName(),
+                "dimension", player.serverLevel().dimension().location(),
+                "task_type", taskType == null ? "UNKNOWN" : taskType.name(),
+                "limit", Math.max(0, limit),
+                "queued", Math.max(0, queued),
+                "outcome", reason != null && reason.startsWith("REPLACED") ? "REPLACED" : "REJECTED",
+                "reason", reason == null ? "UNKNOWN" : reason);
+    }
+
     private static void maybeLogWait(TraceState state, TaskSnapshot before, TaskSnapshot after) {
         String wait = after.waitKey() == null
                 ? "NONE" : safe(after.waitKey().kind() + ':' + after.waitKey().value(), "UNKNOWN");
@@ -300,6 +317,8 @@ public final class RtsServerTraceRegistry {
             infoDiag("TASK_WAIT", state,
                     "wait_reason", wait,
                     "task_state", after.state(),
+                    "reason", after.reason().diagnosticId(),
+                    "reason_detail", after.reasonDetail(),
                     "cursor", after.cursorUnits(),
                     "succeeded", after.succeededUnits(),
                     "failed", after.failedUnits());
@@ -391,7 +410,7 @@ public final class RtsServerTraceRegistry {
         if (state == null) {
             state = new TraceState(playerId, player, trace);
             BY_TRACE.put(key, state);
-            trim(BY_TRACE, MAX_TRACES);
+            trim(BY_TRACE, Config.diagnosticsMaxTraces());
         }
         return state;
     }
@@ -426,7 +445,9 @@ public final class RtsServerTraceRegistry {
         if (!order.seen || sequence > order.lastSequence) order.lastSequence = sequence;
         order.seen = true;
         if (outcome != null) order.anomalies++;
-        if (ORDER.size() > MAX_TRACES) ORDER.remove(ORDER.keySet().iterator().next());
+        while (ORDER.size() > Config.diagnosticsMaxTraces()) {
+            ORDER.remove(ORDER.keySet().iterator().next());
+        }
         return outcome == null || shouldReport(order.anomalies) ? outcome : null;
     }
 

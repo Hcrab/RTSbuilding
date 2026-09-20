@@ -32,12 +32,12 @@ public final class RtsMiningTargetQueue {
         if (positions == null || positions.isEmpty() || canAccessTarget == null || acceptsTarget == null) {
             return new ArrayDeque<>();
         }
+        if (!com.rtsbuilding.rtsbuilding.common.mining.MiningSelectionBounds.accepts(
+                positions, RtsMiningValidator.areaMineSelectionLimit())) {
+            return new ArrayDeque<>();
+        }
         LinkedHashSet<BlockPos> unique = new LinkedHashSet<>();
-        int maxTargets = RtsMiningValidator.areaDestroyMaxTargets();
         for (BlockPos raw : positions) {
-            if (raw == null || unique.size() >= maxTargets) {
-                continue;
-            }
             BlockPos pos = raw.immutable();
             if (!canAccessTarget.test(pos)) {
                 continue;

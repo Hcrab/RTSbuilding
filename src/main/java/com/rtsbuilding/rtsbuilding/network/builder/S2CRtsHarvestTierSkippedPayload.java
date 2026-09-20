@@ -18,7 +18,8 @@ import java.util.List;
  */
 public record S2CRtsHarvestTierSkippedPayload(
         List<BlockPos> positions) implements CustomPacketPayload {
-    public static final int MAX_POSITIONS = C2SRtsAreaDestroyPayload.MAX_POSITIONS;
+    /** 约512KiB，低于客户端方向1MiB上限；避免把一次预览裁剪拆成数百次全列表扫描。 */
+    public static final int MAX_POSITIONS = 65_536;
 
     public static final Type<S2CRtsHarvestTierSkippedPayload> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_harvest_tier_skipped"));
@@ -28,7 +29,12 @@ public record S2CRtsHarvestTierSkippedPayload(
                     (buf, payload) -> {
                         List<BlockPos> payloadPositions =
                                 payload.positions() == null ? List.of() : payload.positions();
-                        int size = Math.min(payloadPositions.size(), MAX_POSITIONS);
+                        if (payloadPositions.size() > MAX_POSITIONS) {
+                            throw new IllegalArgumentException(
+                                    "RTS harvest-tier feedback exceeds one packet budget: "
+                                            + payloadPositions.size() + " > " + MAX_POSITIONS);
+                        }
+                        int size = payloadPositions.size();
                         buf.writeVarInt(size);
                         for (int i = 0; i < size; i++) {
                             buf.writeBlockPos(payloadPositions.get(i));
@@ -50,5 +56,9 @@ public record S2CRtsHarvestTierSkippedPayload(
     @Override
     public Type<? extends CustomPacketPayload> type() {
         return TYPE;
+    }
+
+    public S2CRtsHarvestTierSkippedPayload {
+        positions = positions == null ? List.of() : List.copyOf(positions);
     }
 }

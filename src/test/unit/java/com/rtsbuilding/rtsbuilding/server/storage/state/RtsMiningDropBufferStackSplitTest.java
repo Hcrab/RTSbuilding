@@ -46,6 +46,23 @@ class RtsMiningDropBufferStackSplitTest {
     }
 
     @Test
+    void persistedStacksSurviveARecentlyLoweredConfiguredCapacity() {
+        RtsMiningDropBufferState buffer = new RtsMiningDropBufferState();
+        buffer.stacks.add(new ItemStack(Items.STONE));
+        buffer.stacks.add(new ItemStack(Items.COBBLESTONE));
+        buffer.stacks.add(new ItemStack(Items.DIRT));
+        buffer.stacks.add(new ItemStack(Items.SAND));
+        buffer.bufferedItems = 4;
+
+        // 模拟配置已经从16调到4；恢复旧存档仍使用物理上限，不删除第5个已接纳栈。
+        int accepted = buffer.restoreMerged(new ItemStack(Items.GRAVEL), 1);
+
+        assertEquals(1, accepted);
+        assertEquals(5, buffer.stacks.size());
+        assertTrue(RtsMiningDropBufferPolicy.canRestorePersistedStack(4));
+    }
+
+    @Test
     void fullNoticeWaitsOneSecondInsteadOfFiringImmediately() {
         RtsMiningDropBufferState buffer = new RtsMiningDropBufferState();
         buffer.bufferedItems = RtsMiningDropBufferState.MAX_BUFFERED_ITEMS;

@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.impl;
 
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
@@ -81,7 +82,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
     @Override
     public void tick(ServerPlayer player, RtsStorageSession session) {
         tickBudgeted(player, session,
-                RtsServiceConstants.FUNNEL_MAX_ENTITIES_PER_TICK, Long.MAX_VALUE);
+                Config.funnelMaxEntitiesPerTick(), Long.MAX_VALUE);
     }
 
     @Override
@@ -94,7 +95,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
             session.funnel.funnelTickCooldown--;
             return new FunnelTickResult(0, true);
         }
-        session.funnel.funnelTickCooldown = RtsServiceConstants.FUNNEL_TICK_INTERVAL - 1;
+        session.funnel.funnelTickCooldown = Config.funnelTickInterval() - 1;
 
         if (session.funnel.funnelTarget == null) return new FunnelTickResult(0, true);
         if (session.funnel.funnelTargetDimension == null
@@ -172,13 +173,14 @@ public final class RtsFunnelServiceImpl implements FunnelService {
 
     private WorkResult absorbDrops(ServerPlayer player, BlockPos target, List<IItemHandler> handlers,
             RtsStorageSession session, int maxUnits, long deadlineNanos) {
-        AABB box = new AABB(target).inflate(RtsServiceConstants.FUNNEL_RADIUS);
-        int queryLimit = Math.min(maxUnits, RtsServiceConstants.FUNNEL_MAX_ENTITIES_PER_TICK);
-        List<ItemEntity> drops = new ArrayList<>(queryLimit);
+        AABB box = new AABB(target).inflate(Config.funnelPickupRadiusBlocks());
+        int queryLimit = Math.min(maxUnits, Config.funnelMaxEntitiesPerTick());
+        // 配置是正 int，但不能把它直接当作一次性内存预分配；实际列表由世界查询结果决定。
+        List<ItemEntity> drops = new ArrayList<>();
         player.serverLevel().getEntities(
                 EntityTypeTest.forClass(ItemEntity.class), box,
                 e -> e != null && e.isAlive() && !e.getItem().isEmpty(), drops, queryLimit);
-        List<ExperienceOrb> experienceOrbs = new ArrayList<>(queryLimit);
+        List<ExperienceOrb> experienceOrbs = new ArrayList<>();
         player.serverLevel().getEntities(
                 EntityTypeTest.forClass(ExperienceOrb.class), box,
                 e -> e != null && e.isAlive() && e.getValue() > 0,
@@ -190,7 +192,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
         boolean changed = false;
 
         for (Entity collectible : collectibles) {
-            if (processedEntities >= RtsServiceConstants.FUNNEL_MAX_ENTITIES_PER_TICK
+            if (processedEntities >= Config.funnelMaxEntitiesPerTick()
                     || processedEntities >= maxUnits) {
                 break;
             }
@@ -205,10 +207,10 @@ public final class RtsFunnelServiceImpl implements FunnelService {
             ItemEntity drop = (ItemEntity) collectible;
             ItemStack worldStack = drop.getItem();
             if (worldStack.isEmpty()) continue;
-            if (processedItems >= RtsServiceConstants.FUNNEL_MAX_ITEMS_PER_TICK) continue;
+            if (processedItems >= Config.funnelMaxItemsPerTick()) continue;
 
             int batchSize = Math.min(worldStack.getCount(),
-                    RtsServiceConstants.FUNNEL_MAX_ITEMS_PER_TICK - processedItems);
+                    Config.funnelMaxItemsPerTick() - processedItems);
             if (batchSize <= 0) continue;
             // 批量插入：一次传入整个 batch，减少存储调用次数
             ItemStack batch = worldStack.copy();

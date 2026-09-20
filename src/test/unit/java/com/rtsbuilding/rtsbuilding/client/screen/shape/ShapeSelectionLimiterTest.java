@@ -9,6 +9,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ShapeSelectionLimiterTest {
     @Test
+    void extremeCoordinateSpanCannotWrapIntoAnApparentlySmallVolume() {
+        var input = new ShapeBuildTypes.Input(BuildShape.BOX, Direction.UP, Direction.UP,
+                new BlockPos(Integer.MIN_VALUE, 0, 0), new BlockPos(Integer.MAX_VALUE, 0, 0), 0, false);
+        assertTrue(ShapeSelectionLimiter.envelopeVolume(input) > 262144);
+        var clamped = ShapeSelectionLimiter.clampDimensionsAndVolume(input, 512);
+        assertTrue(ShapeSelectionLimiter.envelopeVolume(clamped) <= 512);
+    }
+    @Test
     void rectilinearSelectionIsShrunkBeforeGeometryWhenVolumeIsTooLarge() {
         ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
                 BuildShape.BOX,
@@ -42,5 +50,39 @@ class ShapeSelectionLimiterTest {
 
         assertTrue((radius * 2) + 1 <= 12,
                 "中心对称形状在偶数尺寸上限下宁可少一格，也不能越过服务端限制");
+    }
+
+    @Test
+    void volumeOnlyClampKeepsLongThinSelection() {
+        ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
+                BuildShape.BOX,
+                Direction.UP,
+                Direction.UP,
+                BlockPos.ZERO,
+                new BlockPos(511, 0, 0),
+                0,
+                false);
+
+        ShapeBuildTypes.Input limited = ShapeSelectionLimiter.clampDimensionsAndVolume(input, 512);
+
+        assertTrue(limited.pointB().getX() - limited.pointA().getX() + 1 == 512);
+        assertTrue(ShapeSelectionLimiter.envelopeVolume(limited) <= 512L);
+    }
+
+    @Test
+    void volumeOnlyClampAcceptsFortyEightAndSixtyFourCubesAtTheirBudgets() {
+        ShapeBuildTypes.Input cube48 = new ShapeBuildTypes.Input(
+                BuildShape.BOX, Direction.UP, Direction.UP,
+                BlockPos.ZERO, new BlockPos(47, 0, 47), 47, false);
+        ShapeBuildTypes.Input cube64 = new ShapeBuildTypes.Input(
+                BuildShape.BOX, Direction.UP, Direction.UP,
+                BlockPos.ZERO, new BlockPos(63, 0, 63), 63, false);
+
+        assertTrue(ShapeSelectionLimiter.envelopeVolume(
+                ShapeSelectionLimiter.clampDimensionsAndVolume(cube48, 48 * 48 * 48))
+                <= 48L * 48L * 48L);
+        assertTrue(ShapeSelectionLimiter.envelopeVolume(
+                ShapeSelectionLimiter.clampDimensionsAndVolume(cube64, 64 * 64 * 64))
+                <= 64L * 64L * 64L);
     }
 }

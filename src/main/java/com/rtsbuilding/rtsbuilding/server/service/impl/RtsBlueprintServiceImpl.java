@@ -3,14 +3,12 @@ package com.rtsbuilding.rtsbuilding.server.service.impl;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.BlueprintService;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
-import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
+import com.rtsbuilding.rtsbuilding.server.service.placement.ConstructionMaterialSources;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageFluids;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
@@ -46,26 +44,7 @@ public final class RtsBlueprintServiceImpl implements BlueprintService {
             return 0L;
         }
 
-        long total = 0L;
-        for (LinkedHandler linkedHandler : RtsLinkedStorageResolver.resolveLinkedHandlers(player, session)) {
-            IItemHandler handler = linkedHandler.handler();
-            for (int slot = 0; slot < handler.getSlots(); slot++) {
-                ItemStack stack = handler.getStackInSlot(slot);
-                if (!stack.isEmpty() && stack.getItem() == item) {
-                    total = RtsCountUtil.saturatedAdd(total, RtsStoragePageBuilder.getHandlerReportedCount(handler, slot, stack));
-                }
-            }
-        }
-
-        int start = RtsStoragePageBuilder.getPlayerMainInventoryStart(player);
-        int end = RtsStoragePageBuilder.getPlayerMainInventoryEndExclusive(player);
-        for (int slot = start; slot < end; slot++) {
-            ItemStack stack = player.getInventory().getItem(slot);
-            if (!stack.isEmpty() && stack.getItem() == item) {
-                total = RtsCountUtil.saturatedAdd(total, stack.getCount());
-            }
-        }
-        return total;
+        return ConstructionMaterialSources.countItem(player, session, item);
     }
 
     @Override
@@ -77,9 +56,7 @@ public final class RtsBlueprintServiceImpl implements BlueprintService {
         if (session == null) {
             return ItemStack.EMPTY;
         }
-        List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
-        return RtsTransferExtractor.extractMatchingFromNetwork(handlers, player, item, count);
+        return ConstructionMaterialSources.extractMatching(player, session, item, count);
     }
 
     @Override

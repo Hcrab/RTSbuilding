@@ -38,6 +38,14 @@ public final class MergedSkeletonRenderer {
     private MergedSkeletonRenderer() {
     }
 
+    /** 连锁大预览复用本类已有的纯表面边计算，不访问世界，也不接管已确认任务的缓存。 */
+    static List<UltimineBlockMerger.EdgeLine> buildOuterEdges(Collection<BlockPos> positions) {
+        List<BlockPos> blocks = List.copyOf(positions);
+        Set<Long> keys = new HashSet<>();
+        for (BlockPos pos : blocks) keys.add(pos.asLong());
+        return buildFastSurfaceEdgeBuild(blocks, keys).visibleEdges();
+    }
+
     // ===== Public API (called externally and from ShapeGhostRenderer) =====
 
     /** Records a block as destroyed so it can be removed from the merged skeleton. */

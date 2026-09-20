@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.AreaOperationExecutor;
-import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningSelectionBounds;
 import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsDiagnosticReason;
 import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
@@ -31,13 +31,13 @@ import java.util.*;
  * <p><b>三种挖掘模式：</b>
  * <ul>
  *   <li><b>连锁挖掘</b>（{@link #startUltimine}）— 从种子位置 BFS 收集同类型连通方块，
- *   创造模式立即破坏，生存模式进入每 tick 处理</li>
+ *   创造跳过首块蓄力，生存从首块蓄力开始；均进入每 tick 任务处理</li>
  *   <li><b>区域挖掘</b>（{@link #areaMine}）— 在限定 3D 体积内按形状/填充类型过滤破坏</li>
  *   <li><b>区域破坏</b>（{@link #areaDestroy}）— 破坏给定显式位置列表的方块（来自形状预览）</li>
  * </ul>
  *
  * <p><b>队列模式</b>：{@link #queueAreaDestroy} / {@link #queueStartUltimine} / {@link #queueAreaMine}
- * 将操作排队为 {@link RtsMiningStateMachine.MiningJob}，支持独立线程或管道延迟执行。
+ * 将操作交给同一持久化任务引擎，世界修改仅在服务端主线程切片内进行。
  *
  * <p><b>改进亮点：</b>
  * <ul>
@@ -57,7 +57,7 @@ public final class RtsUltimineProcessor {
 
     /**
      * 在给定种子位置启动连锁挖掘批次（连接方块挖掘）。
-     * 创造模式立即破坏；生存模式开始对第一个目标进行远程破坏进度。
+     * 创造模式直接进入批处理；生存模式开始对第一个目标进行远程破坏进度。
      *
      * <p><b>前置条件（由 pipeline 保证）：</b>功能门已通过、会话已解析且维度已清理、
      * 之前的挖掘已停止、工具已借用（存储在 {@code session.mining.miningToolLease} 中）、
@@ -66,41 +66,10 @@ public final class RtsUltimineProcessor {
     public static boolean startUltimine(ServerPlayer player, RtsStorageSession session,
             BlockPos pos, Direction face, byte toolSlot, int requestedLimit,
             byte mode, boolean toolProtectionEnabled) {
-        int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
-        int progressionLimit = RtsProgressionManager.getUltimineLimit(player);
-        if (progressionLimit <= 0) {
-            return false;
-        }
-        int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ultimineMaxBlocks(), progressionLimit), requestedLimit));
-
-        if (player.isCreative()) {
-            Deque<BlockPos> targets = RtsMiningValidator.collectUltimineTargets(player, pos, slot, ItemStack.EMPTY, false,
-                    limit, true, mode);
-            if (targets.isEmpty()) {
-                return false;
-            }
-            breakCreativeUltimineTargets(player, session, targets, slot);
-            // UiRefresh handled by pipeline
-            return false;
-        }
-
-        boolean selectedToolRequested = session.mining.miningSelectedToolRequested;
-        RtsToolLease toolLease = session.mining.miningToolLease;
-        if (toolLease == null) {
-            return false;
-        }
-        Deque<BlockPos> targets = RtsMiningValidator.collectUltimineTargets(player, pos, slot, toolLease.stack(),
-                selectedToolRequested, limit, false, mode);
-        if (targets.isEmpty()) {
-            return false;
-        }
-
-        int workflowEntryId = session.mining.workflowEntryId;
-        boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
-                .submitMiningTargets(player, workflowEntryId, targets,
-                        face, slot, selectedToolRequested, toolProtectionEnabled, true);
-        if (submitted) session.mining.workflowEntryId = -1;
-        return submitted;
+        int queued = queueStartUltimine(player, session, pos, face, toolSlot, requestedLimit,
+                mode, toolProtectionEnabled, session.mining.workflowEntryId);
+        if (queued > 0) session.mining.workflowEntryId = -1;
+        return queued > 0;
     }
 
     // =========================================================================
@@ -123,8 +92,9 @@ public final class RtsUltimineProcessor {
             return false;
         }
 
-        // 限定范围
-        AreaMineLimitBox limited = limitAreaMineBox(minX, maxX, minY, maxY, minZ, maxZ);
+        // 只校验完整区域，不把已确认请求静默缩成另一块区域。
+        MiningSelectionBounds limited = MiningSelectionBounds.between(minX, maxX, minY, maxY, minZ, maxZ);
+        if (!RtsMiningRequestLimits.accepts(player, limited)) return false;
         int clampedMinX = limited.minX();
         int clampedMaxX = limited.maxX();
         int clampedMinY = limited.minY();
@@ -157,16 +127,11 @@ public final class RtsUltimineProcessor {
             return false;
         }
 
-        if (player.isCreative()) {
-            breakCreativeUltimineTargets(player, session, targets, slot);
-            return false;
-        }
-
         int workflowEntryId = session.mining.workflowEntryId;
         boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                 .submitMiningTargets(player, workflowEntryId, targets,
-                        Direction.DOWN, slot, session.mining.miningSelectedToolRequested,
-                        toolProtectionEnabled, true);
+                        Direction.DOWN, slot, selectedToolRequested,
+                        toolProtectionEnabled, !player.isCreative());
         if (submitted) session.mining.workflowEntryId = -1;
         return submitted;
     }
@@ -177,7 +142,7 @@ public final class RtsUltimineProcessor {
 
     /**
      * 破坏给定显式位置的方块（来自快速建造形状预览）。
-     * 创造模式立即破坏；生存模式将目标送入连锁挖掘批次处理流程。
+     * 兼容旧服务入口；创造和生存都委托现行范围破坏任务，不再保留另一套裁剪与执行规则。
      *
      * <p><b>前置条件（由 pipeline 保证）：</b>功能门已通过、会话已解析、维度已清理、
      * 之前的挖掘已停止、工具已借用（{@code session.mining.miningToolLease}）、
@@ -185,38 +150,11 @@ public final class RtsUltimineProcessor {
      */
     public static void areaDestroy(ServerPlayer player, RtsStorageSession session, List<BlockPos> positions,
             byte toolSlot, boolean toolProtectionEnabled) {
-        if (positions == null || positions.isEmpty()) {
-            return;
+        int workflowEntryId = session == null ? -1 : session.mining.workflowEntryId;
+        if (com.rtsbuilding.rtsbuilding.server.service.destruction.RtsDestructionBatch.enqueueDestroyBatch(
+                player, session, positions, toolSlot, toolProtectionEnabled, workflowEntryId)) {
+            session.mining.workflowEntryId = -1;
         }
-
-        int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
-        if (player.isCreative()) {
-            Deque<BlockPos> targets = collectAreaDestroyTargets(player, positions, slot, ItemStack.EMPTY, false, true);
-            if (targets.isEmpty()) {
-                return;
-            }
-            breakCreativeUltimineTargets(player, session, targets, slot);
-            return;
-        }
-
-        boolean selectedToolRequested = session.mining.miningSelectedToolRequested;
-        RtsToolLease toolLease = session.mining.miningToolLease;
-        if (toolLease == null) {
-            return;
-        }
-        Deque<BlockPos> targets = collectAreaDestroyTargets(player, positions, slot, toolLease.stack(),
-                selectedToolRequested, false);
-        if (targets.isEmpty()) {
-            return;
-        }
-
-        RtsbuildingMod.LOGGER.debug("[RtsUltimineProcessor] areaDestroy: {} valid targets out of {} positions for {}",
-                targets.size(), positions.size(), player.getGameProfile().getName());
-        int workflowEntryId = session.mining.workflowEntryId;
-        boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
-                .submitMiningTargets(player, workflowEntryId, targets,
-                        Direction.DOWN, slot, selectedToolRequested, toolProtectionEnabled, true);
-        if (submitted) session.mining.workflowEntryId = -1;
     }
 
     // =========================================================================
@@ -224,70 +162,22 @@ public final class RtsUltimineProcessor {
     // =========================================================================
 
     /**
-     * 将区域破坏操作排队为待处理的 {@code MiningJob}。
-     * 当队列中所有更早的作业完成时，目标将被处理。
-     *
-     * <p>在创造模式下，方块被立即破坏且工作流条目立即完成，
-     * 因为创造模式破坏需要特殊处理，不能走常规的
-     * {@link #processUltimineTargets} 路径。</p>
+     * 将区域破坏操作交给同一持久化范围破坏任务，创造模式也按 tick 预算推进。
      *
      * @param workflowEntryId  WorkflowStartPipe 创建的工作流条目
-     * @return 排队的（或创造模式立即破坏的）目标数，如果没有有效目标则返回 0
+     * @return 成功提交的目标数，没有有效目标或未接纳时返回 0
      */
     public static int queueAreaDestroy(ServerPlayer player, RtsStorageSession session, List<BlockPos> positions,
             byte toolSlot, boolean toolProtectionEnabled, int workflowEntryId) {
-        if (positions == null || positions.isEmpty()) {
-            return 0;
-        }
-
-        int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
-
-        // Creative mode: break immediately to avoid slow per-tick processing
-        if (player.isCreative()) {
-            Deque<BlockPos> targets = collectAreaDestroyTargets(player, positions, slot, ItemStack.EMPTY, false, true);
-            if (targets.isEmpty()) {
-                return 0;
-            }
-            // Preserve the current (active job's) tool lease by temporarily clearing it
-            RtsToolLease savedLease = session.mining.miningToolLease;
-            session.mining.miningToolLease = RtsToolLease.empty();
-            try {
-                breakCreativeUltimineTargets(player, session, targets, slot);
-            } finally {
-                session.mining.miningToolLease = savedLease;
-            }
-            // Complete the workflow entry immediately (blocks already broken)
-            RtsWorkflowEngine.getInstance().from(player, workflowEntryId)
-                    .ifPresent(token -> {
-                        token.setTotalBlocks(targets.size());
-                        token.setCompletedBlocks(targets.size());
-                        token.complete();
-                    });
-            return targets.size();
-        }
-
-        // Survival mode: queue for deferred processing
-        boolean selectedToolRequested = session.mining.miningSelectedToolRequested;
-        RtsToolLease toolLease = session.mining.miningToolLease;
-        if (toolLease == null) {
-            return 0;
-        }
-        Deque<BlockPos> targets = collectAreaDestroyTargets(player, positions, slot, toolLease.stack(),
-                selectedToolRequested, false);
-        if (targets.isEmpty()) {
-            return 0;
-        }
-
-        boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE.submitMiningTargets(
-                player, workflowEntryId, targets,
-                Direction.DOWN, slot, selectedToolRequested, toolProtectionEnabled, true);
-        RtsbuildingMod.LOGGER.debug("[RtsUltimineProcessor] queueAreaDestroy: submitted {} targets for {}",
-                targets.size(), player.getGameProfile().getName());
-        return submitted ? targets.size() : 0;
+        // 兼容旧服务入口，但只维护一条范围破坏执行路径，不能再各自裁剪目标。
+        if (!com.rtsbuilding.rtsbuilding.server.service.destruction.RtsDestructionBatch.enqueueDestroyBatch(
+                player, session, positions, toolSlot, toolProtectionEnabled, workflowEntryId)) return 0;
+        return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .workflowTaskTotalUnits(player, workflowEntryId);
     }
 
     /**
-     * Queues an ultimine (connected-block) operation as a pending {@code MiningJob}.
+     * 把连锁操作提交到持久化任务引擎，首块阶段由玩家模式决定。
      *
      * @param workflowEntryId  the workflow entry created by WorkflowStartPipe
      * @return number of targets queued, or 0 if no valid targets
@@ -302,52 +192,26 @@ public final class RtsUltimineProcessor {
         }
         int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ultimineMaxBlocks(), progressionLimit), requestedLimit));
 
-        // Creative mode: break immediately
-        if (player.isCreative()) {
-            Deque<BlockPos> targets = RtsMiningValidator.collectUltimineTargets(player, pos, slot, ItemStack.EMPTY, false,
-                    limit, true, mode);
-            if (targets.isEmpty()) {
-                return 0;
-            }
-            RtsToolLease savedLease = session.mining.miningToolLease;
-            session.mining.miningToolLease = RtsToolLease.empty();
-            try {
-                breakCreativeUltimineTargets(player, session, targets, slot);
-            } finally {
-                session.mining.miningToolLease = savedLease;
-            }
-            RtsWorkflowEngine.getInstance().from(player, workflowEntryId)
-                    .ifPresent(token -> {
-                        token.setTotalBlocks(targets.size());
-                        token.setCompletedBlocks(targets.size());
-                        token.complete();
-                    });
-            return targets.size();
-        }
-
-        boolean selectedToolRequested = session.mining.miningSelectedToolRequested;
+        // 创造与生存共用可恢复任务；创造无需首块蓄力，但也不能跳过历史预算和 tick 调度。
+        boolean creative = player.isCreative();
+        boolean selectedToolRequested = !creative && session.mining.miningSelectedToolRequested;
         RtsToolLease toolLease = session.mining.miningToolLease;
-        if (toolLease == null) {
-            return 0;
-        }
-        Deque<BlockPos> targets = RtsMiningValidator.collectUltimineTargets(player, pos, slot, toolLease.stack(),
-                selectedToolRequested, limit, false, mode);
-        if (targets.isEmpty()) {
-            return 0;
-        }
-
+        if (!creative && toolLease == null) return 0;
+        Deque<BlockPos> targets = RtsMiningValidator.collectUltimineTargets(player, pos, slot,
+                creative ? ItemStack.EMPTY : toolLease.stack(), selectedToolRequested, limit, creative, mode);
+        if (targets.isEmpty()) return 0;
         /*
          * 即使前一轮连锁挖掘已经越过首块蓄力，新的排队操作也必须从自己的首块进度 0 开始。
          * 不能走旧 MiningJob 的 BATCH 迁移入口，否则第二轮会继承“已经开挖”的阶段而秒挖。
          */
         return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE.submitMiningTargets(
                 player, workflowEntryId, targets,
-                face, slot, selectedToolRequested, toolProtectionEnabled, true)
+                face, slot, selectedToolRequested, toolProtectionEnabled, !creative)
                 ? targets.size() : 0;
     }
 
     /**
-     * Queues an area-mine operation as a pending {@code MiningJob}.
+     * 把区域挖掘操作提交到持久化任务引擎。
      *
      * @param workflowEntryId  the workflow entry created by WorkflowStartPipe
      * @return number of targets queued, or 0 if no valid targets
@@ -360,8 +224,8 @@ public final class RtsUltimineProcessor {
             return 0;
         }
 
-        // 限定范围
-        AreaMineLimitBox limitBox = limitAreaMineBox(minX, maxX, minY, maxY, minZ, maxZ);
+        MiningSelectionBounds limitBox = MiningSelectionBounds.between(minX, maxX, minY, maxY, minZ, maxZ);
+        if (!RtsMiningRequestLimits.accepts(player, limitBox)) return 0;
         int clampedMinX = limitBox.minX();
         int clampedMaxX = limitBox.maxX();
         int clampedMinY = limitBox.minY();
@@ -369,7 +233,7 @@ public final class RtsUltimineProcessor {
         int clampedMinZ = limitBox.minZ();
         int clampedMaxZ = limitBox.maxZ();
 
-        // Creative mode: break immediately
+        // 创造模式的大选区也使用已有持久化任务，避免一次 tick 同步处理整个体积。
         if (player.isCreative()) {
             List<BlockPos> candidatePositions = AreaOperationExecutor.scanAreaMineTargets(
                     player.serverLevel(),
@@ -382,20 +246,9 @@ public final class RtsUltimineProcessor {
             if (targets.isEmpty()) {
                 return 0;
             }
-            RtsToolLease savedLease = session.mining.miningToolLease;
-            session.mining.miningToolLease = RtsToolLease.empty();
-            try {
-                breakCreativeUltimineTargets(player, session, targets, slot);
-            } finally {
-                session.mining.miningToolLease = savedLease;
-            }
-            RtsWorkflowEngine.getInstance().from(player, workflowEntryId)
-                    .ifPresent(token -> {
-                        token.setTotalBlocks(targets.size());
-                        token.setCompletedBlocks(targets.size());
-                        token.complete();
-                    });
-            return targets.size();
+            return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE.submitMiningTargets(
+                    player, workflowEntryId, targets, Direction.DOWN, slot, false,
+                    toolProtectionEnabled, false) ? targets.size() : 0;
         }
 
         boolean selectedToolRequested = session.mining.miningSelectedToolRequested;
@@ -425,121 +278,6 @@ public final class RtsUltimineProcessor {
                 ? targets.size() : 0;
     }
 
-    static AreaMineLimitBox limitAreaMineBox(int minX, int maxX, int minY, int maxY, int minZ, int maxZ) {
-        int safeMinX = Math.min(minX, maxX);
-        int safeMaxX = Math.max(minX, maxX);
-        int safeMinY = Math.min(minY, maxY);
-        int safeMaxY = Math.max(minY, maxY);
-        int safeMinZ = Math.min(minZ, maxZ);
-        int safeMaxZ = Math.max(minZ, maxZ);
-
-        int width = Math.max(1, Math.min(safeMaxX - safeMinX + 1, RtsMiningValidator.areaMineMaxWidth()));
-        int height = Math.max(1, Math.min(safeMaxY - safeMinY + 1, RtsMiningValidator.areaMineMaxHeight()));
-        int depth = Math.max(1, Math.min(safeMaxZ - safeMinZ + 1, RtsMiningValidator.areaMineMaxDepth()));
-        int maxVolume = Math.max(1, RtsMiningValidator.areaMineMaxVolume());
-
-        while ((long) width * height * depth > maxVolume) {
-            if (height >= width && height >= depth && height > 1) {
-                height--;
-            } else if (width >= depth && width > 1) {
-                width--;
-            } else if (depth > 1) {
-                depth--;
-            } else {
-                break;
-            }
-        }
-
-        return new AreaMineLimitBox(
-                safeMinX,
-                safeMinX + width - 1,
-                safeMinY,
-                safeMinY + height - 1,
-                safeMinZ,
-                safeMinZ + depth - 1);
-    }
-
-    record AreaMineLimitBox(int minX, int maxX, int minY, int maxY, int minZ, int maxZ) {
-    }
-
-    /**
-     * Filters a list of explicit positions to valid, breakable targets.
-     * Unlike the original, waterlogged blocks are <b>not</b> excluded.
-     */
-    private static Deque<BlockPos> collectAreaDestroyTargets(ServerPlayer player, List<BlockPos> positions,
-            int toolSlot, ItemStack linkedTool, boolean selectedToolRequested, boolean creative) {
-        if (player == null || positions == null || positions.isEmpty()) {
-            return new ArrayDeque<>();
-        }
-        ServerLevel level = player.serverLevel();
-        // 从上往下逐层破坏：按Y降序排列
-        List<BlockPos> sortedPositions = new ArrayList<>(positions);
-        sortedPositions.sort(Comparator.<BlockPos>comparingInt(BlockPos::getY).reversed());
-        int maxExplicitTargets = Math.min(
-                RtsMiningValidator.areaDestroyMaxTargets(),
-                RtsMiningValidator.areaMineMaxVolume());
-        AreaMineLimitBox explicitLimit = explicitAreaDestroyFitsSoftEnvelopeForCaps(
-                positions,
-                RtsMiningValidator.areaMineMaxWidth(),
-                RtsMiningValidator.areaMineMaxHeight(),
-                RtsMiningValidator.areaMineMaxDepth(),
-                maxExplicitTargets)
-                        ? null
-                        : limitExplicitAreaDestroyBox(sortedPositions);
-        int maxRequiredLevel = RtsMiningValidator.rangeMiningMaxRequiredLevel(player, creative);
-        ItemStack actualTool = RtsMiningValidator.resolveMiningTool(player, toolSlot, linkedTool);
-        List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
-        int toolBlockedTargets = 0;
-        int outsideSessionRangeTargets = 0;
-        LinkedHashSet<BlockPos> unique = new LinkedHashSet<>();
-        for (BlockPos raw : sortedPositions) {
-            if (raw == null || unique.size() >= maxExplicitTargets) {
-                continue;
-            }
-            BlockPos pos = raw.immutable();
-            if (explicitLimit != null && !contains(explicitLimit, pos)) {
-                continue;
-            }
-            if (RtsCameraManager.isActive(player)
-                    && !RtsCameraManager.isWithinActionRange(player, pos)) {
-                outsideSessionRangeTargets++;
-                continue;
-            }
-            if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
-                continue;
-            }
-            if (!RtsClaimProtectionService.canBreakBlock(player, pos, Direction.DOWN)) {
-                continue;
-            }
-            BlockState state = level.getBlockState(pos);
-            // FIXED: No longer incorrectly excludes waterlogged blocks
-            if (!RtsMiningValidator.isBreakableBlock(state)
-                    || !RtsMiningValidator.hasValidDestroySpeed(state, level, pos)) {
-                continue;
-            }
-            if (!creative && MiningSpeedCalculator.computeRemoteDestroyStep(player, state, pos, toolSlot, linkedTool,
-                    selectedToolRequested) <= 0.0F) {
-                continue;
-            }
-            if (!RtsMiningValidator.canRangeMineWithTool(
-                    state, actualTool, creative, maxRequiredLevel)) {
-                if (RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
-                        state, actualTool, creative, maxRequiredLevel)) {
-                    harvestTierBlockedPositions.add(pos);
-                } else {
-                    toolBlockedTargets++;
-                }
-                continue;
-            }
-            unique.add(pos);
-        }
-        if (!harvestTierBlockedPositions.isEmpty()) {
-            notifyRangeMiningHarvestTierLimit(player, harvestTierBlockedPositions);
-        }
-        logFilteredTargets(player, RtsDiagnosticReason.TOOL_CANNOT_HARVEST, toolBlockedTargets);
-        logFilteredTargets(player, RtsDiagnosticReason.OUTSIDE_SESSION_RANGE, outsideSessionRangeTargets);
-        return new ArrayDeque<>(unique);
-    }
 
     private static Deque<BlockPos> filterRangeMiningTargets(
             ServerPlayer player,
@@ -599,71 +337,6 @@ public final class RtsUltimineProcessor {
                 targetCount);
     }
 
-    static boolean explicitAreaDestroyFitsSoftEnvelopeForCaps(
-            List<BlockPos> positions, int maxWidth, int maxHeight, int maxDepth, int maxTargets) {
-        if (positions == null || positions.isEmpty()) {
-            return true;
-        }
-        int minX = Integer.MAX_VALUE;
-        int minY = Integer.MAX_VALUE;
-        int minZ = Integer.MAX_VALUE;
-        int maxX = Integer.MIN_VALUE;
-        int maxY = Integer.MIN_VALUE;
-        int maxZ = Integer.MIN_VALUE;
-        int count = 0;
-        for (BlockPos pos : positions) {
-            if (pos == null) {
-                continue;
-            }
-            count++;
-            minX = Math.min(minX, pos.getX());
-            minY = Math.min(minY, pos.getY());
-            minZ = Math.min(minZ, pos.getZ());
-            maxX = Math.max(maxX, pos.getX());
-            maxY = Math.max(maxY, pos.getY());
-            maxZ = Math.max(maxZ, pos.getZ());
-        }
-        if (count == 0) {
-            return true;
-        }
-        return count <= Math.max(1, maxTargets)
-                && (maxX - minX + 1) <= Math.max(1, maxWidth) + 1
-                && (maxY - minY + 1) <= Math.max(1, maxHeight) + 1
-                && (maxZ - minZ + 1) <= Math.max(1, maxDepth) + 1;
-    }
-
-    private static AreaMineLimitBox limitExplicitAreaDestroyBox(List<BlockPos> positions) {
-        if (positions == null || positions.isEmpty()) {
-            return null;
-        }
-        int minX = Integer.MAX_VALUE;
-        int minY = Integer.MAX_VALUE;
-        int minZ = Integer.MAX_VALUE;
-        int maxX = Integer.MIN_VALUE;
-        int maxY = Integer.MIN_VALUE;
-        int maxZ = Integer.MIN_VALUE;
-        for (BlockPos pos : positions) {
-            if (pos == null) {
-                continue;
-            }
-            minX = Math.min(minX, pos.getX());
-            minY = Math.min(minY, pos.getY());
-            minZ = Math.min(minZ, pos.getZ());
-            maxX = Math.max(maxX, pos.getX());
-            maxY = Math.max(maxY, pos.getY());
-            maxZ = Math.max(maxZ, pos.getZ());
-        }
-        if (minX == Integer.MAX_VALUE) {
-            return null;
-        }
-        return limitAreaMineBox(minX, maxX, minY, maxY, minZ, maxZ);
-    }
-
-    private static boolean contains(AreaMineLimitBox box, BlockPos pos) {
-        return pos.getX() >= box.minX() && pos.getX() <= box.maxX()
-                && pos.getY() >= box.minY() && pos.getY() <= box.maxY()
-                && pos.getZ() >= box.minZ() && pos.getZ() <= box.maxZ();
-    }
 
     // =========================================================================
     //  连锁挖掘批次处理
@@ -807,34 +480,5 @@ public final class RtsUltimineProcessor {
         RtsMiningStateMachine.finalizeMiningOperation(player, session, records, session.mining.miningFace);
     }
 
-    /**
-     * 为创造模式玩家立即破坏所有排队的连锁挖掘目标。
-     */
-    static void breakCreativeUltimineTargets(ServerPlayer player, RtsStorageSession session, Deque<BlockPos> targets,
-            int toolSlot) {
-        if (!targets.isEmpty()) {
-            List<BlockPos> validTargets = new ArrayList<>();
-            for (BlockPos target : targets) {
-                if (RtsLinkedStorageResolver.canAccessWorldTarget(player, target)
-                        && RtsClaimProtectionService.canBreakBlock(player, target, Direction.DOWN)) {
-                    validTargets.add(target);
-                }
-            }
-            if (!validTargets.isEmpty()) {
-                Direction face = session != null && session.mining.miningFace != null ? session.mining.miningFace : Direction.DOWN;
-                ServerHistoryManager.recordBreak(player, validTargets, face);
-            }
-        }
-        while (!targets.isEmpty()) {
-            BlockPos target = targets.removeFirst();
-            if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) {
-                continue;
-            }
-            if (!RtsClaimProtectionService.canBreakBlock(player, target, Direction.DOWN)) {
-                continue;
-            }
-            RtsMiningStateMachine.destroyMinedBlock(player, session, target, toolSlot);
-        }
-    }
 
 }

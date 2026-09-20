@@ -54,6 +54,19 @@ final class WorkflowWindowLayoutTest {
         assertNull(geometry.hitAt(10, 30));
     }
 
+    @Test
+    void scrolledGeometryReturnsAbsoluteRowIndexes() {
+        WorkflowWindowLayout.Geometry geometry =
+                WorkflowWindowLayout.geometry(10, 30, 2, 7);
+
+        assertEquals(7, geometry.firstRowIndex);
+        assertHit(geometry.hitAt(166, 30), 7,
+                WorkflowWindowLayout.Control.PROTECT);
+        assertEquals(7, geometry.rowAt(10, 30));
+        assertEquals(geometry.rows.get(1), geometry.rowGeometryAt(8));
+        assertNull(geometry.rowGeometryAt(6));
+    }
+
     private static void assertHit(
             WorkflowWindowLayout.Hit hit,
             int rowIndex,

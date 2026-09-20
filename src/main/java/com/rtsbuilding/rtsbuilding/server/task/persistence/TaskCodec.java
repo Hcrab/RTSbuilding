@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.task.persistence;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason;
 import com.rtsbuilding.rtsbuilding.server.task.TaskType;
 import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
@@ -232,6 +233,10 @@ public final class TaskCodec {
             wait.putString("value", snapshot.waitKey().value());
             tag.put("wait", wait);
         }
+        if (snapshot.reason() != RtsOperationReason.UNKNOWN) {
+            tag.putInt("reason_id", snapshot.reason().wireId());
+        }
+        if (!snapshot.reasonDetail().isEmpty()) tag.putString("reason_detail", snapshot.reasonDetail());
         tag.putLong("revision", snapshot.revision());
         tag.putLong("created_game_time", snapshot.createdGameTime());
         tag.putLong("updated_game_time", snapshot.updatedGameTime());
@@ -247,6 +252,8 @@ public final class TaskCodec {
         Set<String> expected = new LinkedHashSet<>(SNAPSHOT_REQUIRED_FIELDS);
         if (tag.contains("workflow")) expected.add("workflow");
         if (tag.contains("wait")) expected.add("wait");
+        if (tag.contains("reason_id")) expected.add("reason_id");
+        if (tag.contains("reason_detail")) expected.add("reason_detail");
         if (!tag.getAllKeys().equals(expected)) {
             throw new TaskCodecException("task snapshot 缺少字段或包含未知字段");
         }
@@ -275,6 +282,18 @@ public final class TaskCodec {
             }
             workflowEntryId = tag.getInt("workflow");
         }
+        RtsOperationReason reason = RtsOperationReason.UNKNOWN;
+        if (tag.contains("reason_id")) {
+            if (!tag.contains("reason_id", Tag.TAG_INT)) {
+                throw new TaskCodecException("可选字段 reason_id 的 NBT 类型错误");
+            }
+            reason = RtsOperationReason.fromWireId(tag.getInt("reason_id"));
+        }
+        String reasonDetail = "";
+        if (tag.contains("reason_detail")) {
+            reasonDetail = requireString(tag, "reason_detail");
+            if (reasonDetail.length() > 1024) throw new TaskCodecException("reason_detail 过长");
+        }
         if (!tag.contains("payload", Tag.TAG_COMPOUND)) {
             throw new TaskCodecException("缺少 CompoundTag 字段: payload");
         }
@@ -295,7 +314,7 @@ public final class TaskCodec {
                 requireInt(tag, "cursor"),
                 requireInt(tag, "succeeded"),
                 requireInt(tag, "failed"),
-                payload);
+                payload, reason, reasonDetail);
     }
 
     public long estimateSnapshotBytes(TaskSnapshot snapshot) {
@@ -310,6 +329,10 @@ public final class TaskCodec {
             metadataBytes = addSaturated(metadataBytes,
                     8L + NbtStringLimits.modifiedUtfBytes(snapshot.waitKey().kind())
                             + NbtStringLimits.modifiedUtfBytes(snapshot.waitKey().value()));
+        }
+        if (snapshot.reason() != RtsOperationReason.UNKNOWN) metadataBytes = addSaturated(metadataBytes, 8L);
+        if (!snapshot.reasonDetail().isEmpty()) {
+            metadataBytes = addSaturated(metadataBytes, NbtStringLimits.modifiedUtfBytes(snapshot.reasonDetail()));
         }
         return addSaturated(metadataBytes, counter.bytes);
     }

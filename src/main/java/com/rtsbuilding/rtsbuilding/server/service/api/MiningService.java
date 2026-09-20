@@ -115,6 +115,12 @@ public interface MiningService {
         areaDestroy(player, positions, toolSlot, toolItemId, toolPrototype, toolProtectionEnabled);
     }
 
+    /** 服务端已经规划好的连通树群按方块数计量，不把树枝间空气当作框选体积。网络显式选区不走此入口。 */
+    default void destroyConnectedGroup(ServerPlayer player, List<BlockPos> positions, byte toolSlot,
+            String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled, RtsOperationTraceContext trace) {
+        areaDestroy(player, positions, toolSlot, toolItemId, toolPrototype, toolProtectionEnabled, trace);
+    }
+
     /**
      * 获取当前范围破坏操作中的总方块数。
      *

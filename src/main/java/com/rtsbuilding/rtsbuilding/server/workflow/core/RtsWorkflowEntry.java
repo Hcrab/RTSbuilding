@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.core;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationReason;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
@@ -45,10 +46,14 @@ public final class RtsWorkflowEntry {
     private int failedBlocks;
     private final List<String> missingItems = new ArrayList<>();
     private String detailMessage = "";
+    private RtsOperationReason reason = RtsOperationReason.UNKNOWN;
     private boolean suspended;
     private boolean paused;
     private boolean protectedWorkflow;
     private boolean terminal;
+
+    /** 本次新准入已经替换的活任务前驱，仅消费一次，不保存进NBT或客户端状态。 */
+    private int replacedEntryForAdmission = -1;
 
     /** 工作流类型特定的额外持久化数据（如蓝图蓝图源数据、剩余队列等）。 */
     private @Nullable CompoundTag extraData;
@@ -91,6 +96,9 @@ public final class RtsWorkflowEntry {
 
     /** 关于当前工作流的可选人类可读详情。 */
     public String detailMessage() { return detailMessage; }
+
+    /** 当前结果/生命周期原因；旧存档缺失时为 UNKNOWN。 */
+    public RtsOperationReason reason() { return reason; }
 
     /** {@code true} 表示此工作流已挂起（等待物品）。 */
     public boolean suspended() { return suspended; }
@@ -163,12 +171,22 @@ public final class RtsWorkflowEntry {
         }
         return RtsWorkflowStatus.fromRaw(
                 type, priority, totalBlocks, completedBlocks, failedBlocks,
-                List.copyOf(missingItems), detailMessage, suspended, paused, protectedWorkflow, id);
+                List.copyOf(missingItems), detailMessage, suspended, paused, protectedWorkflow, reason, id);
     }
 
     // ──────────────────────────────────────────────────────────────────
     //  包级私有修改器（仅引擎可调用）
     // ──────────────────────────────────────────────────────────────────
+
+    void recordAdmissionReplacement(int entryId) {
+        this.replacedEntryForAdmission = entryId;
+    }
+
+    int consumeAdmissionReplacement() {
+        int replaced = this.replacedEntryForAdmission;
+        this.replacedEntryForAdmission = -1;
+        return replaced;
+    }
 
     void setType(RtsWorkflowType type) {
         this.type = Objects.requireNonNull(type);
@@ -227,6 +245,11 @@ public final class RtsWorkflowEntry {
         touch();
     }
 
+    void setReason(RtsOperationReason reason) {
+        this.reason = reason == null ? RtsOperationReason.UNKNOWN : reason;
+        touch();
+    }
+
     void setPaused(boolean paused) {
         this.paused = paused;
         touch();
@@ -245,6 +268,7 @@ public final class RtsWorkflowEntry {
     void markTerminal() {
         if (this.terminal) return;
         this.terminal = true;
+        this.replacedEntryForAdmission = -1;
         this.suspended = false;
         this.paused = false;
         touch();
@@ -259,10 +283,12 @@ public final class RtsWorkflowEntry {
         this.failedBlocks = 0;
         this.missingItems.clear();
         this.detailMessage = "";
+        this.reason = RtsOperationReason.UNKNOWN;
         this.suspended = false;
         this.paused = false;
         this.protectedWorkflow = false;
         this.terminal = false;
+        this.replacedEntryForAdmission = -1;
         touch();
     }
 
@@ -283,6 +309,7 @@ public final class RtsWorkflowEntry {
     private static final String NBT_FAILED_BLOCKS = "failed_blocks";
     private static final String NBT_MISSING_ITEMS = "missing_items";
     private static final String NBT_DETAIL = "detail";
+    private static final String NBT_REASON = "reason_id";
     private static final String NBT_SUSPENDED = "suspended";
     private static final String NBT_PAUSED = "paused";
     private static final String NBT_PROTECTED = "protected";
@@ -313,6 +340,9 @@ public final class RtsWorkflowEntry {
         }
         if (!detailMessage.isEmpty()) {
             tag.putString(NBT_DETAIL, detailMessage);
+        }
+        if (reason != RtsOperationReason.UNKNOWN) {
+            tag.putInt(NBT_REASON, reason.wireId());
         }
         tag.putBoolean(NBT_SUSPENDED, suspended);
         tag.putBoolean(NBT_PAUSED, paused);
@@ -369,6 +399,8 @@ public final class RtsWorkflowEntry {
 
         entry.detailMessage = tag.contains(NBT_DETAIL, Tag.TAG_STRING)
                 ? tag.getString(NBT_DETAIL) : "";
+        entry.reason = tag.contains(NBT_REASON, Tag.TAG_ANY_NUMERIC)
+                ? RtsOperationReason.fromWireId(tag.getInt(NBT_REASON)) : RtsOperationReason.UNKNOWN;
         entry.suspended = tag.getBoolean(NBT_SUSPENDED);
         entry.paused = tag.getBoolean(NBT_PAUSED);
         entry.protectedWorkflow = tag.getBoolean(NBT_PROTECTED);

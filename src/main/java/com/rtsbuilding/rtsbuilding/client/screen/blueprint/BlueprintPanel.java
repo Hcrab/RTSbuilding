@@ -539,6 +539,17 @@ public final class BlueprintPanel {
         }
     }
 
+    /** 客户端生命周期的唯一蓝图库发布入口，不因每帧多次读取选择而反复发布。 */
+    static void tickLibrary() {
+        LIBRARY.tick();
+    }
+
+    static void closeLibrary() {
+        LIBRARY.close();
+        PLACEMENT.clear();
+        BlueprintMaterialInspector.clearCache();
+    }
+
     private static void onLibrarySelectionChanged(BlueprintEntry entry) {
         PLACEMENT.onSelectionChanged(entry);
         DIALOGS.closeMaterial();

@@ -1,104 +1,39 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostBlock;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.RenderShape;
-import net.minecraft.world.level.block.state.BlockState;
-
-import java.util.List;
 
 /**
- * Blueprint ghost block model renderer.
- * <p>
- * Renders actual block models for blueprint preview blocks with translucency.
- * Only applies to blocks with {@link RenderShape#MODEL}.
- * Missing blocks or air blocks are skipped (handled by {@link BlueprintGhostFallbackRenderer}).
+ * 只将一个蓝图模型写入调用方拥有的局部网格，不持有或结束 Minecraft 的共享缓冲。
+ * 逻辑坐标仍为真实世界位置，保留 TFC 等模组的世界取色回调；几何坐标为蓝图局部坐标。
  */
 public final class BlueprintGhostBlockModelRenderer {
-
-    /** Global opacity for ghost block models */
     public static final float GHOST_ALPHA = 0.30F;
 
     private BlueprintGhostBlockModelRenderer() {
     }
 
-    /**
-     * Renders all ghost blocks that have renderable block models.
-     *
-     * @param minecraft      Minecraft client instance
-     * @param blocks         Filtered blueprint block list
-     * @param poseStack      Pose stack
-     * @param outMinX        Output: bounding box min X
-     * @param outMinY        Output: bounding box min Y
-     * @param outMinZ        Output: bounding box min Z
-     * @param outMaxX        Output: bounding box max X
-     * @param outMaxY        Output: bounding box max Y
-     * @param outMaxZ        Output: bounding box max Z
-     * @return true if at least one block model was rendered (endBatch required)
-     */
-    public static boolean renderModels(
-            Minecraft minecraft,
-            List<BlueprintGhostBlock> blocks,
-            PoseStack poseStack,
-            int[] outMinX, int[] outMinY, int[] outMinZ,
-            int[] outMaxX, int[] outMaxY, int[] outMaxZ) {
-
-        boolean renderedBlockModels = false;
-        MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
-
-        for (BlueprintGhostBlock block : blocks) {
-            BlockPos pos = block.pos();
-
-            // Update bounding box
-            outMinX[0] = Math.min(outMinX[0], pos.getX());
-            outMinY[0] = Math.min(outMinY[0], pos.getY());
-            outMinZ[0] = Math.min(outMinZ[0], pos.getZ());
-            outMaxX[0] = Math.max(outMaxX[0], pos.getX() + 1);
-            outMaxY[0] = Math.max(outMaxY[0], pos.getY() + 1);
-            outMaxZ[0] = Math.max(outMaxZ[0], pos.getZ() + 1);
-
-            BlockState state = block.state();
-
-            // Only render blocks with actual models (skip missing/air/non-model blocks)
-            if (!block.missing()
-                    && state != null
-                    && !state.isAir()
-                    && state.getRenderShape() == RenderShape.MODEL) {
-                renderedBlockModels |= GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
-                        state, pos, GHOST_ALPHA);
-            }
-        }
-
-        if (renderedBlockModels) {
-            blockBuffer.endBatch();
-        }
-
-        return renderedBlockModels;
+    static boolean hasModel(BlueprintGhostBlock block) {
+        return !block.missing() && block.state() != null && !block.state().isAir()
+                && block.state().getRenderShape() == RenderShape.MODEL;
     }
 
-    /**
-     * Simplified version that manages bounding box output automatically.
-     *
-     * @see #renderModels(Minecraft, List, PoseStack, int[], int[], int[], int[], int[], int[])
-     */
-    public static boolean renderModels(
-            Minecraft minecraft,
-            List<BlueprintGhostBlock> blocks,
-            PoseStack poseStack) {
-
-        int[] outMinX = {Integer.MAX_VALUE};
-        int[] outMinY = {Integer.MAX_VALUE};
-        int[] outMinZ = {Integer.MAX_VALUE};
-        int[] outMaxX = {Integer.MIN_VALUE};
-        int[] outMaxY = {Integer.MIN_VALUE};
-        int[] outMaxZ = {Integer.MIN_VALUE};
-
-        return renderModels(minecraft, blocks, poseStack,
-                outMinX, outMinY, outMinZ,
-                outMaxX, outMaxY, outMaxZ);
+    static void bake(Minecraft minecraft, BlueprintGhostBlock block, BlockPos anchor,
+            PoseStack pose, VertexConsumer vertices) {
+        BlockPos local = block.pos();
+        pose.pushPose();
+        try {
+            pose.translate(local.getX(), local.getY(), local.getZ());
+            // 不对真实地形启用邻面剔除，否则地形会错误遮掉尚未放置的蓝图面。
+            GhostBlockModelRenderer.renderAtLocal(minecraft, pose, ignored -> vertices,
+                    block.state(), anchor.offset(local), GHOST_ALPHA, 1.0F);
+        } finally {
+            pose.popPose();
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
+import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import net.minecraft.core.BlockPos;
 
@@ -21,6 +22,8 @@ public final class ShapeGenerationPlanCache {
     private Key cachedKey;
     private List<BlockPos> cachedPositions = List.of();
     private RtsCullingBox cachedBounds;
+    private ShapeGenerationResult cachedResult =
+            new ShapeGenerationResult(ShapeGenerationStatus.EMPTY, List.of(), 0);
 
     /**
      * 生成计划所需的完整只读输入。
@@ -31,6 +34,7 @@ public final class ShapeGenerationPlanCache {
      * @param rangeDestroy      是否按范围破坏限制生成
      * @param rangeLimits       范围破坏限制
      * @param buildMaxDimension 普通范围建造的单轴上限
+     * @param buildMaxRadius    普通圆/球几何的独立半径上限
      */
     public record Request(
             ShapeBuildTypes.Input input,
@@ -38,64 +42,90 @@ public final class ShapeGenerationPlanCache {
             RtsCullingBox advancedBox,
             boolean rangeDestroy,
             RangeDestroySelectionLimiter.Limits rangeLimits,
-            int buildMaxDimension) {
+            int buildMaxDimension,
+            int buildMaxRadius) {
+        public Request(
+                ShapeBuildTypes.Input input,
+                ShapeFillMode fillMode,
+                RtsCullingBox advancedBox,
+                boolean rangeDestroy,
+                RangeDestroySelectionLimiter.Limits rangeLimits,
+                int buildMaxDimension) {
+            this(input, fillMode, advancedBox, rangeDestroy, rangeLimits, buildMaxDimension, buildMaxDimension);
+        }
     }
 
     public List<BlockPos> positions(Request request) {
+        return plan(request).positions();
+    }
+
+    /** 计算并缓存一次完整计划，TOO_LARGE 会返回空坐标而保留明确状态。 */
+    public ShapeGenerationResult plan(Request request) {
         if (request == null || request.input() == null) {
-            return List.of();
+            clear();
+            return this.cachedResult;
         }
 
         ShapeFillMode fillMode =
                 request.fillMode() == null ? ShapeFillMode.FILL : request.fillMode();
         int buildMaxDimension = Math.max(1, request.buildMaxDimension());
+        int buildMaxRadius = Math.max(0, request.buildMaxRadius());
         RangeDestroySelectionLimiter.Limits rangeLimits = request.rangeLimits() == null
                 ? new RangeDestroySelectionLimiter.Limits(1, 1, 1, 1)
                 : request.rangeLimits();
-        int maxWidth = request.rangeDestroy() ? rangeLimits.maxWidth() : buildMaxDimension;
-        int maxHeight = request.rangeDestroy() ? rangeLimits.maxHeight() : buildMaxDimension;
-        int maxDepth = request.rangeDestroy() ? rangeLimits.maxDepth() : buildMaxDimension;
         int maxVolume = request.rangeDestroy()
                 ? rangeLimits.maxVolume()
-                : saturatedCube(buildMaxDimension);
+                : MiningLimits.MAX_VOLUME;
         ShapeBuildTypes.Input effectiveInput = request.rangeDestroy()
                 ? RangeDestroySelectionLimiter.clampInput(request.input(), rangeLimits)
-                : ShapeSelectionLimiter.clampDimensions(
+                : ShapeSelectionLimiter.clampShapeDimensions(
                         request.input(),
-                        maxWidth,
-                        maxHeight,
-                        maxDepth);
+                        buildMaxDimension,
+                        buildMaxRadius);
+        RtsCullingBox effectiveAdvancedBox = request.advancedBox();
+        if (request.rangeDestroy() && effectiveAdvancedBox != null) {
+            effectiveAdvancedBox = RangeDestroySelectionLimiter.clampBox(
+                    effectiveAdvancedBox, effectiveInput.pointA(), rangeLimits);
+        } else if (effectiveAdvancedBox != null) {
+            effectiveAdvancedBox = RangeDestroySelectionLimiter.clampBoxDimensions(
+                    effectiveAdvancedBox, effectiveInput.pointA(), buildMaxDimension);
+        }
 
         Key key = new Key(
                 effectiveInput,
                 fillMode,
-                request.advancedBox(),
+                effectiveAdvancedBox,
                 request.rangeDestroy(),
-                maxWidth,
-                maxHeight,
-                maxDepth,
-                maxVolume);
+                maxVolume,
+                buildMaxDimension,
+                buildMaxRadius);
         if (key.equals(this.cachedKey)) {
-            return this.cachedPositions;
+            return this.cachedResult;
         }
 
-        List<BlockPos> positions;
-        if (request.advancedBox() != null) {
-            positions = ShapeGeometryUtil.buildAdvancedShapePositions(
+        ShapeGenerationResult result;
+        if (effectiveAdvancedBox != null) {
+            result = ShapeGeometryUtil.buildAdvancedShapePlan(
                     effectiveInput.shape(),
-                    request.advancedBox(),
+                    effectiveAdvancedBox,
                     fillMode,
-                    effectiveInput.planeFace());
+                    effectiveInput.planeFace(),
+                    maxVolume);
         } else if (request.rangeDestroy()) {
-            positions = ShapeGeometryUtil.buildRangeDestroyShapePositions(
+            result = ShapeGeometryUtil.buildRangeDestroyShapePlan(
                     effectiveInput,
-                    fillMode);
+                    fillMode,
+                    maxVolume);
         } else {
-            positions = ShapeGeometryUtil.buildShapePositions(
+            result = ShapeGeometryUtil.buildShapePlan(
                     effectiveInput,
-                    fillMode);
+                    fillMode,
+                    buildMaxDimension,
+                    buildMaxRadius,
+                    maxVolume);
         }
-        if (request.rangeDestroy()) {
+        List<BlockPos> positions = result.positions();
+        if (request.rangeDestroy() && result.status() != ShapeGenerationStatus.TOO_LARGE) {
             positions = isRoundShape(effectiveInput.shape())
                     ? RangeDestroySelectionLimiter.clampRoundPositions(
                             effectiveInput,
@@ -105,12 +135,19 @@ public final class ShapeGenerationPlanCache {
                             effectiveInput,
                             positions,
                             rangeLimits);
+            result = new ShapeGenerationResult(
+                    positions.isEmpty()
+                            ? ShapeGenerationStatus.EMPTY
+                            : ShapeGenerationStatus.READY,
+                    positions,
+                    result.discoveredTargets());
         }
 
         this.cachedKey = key;
-        this.cachedPositions = List.copyOf(positions);
+        this.cachedResult = result;
+        this.cachedPositions = result.positions();
         this.cachedBounds = boundsOf(this.cachedPositions);
-        return this.cachedPositions;
+        return this.cachedResult;
     }
 
     public RtsCullingBox bounds() {
@@ -121,6 +158,8 @@ public final class ShapeGenerationPlanCache {
         this.cachedKey = null;
         this.cachedPositions = List.of();
         this.cachedBounds = null;
+        this.cachedResult = new ShapeGenerationResult(
+                ShapeGenerationStatus.EMPTY, List.of(), 0);
     }
 
     private static boolean isRoundShape(BuildShape shape) {
@@ -160,19 +199,13 @@ public final class ShapeGenerationPlanCache {
                 : null;
     }
 
-    private static int saturatedCube(int value) {
-        long cube = (long) value * value * value;
-        return cube > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) cube;
-    }
-
     private record Key(
             ShapeBuildTypes.Input input,
             ShapeFillMode fillMode,
             RtsCullingBox advancedBox,
             boolean rangeDestroy,
-            int maxWidth,
-            int maxHeight,
-            int maxDepth,
-            int maxVolume) {
+            int maxVolume,
+            int maxDimension,
+            int maxRadius) {
     }
 }

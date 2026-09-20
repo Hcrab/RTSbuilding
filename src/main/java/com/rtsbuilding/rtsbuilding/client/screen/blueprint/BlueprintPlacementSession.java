@@ -31,6 +31,7 @@ final class BlueprintPlacementSession {
     private int xRotationSteps;
     private int zRotationSteps;
     private BlockPos pinnedAnchor;
+    private final BlueprintPreviewGeometryCache previewGeometry = new BlueprintPreviewGeometryCache();
 
     BlueprintPlacementSession(Supplier<BlueprintEntry> selectedEntry,
             BlueprintLibraryRepository.StatusSink status) {
@@ -39,6 +40,7 @@ final class BlueprintPlacementSession {
     }
 
     void onSelectionChanged(BlueprintEntry entry) {
+        previewGeometry.clear();
         pinnedAnchor = null;
         RotationPreset preset = entry == null
                 ? null
@@ -92,8 +94,8 @@ final class BlueprintPlacementSession {
 
     BlockPos anchorForCursorTarget(BlockPos cursorTarget) {
         return BlueprintPlacementPreviewFactory.anchorForCursorTarget(
-                selectedEntry.get(), cursorTarget,
-                yRotationSteps, xRotationSteps, zRotationSteps);
+                previewGeometry, selectedEntry.get(), cursorTarget,
+                yRotationSteps, xRotationSteps, zRotationSteps, Config.maxBlueprintBlocks());
     }
 
     BlueprintGhostPreview createGhostPreview(BlockPos anchor, int requestedYRotation,
@@ -104,7 +106,7 @@ final class BlueprintPlacementSession {
             return BlueprintGhostPreview.EMPTY;
         }
         return BlueprintPlacementPreviewFactory.create(
-                entry, anchor, requestedYRotation, xRotationSteps, zRotationSteps,
+                previewGeometry, entry, anchor, requestedYRotation, xRotationSteps, zRotationSteps,
                 Config.maxBlueprintBlocks(), hasEnoughMaterials(entry, controller));
     }
 
@@ -223,6 +225,7 @@ final class BlueprintPlacementSession {
     }
 
     void clear() {
+        previewGeometry.clear();
         pinnedAnchor = null;
         yRotationSteps = 0;
         xRotationSteps = 0;
