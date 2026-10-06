@@ -574,16 +574,24 @@ final class QuickBuildControlSurface {
     }
 
     private void ensureConvenienceSliders(QuickBuildUiState state) {
-        if (!this.convenienceSliders.isEmpty()) {
-            return;
-        }
+        QuickBuildConvenienceLimits limits = QuickBuildConvenienceLimits.current();
         for (QuickBuildUiConvenienceParameter parameter : QuickBuildUiConvenienceParameter.values()) {
-            int[] range = parameterRange(parameter);
+            WindowSlider existing = this.convenienceSliders.get(parameter);
+            if (existing != null) {
+                // 服务端配置可以在窗口打开期间更新；同步范围不应改写玩家偏好或重建拖动中的控件。
+                this.syncingConvenience = true;
+                try {
+                    existing.setRange(limits.minimum(parameter), limits.maximum(parameter));
+                } finally {
+                    this.syncingConvenience = false;
+                }
+                continue;
+            }
             WindowSlider slider = new WindowSlider(
                     0, 0,
                     QuickBuildWindowLayout.chainSliderWidth(QuickBuildWindowLayout.WINDOW_W),
                     QuickBuildWindowLayout.CHAIN_SLIDER_H,
-                    range[0], range[1], state.convenienceSettings.value(parameter));
+                    limits.minimum(parameter), limits.maximum(parameter), state.convenienceSettings.value(parameter));
             slider.onChange(value -> {
                 if (!this.syncingConvenience) {
                     this.dispatch.accept(QuickBuildUiAction.convenienceParameter(parameter, value));
@@ -604,22 +612,6 @@ final class QuickBuildControlSurface {
                     QuickBuildUiConvenienceParameter.CHUNK_UP,
                     QuickBuildUiConvenienceParameter.CHUNK_DOWN);
             case TREE_FELL -> List.of(QuickBuildUiConvenienceParameter.TREE_MAX_BLOCKS);
-        };
-    }
-
-    private static int[] parameterRange(QuickBuildUiConvenienceParameter parameter) {
-        return switch (parameter) {
-            case SIZE_X, SIZE_Z -> new int[] {
-                    QuickBuildUiConvenienceSettings.BOX_MIN,
-                    QuickBuildUiConvenienceSettings.BOX_MAX };
-            case SIZE_Y -> new int[] {
-                    QuickBuildUiConvenienceSettings.BOX_MIN,
-                    QuickBuildUiConvenienceSettings.HEIGHT_MAX };
-            case CHUNK_UP, CHUNK_DOWN -> new int[] { 0,
-                    QuickBuildUiConvenienceSettings.HEIGHT_MAX };
-            case TREE_MAX_BLOCKS -> new int[] {
-                    QuickBuildUiConvenienceSettings.TREE_MIN,
-                    QuickBuildUiConvenienceSettings.TREE_MAX };
         };
     }
 

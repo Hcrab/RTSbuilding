@@ -256,6 +256,8 @@ RTSBuilding 的操作由客户端 UI/模式/选区开始，经 C2S payload 和 l
 
 智能破坏的玩家入口是范围破坏里的“工具”。QuickBuildConvenienceController 把“范围速掘”“区块挖掘”“一键砍树”映射为 REPEAT_BOX、CHUNK_QUARRY、TREE_FELL；客户端 RtsDestroyPreviewPlanner 只生成预览，提交时发送锚点、命中面和参数。服务端 RtsConvenienceDestroyPlanner 重新生成目标：范围速掘按 X/Y/Z 方盒重复破坏，区块挖掘按目标区块和上下高度生成 16×高度×16 区域，一键砍树按 26 邻域扫描相连的原木、天然树叶和巨型蘑菇。目标区块必须已加载，超过体积或工具上限时整次请求拒绝；通过验证的目标进入 DESTRUCTION 工作流。
 
+便捷破坏滑条的刻度来自当前服务器的选区体积与 X/Y/Z 单轴上限，以及砍树方块上限；区块挖掘以固定的 16×16 横截面计算可选高度。尺寸文字、客户端预览和提交参数使用同一组当前有效值。跨服务器保存的较大偏好不会被低上限服务器覆盖，但本次操作会收敛到当前上限；服务端仍会检查完整体积、世界高度、已加载区块与实际目标。
+
 ### 任务替换与储存/主题边界
 
 新单挖、连锁挖掘或其他会替换当前挖掘的操作，必须真实取消当前玩家、当前维度内未终止的 MINING 和范围破坏对应的 DESTRUCTION，并经过 RtsTaskEngine.cancelWorkflowTask 收口到 CANCELLED；要保留 cursor/succeeded、释放租约、写 tombstone、关闭 workflow，避免 restore 复活旧区域。没有新替换时 WAITING_RESOURCE 仍可等待；PLACE、QUICK_BUILD、BLUEPRINT_BUILD 不在范围内。存储绑定左键是存取、右键是仅提取；范围绑定从顶部栏存储绑定模式按住 Ctrl 进入，提交两个角点后由服务端扫描已加载端点。AE2/RS 快照刷新延迟不等于任务失败。UI 主题只在客户端草稿/预览/校验/持久化，不经过网络、不改变服务端任务。
