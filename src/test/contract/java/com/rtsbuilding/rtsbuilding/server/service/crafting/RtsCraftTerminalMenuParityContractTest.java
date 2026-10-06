@@ -30,6 +30,7 @@ class RtsCraftTerminalMenuParityContractTest {
         assertTrue(screen.contains("new C2SRtsClearCraftingGridPayload"));
         assertTrue(filler.contains("refillCraftGridToSnapshotCounts"));
         assertTrue(filler.contains("evictUnexpectedRemainders"));
-        assertTrue(filler.contains("if (!remain.isEmpty()) {\n                grid.set(remain);"));
+        assertTrue(filler.replace("\r\n", "\n")
+                .contains("if (!remain.isEmpty()) {\n                grid.set(remain);"));
     }
 }
