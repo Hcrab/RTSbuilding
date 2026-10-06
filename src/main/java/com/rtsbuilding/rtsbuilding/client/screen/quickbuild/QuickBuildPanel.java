@@ -175,7 +175,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             screen.persistUiState();
         }
         if (this.controlSurface != null) {
-            this.controlSurface.syncConvenienceSettings(this.preferences.convenienceSettings());
+            this.controlSurface.syncConvenienceSettings(this.convenience.settings());
         }
     }
 

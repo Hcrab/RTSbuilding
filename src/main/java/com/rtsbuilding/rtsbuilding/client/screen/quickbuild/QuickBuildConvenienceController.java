@@ -47,7 +47,7 @@ final class QuickBuildConvenienceController {
     }
 
     QuickBuildUiConvenienceSettings settings() {
-        return preferences.convenienceSettings();
+        return QuickBuildConvenienceLimits.current().effective(preferences.convenienceSettings());
     }
 
     void setPage(QuickBuildUiCatalogPage page, boolean destroyMode) {
@@ -63,7 +63,7 @@ final class QuickBuildConvenienceController {
     }
 
     void setParameter(QuickBuildUiConvenienceParameter parameter, int value) {
-        preferences.convenienceParameter(parameter, value);
+        preferences.convenienceParameter(parameter, QuickBuildConvenienceLimits.current().clamp(parameter, value));
         previewPlanner.invalidate();
     }
 
@@ -106,7 +106,7 @@ final class QuickBuildConvenienceController {
     }
 
     String dimensionLabel() {
-        QuickBuildUiConvenienceSettings settings = preferences.convenienceSettings();
+        QuickBuildUiConvenienceSettings settings = settings();
         return switch (preferences.convenienceTool()) {
             case REPEAT_BOX -> settings.sizeX() + "×" + settings.sizeY() + "×" + settings.sizeZ();
             case CHUNK_QUARRY -> "16×" + ((long) settings.chunkUp() + settings.chunkDown() + 1L) + "×16";
@@ -138,7 +138,7 @@ final class QuickBuildConvenienceController {
     }
 
     private RtsConvenienceDestroySettings commonSettings() {
-        QuickBuildUiConvenienceSettings settings = preferences.convenienceSettings();
+        QuickBuildUiConvenienceSettings settings = settings();
         return new RtsConvenienceDestroySettings(
                 settings.sizeX(), settings.sizeY(), settings.sizeZ(),
                 settings.chunkUp(), settings.chunkDown(), settings.treeMaxBlocks());
