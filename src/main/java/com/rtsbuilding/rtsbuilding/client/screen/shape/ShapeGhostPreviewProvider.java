@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.shape;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
@@ -54,6 +55,9 @@ public final class ShapeGhostPreviewProvider {
     }
 
     public ShapeDataRecords.GhostPreview snapshot() {
+        if (this.controller.getMode() != BuilderMode.INTERACT) {
+            return ShapeDataRecords.GhostPreview.EMPTY;
+        }
         if (this.screen.isQuickBuildSmartFillMode()) {
             return this.screen.getSmartFillGhostPreview();
         }

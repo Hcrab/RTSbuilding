@@ -266,7 +266,9 @@ public final class ShapeSelectionSession {
         if (this.session.shape() == BuildShape.LINE && !isVerticalLine(BuildShape.LINE)) return false;
         if ((this.session.shape() == BuildShape.BOX || this.session.shape() == BuildShape.CYLINDER
                 || this.session.shape() == BuildShape.WALL)
-                && this.session.phase() != ShapeBuildTypes.Phase.NEED_THIRD_POINT) return false;
+                && this.session.phase() != ShapeBuildTypes.Phase.NEED_THIRD_POINT
+                && (this.session.phase() != ShapeBuildTypes.Phase.READY_CONFIRM
+                || (this.boxes != null && this.boxes.isAdvanced(this.session.shape())))) return false;
         int nextOffset = ShapeGeometryUtil.clampShapeOffset(
                 ShapeGeometryUtil.clampCoordinate((long) this.session.boxHeightOffset() + delta));
         BlockPos nextPointB = this.session.pointB();
