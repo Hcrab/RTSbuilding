@@ -2,12 +2,14 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.rendering.selection.RtsBoxHandleRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
 
 /**
@@ -29,32 +31,39 @@ public final class AdvancedShapeSelectionBoxRenderer {
         if (renderBox == null) {
             return;
         }
-        if (!screen.isQuickBuildRangeDestroyMode()) {
-            AABB outline = renderBox.inflate(0.015D);
-            float red = UiThemeWorldColors.red(UiThemeWorldColors.SHAPE_SELECTION);
-            float green = UiThemeWorldColors.green(UiThemeWorldColors.SHAPE_SELECTION);
-            float blue = UiThemeWorldColors.blue(UiThemeWorldColors.SHAPE_SELECTION);
-            LevelRenderer.renderLineBox(
+        // 物理体上以盒子 min 角为锚建立局部帧，改画 0..size 的局部盒，避免大 plot 坐标漂移。
+        BlockPos anchor = BlockPos.containing(renderBox.minX, renderBox.minY, renderBox.minZ);
+        RtsSableClientSpatialCompat.renderInBlockFrame(minecraft.level, anchor, poseStack, localFrame -> {
+            AABB box = localFrame
+                    ? renderBox.move(-anchor.getX(), -anchor.getY(), -anchor.getZ())
+                    : renderBox;
+            if (!screen.isQuickBuildRangeDestroyMode()) {
+                AABB outline = box.inflate(0.015D);
+                float red = UiThemeWorldColors.red(UiThemeWorldColors.SHAPE_SELECTION);
+                float green = UiThemeWorldColors.green(UiThemeWorldColors.SHAPE_SELECTION);
+                float blue = UiThemeWorldColors.blue(UiThemeWorldColors.SHAPE_SELECTION);
+                LevelRenderer.renderLineBox(
+                        poseStack,
+                        handleLineBuffer,
+                        outline.minX, outline.minY, outline.minZ,
+                        outline.maxX, outline.maxY, outline.maxZ,
+                        red, green, blue, 0.82F);
+            }
+            if (!screen.isAdvancedShapeMode()) {
+                return;
+            }
+            RtsCullingBox cullingBox = screen.getShapeController().advancedRangeDestroyBox();
+            if (cullingBox == null) {
+                return;
+            }
+            RtsBoxHandleRenderer.renderAxisHandles(
                     poseStack,
                     handleLineBuffer,
-                    outline.minX, outline.minY, outline.minZ,
-                    outline.maxX, outline.maxY, outline.maxZ,
-                    red, green, blue, 0.82F);
-        }
-        if (!screen.isAdvancedShapeMode()) {
-            return;
-        }
-        RtsCullingBox box = screen.getShapeController().advancedRangeDestroyBox();
-        if (box == null) {
-            return;
-        }
-        RtsBoxHandleRenderer.renderAxisHandles(
-                poseStack,
-                handleLineBuffer,
-                handleFillBuffer,
-                renderBox,
-                screen.getShapeController().advancedRangeDestroyHoveredHandle(),
-                screen.getShapeController().advancedRangeDestroyActiveHandle(),
-                screen.getShapeController().advancedRangeDestroyAllowedHandleDirections());
+                    handleFillBuffer,
+                    box,
+                    screen.getShapeController().advancedRangeDestroyHoveredHandle(),
+                    screen.getShapeController().advancedRangeDestroyActiveHandle(),
+                    screen.getShapeController().advancedRangeDestroyAllowedHandleDirections());
+        });
     }
 }

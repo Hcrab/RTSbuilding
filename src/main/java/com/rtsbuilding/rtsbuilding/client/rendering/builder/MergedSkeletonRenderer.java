@@ -78,17 +78,25 @@ public final class MergedSkeletonRenderer {
      */
     static boolean renderCachedSkeleton(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha) {
-        return renderCachedSkeleton(preview, poseStack, lineBuffer, fillBuffer, progress, noDepthAlpha, fillAlpha, 1.0F);
+        return renderCachedSkeleton(preview, poseStack, lineBuffer, fillBuffer, progress, noDepthAlpha, fillAlpha,
+                1.0F, null);
     }
 
     static boolean renderCachedSkeleton(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha,
             float alphaMultiplier) {
+        return renderCachedSkeleton(preview, poseStack, lineBuffer, fillBuffer, progress, noDepthAlpha, fillAlpha,
+                alphaMultiplier, null);
+    }
+
+    static boolean renderCachedSkeleton(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha,
+            float alphaMultiplier, BlockPos anchor) {
         if (!cachedMergedSkeleton.matchesPreview(preview)) return false;
         CachedMergedSkeleton skeleton = getCachedSkeleton(preview);
         if (skeleton.isEmpty()) return false;
         renderMergedDestroySkeleton(skeleton, poseStack, lineBuffer, fillBuffer,
-                progress, noDepthAlpha, fillAlpha, alphaMultiplier);
+                progress, noDepthAlpha, fillAlpha, alphaMultiplier, anchor);
         return true;
     }
 
@@ -99,14 +107,21 @@ public final class MergedSkeletonRenderer {
     static void renderMergedSkeletonFast(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha) {
         renderMergedSkeletonFast(preview, poseStack, lineBuffer, fillBuffer,
-                progress, noDepthAlpha, fillAlpha, 1.0F);
+                progress, noDepthAlpha, fillAlpha, 1.0F, null);
     }
 
     static void renderMergedSkeletonFast(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha,
             float alphaMultiplier) {
+        renderMergedSkeletonFast(preview, poseStack, lineBuffer, fillBuffer,
+                progress, noDepthAlpha, fillAlpha, alphaMultiplier, null);
+    }
+
+    static void renderMergedSkeletonFast(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha,
+            float alphaMultiplier, BlockPos anchor) {
         renderMergedDestroySkeleton(preview, poseStack, lineBuffer, fillBuffer,
-                progress, noDepthAlpha, fillAlpha, alphaMultiplier);
+                progress, noDepthAlpha, fillAlpha, alphaMultiplier, anchor);
     }
 
     static void renderMergedSkeletonSnapshot(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
@@ -116,7 +131,7 @@ public final class MergedSkeletonRenderer {
         CachedMergedSkeleton skeleton = buildMergedSkeleton(preview, blockCollectionKey(preview.blocks()));
         if (skeleton.isEmpty()) return;
         renderMergedDestroySkeleton(skeleton, poseStack, lineBuffer, fillBuffer,
-                progress, noDepthAlpha, fillAlpha, alphaMultiplier);
+                progress, noDepthAlpha, fillAlpha, alphaMultiplier, null);
     }
 
     // ===== Confirmed destructive work area rendering =====
@@ -126,58 +141,58 @@ public final class MergedSkeletonRenderer {
      */
     static void renderConfirmedDestroyWorkArea(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress) {
-        renderConfirmedDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F);
+        renderConfirmedDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F, null);
     }
 
     static void renderConfirmedDestroyWorkArea(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier) {
+        renderConfirmedDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer, progress, alphaMultiplier, null);
+    }
+
+    static void renderConfirmedDestroyWorkArea(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier,
+            BlockPos anchor) {
         renderMergedDestroySkeleton(preview, poseStack, lineBuffer, fillBuffer, progress, 0.30F, 0.035F,
-                alphaMultiplier);
+                alphaMultiplier, anchor);
     }
 
     // ===== Merged skeleton rendering =====
 
     private static void renderMergedDestroySkeleton(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
-            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha) {
-        renderMergedDestroySkeleton(preview, poseStack, lineBuffer, fillBuffer,
-                progress, noDepthAlpha, fillAlpha, 1.0F);
-    }
-
-    private static void renderMergedDestroySkeleton(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha,
-            float alphaMultiplier) {
+            float alphaMultiplier, BlockPos anchor) {
         CachedMergedSkeleton skeleton = getCachedSkeleton(preview);
         if (skeleton.isEmpty()) return;
         renderMergedDestroySkeleton(skeleton, poseStack, lineBuffer, fillBuffer,
-                progress, noDepthAlpha, fillAlpha, alphaMultiplier);
-    }
-
-    private static void renderMergedDestroySkeleton(CachedMergedSkeleton skeleton, PoseStack poseStack,
-            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha) {
-        renderMergedDestroySkeleton(skeleton, poseStack, lineBuffer, fillBuffer,
-                progress, noDepthAlpha, fillAlpha, 1.0F);
+                progress, noDepthAlpha, fillAlpha, alphaMultiplier, anchor);
     }
 
     private static void renderMergedDestroySkeleton(CachedMergedSkeleton skeleton, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha,
-            float alphaMultiplier) {
+            float alphaMultiplier, BlockPos anchor) {
         List<UltimineBlockMerger.EdgeLine> edges = skeleton.edges();
         if (edges.isEmpty()) return;
         float alpha = RenderingUtil.clamp01(alphaMultiplier);
         if (alpha <= 0.0F) return;
 
         var matrix = poseStack.last().pose();
+        // 锚点局部帧下所有顶点按 (坐标 - 锚点) 发射；骨架拓扑仍用 plot 绝对坐标缓存。
+        double ox = anchor == null ? 0.0D : anchor.getX();
+        double oy = anchor == null ? 0.0D : anchor.getY();
+        double oz = anchor == null ? 0.0D : anchor.getZ();
         float edgeR = RenderingUtil.lerp(1.00F, 0.38F, progress);
         float edgeG = RenderingUtil.lerp(0.86F, 1.00F, progress);
         float edgeB = RenderingUtil.lerp(0.22F, 0.42F, progress);
 
-        UltimineGhostRenderer.renderPass1(edges, matrix, lineBuffer, edgeR, edgeG, edgeB, 0.95F * alpha);
+        UltimineGhostRenderer.renderPass1(edges, matrix, lineBuffer, edgeR, edgeG, edgeB,
+                0.95F * alpha, ox, oy, oz);
         if (edges.size() <= MAX_MERGED_NO_DEPTH_EDGES) {
-            UltimineGhostRenderer.renderPass2(edges, matrix, edgeR, edgeG, edgeB, noDepthAlpha * alpha);
+            UltimineGhostRenderer.renderPass2(edges, matrix, edgeR, edgeG, edgeB,
+                    noDepthAlpha * alpha, ox, oy, oz);
         }
         if (skeleton.fillBlocks().size() <= MAX_MERGED_FILL_BLOCKS) {
             UltimineGhostRenderer.renderFill(skeleton.fillBlocks(), poseStack, fillBuffer, edgeR, edgeG, edgeB,
-                    fillAlpha * alpha);
+                    fillAlpha * alpha, ox, oy, oz);
         }
     }
 

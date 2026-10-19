@@ -1,12 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsBoxHandleInteraction;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionBoxAnimator;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.mining.MiningLimits;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.AABB;
@@ -102,12 +104,21 @@ public final class ShapeSelectionBoxController {
 
     public void updateHover(Vec3 origin, Vec3 rayDirection, boolean enabled) {
         RtsCullingBox box = box();
-        this.handles.updateHover(box, origin, rayDirection, enabled && box != null, allowedDirections());
+        RtsSableClientSpatialCompat.Ray ray = handleRay(box, origin, rayDirection);
+        this.handles.updateHover(box, ray.origin(), ray.direction(), enabled && box != null, allowedDirections());
     }
 
     public boolean click(Vec3 origin, Vec3 rayDirection) {
         RtsCullingBox box = box();
-        return box != null && this.handles.clickHandle(box, origin, rayDirection, allowedDirections()).handled();
+        RtsSableClientSpatialCompat.Ray ray = handleRay(box, origin, rayDirection);
+        return box != null && this.handles.clickHandle(box, ray.origin(), ray.direction(), allowedDirections()).handled();
+    }
+
+    /** 所有输入入口统一传世界射线，在选区 owner 内转换一次，避免鼠标与主操作键漏转或重复转换。 */
+    private RtsSableClientSpatialCompat.Ray handleRay(RtsCullingBox box, Vec3 origin, Vec3 direction) {
+        Minecraft minecraft = this.screen == null ? null : this.screen.getMinecraft();
+        return RtsSableClientSpatialCompat.toRenderLocalRay(
+                minecraft == null ? null : minecraft.level, box == null ? null : box.min(), origin, direction);
     }
 
     public boolean scroll(double scrollY, boolean fast) {

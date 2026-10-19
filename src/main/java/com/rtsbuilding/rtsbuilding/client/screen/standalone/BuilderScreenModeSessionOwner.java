@@ -4,6 +4,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
@@ -13,6 +14,7 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsPlacementRayFreeze;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.*;
 import com.rtsbuilding.rtsbuilding.client.screen.craft.RtsCraftQuantityWindowPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingManager;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingPanel;
@@ -248,14 +250,26 @@ final class BuilderScreenModeSessionOwner {
             }
             Direction advancedBoxDirection = screen.shapeController.advancedRangeDestroyActiveHandle();
             if (advancedBoxDirection != null) {
-                double[] axis = screen.screenAxisForDirection(advancedBoxDirection);
+                RtsCullingBox box = screen.shapeController.advancedRangeDestroyBox();
+                Vec3 normal = new Vec3(advancedBoxDirection.getStepX(),
+                        advancedBoxDirection.getStepY(), advancedBoxDirection.getStepZ());
+                // 拖拽沿画面中的船体轴移动，不能直接拿 plot 逻辑轴当世界轴。
+                normal = RtsSableClientSpatialCompat.projectRenderDirectionToGlobal(
+                        screen.getMinecraft().level, box == null ? null : box.min(), normal);
+                double[] axis = screenAxisForNormal(normal);
                 return screen.shapeController.dragAdvancedRangeDestroyHandle(dragX, dragY, axis[0], axis[1]);
             }
             return false;
         }
 
     double[] screenAxisForDirection(Direction direction) {
-            if (direction == null || screen.getMinecraft() == null || screen.getMinecraft().gameRenderer == null) {
+            return screenAxisForNormal(direction == null ? null : new Vec3(
+                    direction.getStepX(), direction.getStepY(), direction.getStepZ()));
+        }
+
+    /** 接受世界系连续轴向，保留旋转船体的投影方向，不提前量化为六个方位。 */
+    private double[] screenAxisForNormal(Vec3 normal) {
+            if (normal == null || screen.getMinecraft() == null || screen.getMinecraft().gameRenderer == null) {
                 return new double[] {0.0D, -1.0D};
             }
             float yawDeg = screen.getMinecraft().gameRenderer.getMainCamera().getYRot();
@@ -268,10 +282,6 @@ final class BuilderScreenModeSessionOwner {
                     Math.cos(yaw) * Math.cos(pitch)).normalize();
             Vec3 right = new Vec3(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
             Vec3 up = forward.cross(right).normalize();
-            Vec3 normal = new Vec3(
-                    direction.getNormal().getX(),
-                    direction.getNormal().getY(),
-                    direction.getNormal().getZ());
             return new double[] {-normal.dot(right), -normal.dot(up)};
         }
 

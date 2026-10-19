@@ -54,22 +54,28 @@ public final class DestructiveGhostRenderer {
      */
     static void render(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier) {
-        render(preview, poseStack, lineBuffer, fillBuffer, progress, alphaMultiplier, null);
+        render(preview, poseStack, lineBuffer, fillBuffer, progress, alphaMultiplier, null, null);
     }
 
     static void render(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier,
             AABB envelopeOverride) {
+        render(preview, poseStack, lineBuffer, fillBuffer, progress, alphaMultiplier, envelopeOverride, null);
+    }
+
+    static void render(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier,
+            AABB envelopeOverride, BlockPos anchor) {
         renderDestructiveGhost(
                 preview, poseStack, lineBuffer, fillBuffer, progress, alphaMultiplier,
-                true, true, envelopeOverride);
+                true, true, envelopeOverride, anchor);
     }
 
     static void render(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier,
             boolean renderFill, boolean renderLines) {
         renderDestructiveGhost(preview, poseStack, lineBuffer, fillBuffer, progress, alphaMultiplier,
-                renderFill, renderLines, null);
+                renderFill, renderLines, null, null);
     }
 
     /**
@@ -136,9 +142,14 @@ public final class DestructiveGhostRenderer {
 
     private static void renderDestructiveGhost(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier,
-            boolean renderFill, boolean renderLines, AABB envelopeOverride) {
+            boolean renderFill, boolean renderLines, AABB envelopeOverride, BlockPos anchor) {
         float alpha = RenderingUtil.clamp01(alphaMultiplier);
         if (alpha <= 0.0F || (!renderFill && !renderLines)) return;
+
+        // 锚点局部帧下所有盒子按 (坐标 - 锚点) 绘制，避免大 plot 坐标进入 float 矩阵。
+        double ox = anchor == null ? 0.0D : anchor.getX();
+        double oy = anchor == null ? 0.0D : anchor.getY();
+        double oz = anchor == null ? 0.0D : anchor.getZ();
 
         // Outer envelope (yellow → green transition) — always rendered
         if (!RenderingUtil.isEmpty(preview.blocks()) || !RenderingUtil.isEmpty(preview.emptyBlocks())) {
@@ -158,7 +169,7 @@ public final class DestructiveGhostRenderer {
                     preview.blocks(), preview.emptyBlocks(),
                     envLineR, envLineG, envLineB, 0.78F * alpha,
                     envFillR, envFillG, envFillB, 0.10F * alpha,
-                    renderFill, renderLines, envelopeOverride);
+                    renderFill, renderLines, envelopeOverride, ox, oy, oz);
         }
 
         List<BlockPos> blocks = preview.blocks();
@@ -167,7 +178,7 @@ public final class DestructiveGhostRenderer {
         // ── Per-block cell highlights ──
         DestructiveCellColors dcc = DestructiveCellColors.forConfirmState(preview.readyConfirm());
         renderPerBlockCells(blocks, poseStack, lineBuffer, fillBuffer, progress, alpha, dcc,
-                renderFill, renderLines);
+                renderFill, renderLines, ox, oy, oz);
     }
 
 
@@ -176,7 +187,8 @@ public final class DestructiveGhostRenderer {
 
     private static void renderPerBlockCells(List<BlockPos> blocks, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alpha,
-            DestructiveCellColors dcc, boolean renderFill, boolean renderLines) {
+            DestructiveCellColors dcc, boolean renderFill, boolean renderLines,
+            double ox, double oy, double oz) {
         float lineR = RenderingUtil.lerp(dcc.lineR(),
                 UiThemeWorldColors.red(UiThemeWorldColors.DESTRUCTIVE_COMPLETE), progress) * alpha;
         float lineG = RenderingUtil.lerp(dcc.lineG(),
@@ -193,12 +205,12 @@ public final class DestructiveGhostRenderer {
         float fillA = dcc.fillA() * alpha;
 
         for (BlockPos pos : blocks) {
-            double cellMinX = pos.getX() + 0.03D;
-            double cellMinY = pos.getY() + 0.03D;
-            double cellMinZ = pos.getZ() + 0.03D;
-            double cellMaxX = pos.getX() + 0.97D;
-            double cellMaxY = pos.getY() + 0.97D;
-            double cellMaxZ = pos.getZ() + 0.97D;
+            double cellMinX = pos.getX() - ox + 0.03D;
+            double cellMinY = pos.getY() - oy + 0.03D;
+            double cellMinZ = pos.getZ() - oz + 0.03D;
+            double cellMaxX = pos.getX() - ox + 0.97D;
+            double cellMaxY = pos.getY() - oy + 0.97D;
+            double cellMaxZ = pos.getZ() - oz + 0.97D;
 
             if (renderFill) {
                 LevelRenderer.addChainedFilledBoxVertices(
@@ -224,19 +236,20 @@ public final class DestructiveGhostRenderer {
             List<BlockPos> primaryBlocks, List<BlockPos> envelopeBlocks,
             float lineR, float lineG, float lineB, float lineA,
             float fillR, float fillG, float fillB, float fillA,
-            boolean renderFill, boolean renderLines, AABB envelopeOverride) {
+            boolean renderFill, boolean renderLines, AABB envelopeOverride,
+            double ox, double oy, double oz) {
         RenderingUtil.Bounds bounds = envelopeOverride == null
                 ? RenderingUtil.Bounds.from(primaryBlocks, envelopeBlocks)
                 : null;
         if (bounds == null && envelopeOverride == null) return;
 
         double padding = BOUNDARY_PADDING;
-        double minX = (envelopeOverride == null ? bounds.minX() : envelopeOverride.minX) - padding;
-        double minY = (envelopeOverride == null ? bounds.minY() : envelopeOverride.minY) - padding;
-        double minZ = (envelopeOverride == null ? bounds.minZ() : envelopeOverride.minZ) - padding;
-        double maxX = (envelopeOverride == null ? bounds.maxX() + 1.0D : envelopeOverride.maxX) + padding;
-        double maxY = (envelopeOverride == null ? bounds.maxY() + 1.0D : envelopeOverride.maxY) + padding;
-        double maxZ = (envelopeOverride == null ? bounds.maxZ() + 1.0D : envelopeOverride.maxZ) + padding;
+        double minX = (envelopeOverride == null ? bounds.minX() : envelopeOverride.minX) - ox - padding;
+        double minY = (envelopeOverride == null ? bounds.minY() : envelopeOverride.minY) - oy - padding;
+        double minZ = (envelopeOverride == null ? bounds.minZ() : envelopeOverride.minZ) - oz - padding;
+        double maxX = (envelopeOverride == null ? bounds.maxX() + 1.0D : envelopeOverride.maxX) - ox + padding;
+        double maxY = (envelopeOverride == null ? bounds.maxY() + 1.0D : envelopeOverride.maxY) - oy + padding;
+        double maxZ = (envelopeOverride == null ? bounds.maxZ() + 1.0D : envelopeOverride.maxZ) - oz + padding;
 
         if (renderFill) {
             LevelRenderer.addChainedFilledBoxVertices(poseStack, fillBuffer,

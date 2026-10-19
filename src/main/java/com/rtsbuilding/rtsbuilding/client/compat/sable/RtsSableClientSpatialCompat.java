@@ -6,6 +6,7 @@ import dev.ryanhcode.sable.companion.SableCompanion;
 import dev.ryanhcode.sable.companion.SubLevelAccess;
 import dev.ryanhcode.sable.companion.math.Pose3dc;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4d;
@@ -14,6 +15,7 @@ import org.joml.Quaternionf;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Sable 客户端插值姿态、局部射线和渲染矩阵适配。
@@ -111,6 +113,53 @@ public final class RtsSableClientSpatialCompat {
         try {
             applyRenderPose(level, logicalPos, poseStack);
             renderer.run();
+        } finally {
+            poseStack.popPose();
+        }
+    }
+
+    /**
+     * 把世界系方向换算成目标方块所在逻辑系的最近轴向；不在物理体上时原样返回。
+     */
+    public static Direction toFrameDirection(Level level, BlockPos framePos, Direction worldDirection) {
+        if (level == null || framePos == null || worldDirection == null) {
+            return worldDirection;
+        }
+        SubLevelAccess subLevel = SableCompanion.INSTANCE.getContaining(level, framePos);
+        Pose3dc pose = subLevel instanceof ClientSubLevelAccess clientSubLevel
+                ? clientSubLevel.renderPose()
+                : subLevel == null ? null : subLevel.logicalPose();
+        if (pose == null) {
+            return worldDirection;
+        }
+        Vec3 local = pose.transformNormalInverse(new Vec3(
+                worldDirection.getStepX(), worldDirection.getStepY(), worldDirection.getStepZ()));
+        if (local.lengthSqr() < 1.0E-9D) {
+            return worldDirection;
+        }
+        return Direction.getNearest(local.x, local.y, local.z);
+    }
+
+    /** 将手柄的逻辑轴投影到画面所在的世界系，供屏幕拖动使用；普通世界原样返回。 */
+    public static Vec3 projectRenderDirectionToGlobal(Level level, BlockPos framePos, Vec3 logicalDirection) {
+        if (level == null || framePos == null || logicalDirection == null) {
+            return logicalDirection;
+        }
+        SubLevelAccess subLevel = SableCompanion.INSTANCE.getContaining(level, framePos);
+        Pose3dc pose = subLevel instanceof ClientSubLevelAccess clientSubLevel
+                ? clientSubLevel.renderPose()
+                : subLevel == null ? null : subLevel.logicalPose();
+        return pose == null ? logicalDirection : pose.transformNormal(logicalDirection);
+    }
+
+    /**
+     * 建立精度安全的单方块渲染帧，并告知调用方应使用局部坐标还是世界坐标。
+     */
+    public static void renderInBlockFrame(
+            Level level, BlockPos logicalPos, PoseStack poseStack, Consumer<Boolean> renderer) {
+        poseStack.pushPose();
+        try {
+            renderer.accept(applyBlockRenderFrame(level, logicalPos, poseStack));
         } finally {
             poseStack.popPose();
         }

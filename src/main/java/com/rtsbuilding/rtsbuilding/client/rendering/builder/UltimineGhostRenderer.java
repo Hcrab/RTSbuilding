@@ -92,6 +92,11 @@ public final class UltimineGhostRenderer {
 
     static void render(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress) {
+        render(preview, poseStack, lineBuffer, fillBuffer, progress, null);
+    }
+
+    static void render(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, BlockPos anchor) {
         // If the player's mouse is hovering over an entity, render entity selection
         // brackets instead of the chain-destroy (ultimine) ghost preview.
         Minecraft mc = Minecraft.getInstance();
@@ -120,6 +125,11 @@ public final class UltimineGhostRenderer {
 
         Matrix4f matrix = poseStack.last().pose();
 
+        // 锚点局部帧下所有顶点按 (坐标 - 锚点) 发射，避免大 plot 坐标进入 float 矩阵。
+        double ox = anchor == null ? 0.0D : anchor.getX();
+        double oy = anchor == null ? 0.0D : anchor.getY();
+        double oz = anchor == null ? 0.0D : anchor.getZ();
+
         // Step 3 — breathing gold colour
         float breathFactor = RenderingUtil.getBreathFactor(BREATH_SPEED, BREATH_MIN_FACTOR);
         float r = UiThemeWorldColors.red(UiThemeWorldColors.ULTIMINE_BLOCK) * breathFactor;
@@ -133,43 +143,39 @@ public final class UltimineGhostRenderer {
                 UiThemeWorldColors.blue(UiThemeWorldColors.DESTRUCTIVE_COMPLETE), progress);
 
         // Step 4 — opaque depth-tested edges
-        renderPass1(edges, matrix, lineBuffer, edgeR, edgeG, edgeB);
+        renderPass1(edges, matrix, lineBuffer, edgeR, edgeG, edgeB, 0.95F, ox, oy, oz);
 
         // Step 5 — translucent no-depth edges
-        renderPass2(edges, matrix, edgeR, edgeG, edgeB, 0.34F);
+        renderPass2(edges, matrix, edgeR, edgeG, edgeB, 0.34F, ox, oy, oz);
 
         // Step 6 — faint per-block fill
-        renderFill(outerBlocks, poseStack, fillBuffer, edgeR, edgeG, edgeB, 0.08F);
+        renderFill(outerBlocks, poseStack, fillBuffer, edgeR, edgeG, edgeB, 0.08F, ox, oy, oz);
     }
 
     // ===== Shared edge rendering primitives (used by MergedSkeletonRenderer) =====
 
     static void renderPass1(List<UltimineBlockMerger.EdgeLine> edges, Matrix4f matrix,
-            VertexConsumer lineBuffer, float r, float g, float b) {
-        renderPass1(edges, matrix, lineBuffer, r, g, b, 0.95F);
-    }
-
-    static void renderPass1(List<UltimineBlockMerger.EdgeLine> edges, Matrix4f matrix,
-            VertexConsumer lineBuffer, float r, float g, float b, float alpha) {
+            VertexConsumer lineBuffer, float r, float g, float b, float alpha,
+            double ox, double oy, double oz) {
         for (UltimineBlockMerger.EdgeLine edge : edges) {
-            lineBuffer.addVertex(matrix, (float) edge.x1(), (float) edge.y1(), (float) edge.z1())
+            lineBuffer.addVertex(matrix, (float) (edge.x1() - ox), (float) (edge.y1() - oy), (float) (edge.z1() - oz))
                     .setColor(r, g, b, alpha)
                     .setNormal(edge.xn(), edge.yn(), edge.zn());
-            lineBuffer.addVertex(matrix, (float) edge.x2(), (float) edge.y2(), (float) edge.z2())
+            lineBuffer.addVertex(matrix, (float) (edge.x2() - ox), (float) (edge.y2() - oy), (float) (edge.z2() - oz))
                     .setColor(r, g, b, alpha)
                     .setNormal(edge.xn(), edge.yn(), edge.zn());
         }
     }
 
     static void renderPass2(List<UltimineBlockMerger.EdgeLine> edges, Matrix4f matrix,
-            float r, float g, float b, float alpha) {
+            float r, float g, float b, float alpha, double ox, double oy, double oz) {
         BufferBuilder ndBuffer = new BufferBuilder(LINES_NO_DEPTH_BACKING, VertexFormat.Mode.LINES,
                 DefaultVertexFormat.POSITION_COLOR_NORMAL);
         for (UltimineBlockMerger.EdgeLine edge : edges) {
-            ndBuffer.addVertex(matrix, (float) edge.x1(), (float) edge.y1(), (float) edge.z1())
+            ndBuffer.addVertex(matrix, (float) (edge.x1() - ox), (float) (edge.y1() - oy), (float) (edge.z1() - oz))
                     .setColor(r, g, b, alpha)
                     .setNormal(edge.xn(), edge.yn(), edge.zn());
-            ndBuffer.addVertex(matrix, (float) edge.x2(), (float) edge.y2(), (float) edge.z2())
+            ndBuffer.addVertex(matrix, (float) (edge.x2() - ox), (float) (edge.y2() - oy), (float) (edge.z2() - oz))
                     .setColor(r, g, b, alpha)
                     .setNormal(edge.xn(), edge.yn(), edge.zn());
         }
@@ -184,12 +190,13 @@ public final class UltimineGhostRenderer {
     }
 
     static void renderFill(List<BlockPos> outerBlocks, PoseStack poseStack,
-            VertexConsumer fillBuffer, float r, float g, float b, float fillA) {
+            VertexConsumer fillBuffer, float r, float g, float b, float fillA,
+            double ox, double oy, double oz) {
         for (BlockPos pos : outerBlocks) {
             LevelRenderer.addChainedFilledBoxVertices(
                     poseStack, fillBuffer,
-                    pos.getX(), pos.getY(), pos.getZ(),
-                    pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1,
+                    pos.getX() - ox, pos.getY() - oy, pos.getZ() - oz,
+                    pos.getX() - ox + 1, pos.getY() - oy + 1, pos.getZ() - oz + 1,
                     r, g, b, fillA);
         }
     }

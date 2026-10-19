@@ -2,10 +2,12 @@ package com.rtsbuilding.rtsbuilding.client.rendering.selection;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacedBlockRotationHandles;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.Vec3;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
@@ -36,21 +38,34 @@ public final class PlacedBlockRotationHandleRenderer {
         if (!handles.hasTarget()) {
             return;
         }
-        Direction cameraForward = screen.currentCameraHorizontalDirection();
+        // 物理体上的圆弧几何在 plot 逻辑系里：相机射线先变换到逻辑系再悬停判定，
+        // 世界系相机朝向也要换算成逻辑系方向；绘制时以目标方块为锚建立局部帧。
+        Direction cameraForward = RtsSableClientSpatialCompat.toFrameDirection(
+                minecraft.level, handles.targetPos(), screen.currentCameraHorizontalDirection());
+        RtsSableClientSpatialCompat.Ray ray = RtsSableClientSpatialCompat.toRenderLocalRay(
+                minecraft.level,
+                handles.targetPos(),
+                screen.currentRayOrigin(),
+                screen.computeCursorRayDirection());
         handles.updateHover(
                 minecraft.level,
-                screen.currentRayOrigin(),
-                screen.computeCursorRayDirection(),
+                ray.origin(),
+                ray.direction(),
                 cameraForward);
-        for (PlacedBlockRotationHandles.ArcHandle arc
-                : handles.arcs(minecraft.level, cameraForward)) {
-            renderArc(
-                    poseStack,
-                    lineBuffer,
-                    fillBuffer,
-                    arc,
-                    arc.gesture() == handles.hoveredGesture());
-        }
+        RtsSableClientSpatialCompat.renderInBlockFrame(
+                minecraft.level, handles.targetPos(), poseStack, localFrame -> {
+                    BlockPos anchor = localFrame ? handles.targetPos() : null;
+                    for (PlacedBlockRotationHandles.ArcHandle arc
+                            : handles.arcs(minecraft.level, cameraForward)) {
+                        renderArc(
+                                poseStack,
+                                lineBuffer,
+                                fillBuffer,
+                                arc,
+                                arc.gesture() == handles.hoveredGesture(),
+                                anchor);
+                    }
+                });
     }
 
     private static void renderArc(
@@ -58,21 +73,27 @@ public final class PlacedBlockRotationHandleRenderer {
             VertexConsumer lineBuffer,
             VertexConsumer fillBuffer,
             PlacedBlockRotationHandles.ArcHandle arc,
-            boolean hovered) {
+            boolean hovered,
+            BlockPos anchor) {
         List<Vec3> points = arc.points();
         if (points.size() < 2) {
             return;
         }
+        // 局部帧下整体平移到锚点原点；相对关系不变，只影响最终顶点坐标。
+        double ox = anchor == null ? 0.0D : anchor.getX();
+        double oy = anchor == null ? 0.0D : anchor.getY();
+        double oz = anchor == null ? 0.0D : anchor.getZ();
+        Vec3 center = arc.center().subtract(ox, oy, oz);
         Color color = axisColor(arc.planeNormal(), hovered);
         double halfWidth = hovered ? 0.105D : 0.072D;
         float fillAlpha = hovered ? 0.72F : 0.38F;
         float lineAlpha = hovered ? 1.0F : 0.78F;
 
         for (int i = 0; i < points.size() - 1; i++) {
-            Vec3 first = points.get(i);
-            Vec3 second = points.get(i + 1);
-            Vec3 firstSide = first.subtract(arc.center()).normalize().scale(halfWidth);
-            Vec3 secondSide = second.subtract(arc.center()).normalize().scale(halfWidth);
+            Vec3 first = points.get(i).subtract(ox, oy, oz);
+            Vec3 second = points.get(i + 1).subtract(ox, oy, oz);
+            Vec3 firstSide = first.subtract(center).normalize().scale(halfWidth);
+            Vec3 secondSide = second.subtract(center).normalize().scale(halfWidth);
             Vec3 firstOuter = first.add(firstSide);
             Vec3 firstInner = first.subtract(firstSide);
             Vec3 secondOuter = second.add(secondSide);
@@ -90,8 +111,8 @@ public final class PlacedBlockRotationHandleRenderer {
             addLine(poseStack, lineBuffer, firstInner, secondInner, color, lineAlpha);
         }
 
-        Vec3 last = points.getLast();
-        Vec3 previous = points.get(points.size() - 2);
+        Vec3 last = points.getLast().subtract(ox, oy, oz);
+        Vec3 previous = points.get(points.size() - 2).subtract(ox, oy, oz);
         Vec3 tangent = last.subtract(previous).normalize();
         Vec3 side = arc.planeNormal().cross(tangent).normalize();
         Vec3 tip = last.add(tangent.scale(0.19D));

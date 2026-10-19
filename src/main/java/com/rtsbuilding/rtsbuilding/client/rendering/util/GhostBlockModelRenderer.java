@@ -58,9 +58,10 @@ public final class GhostBlockModelRenderer {
             if (!localFrame) {
                 poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
             }
-            if (scale != 1.0F) {
+            float overlayScale = Math.max(scale, 0.0F);
+            if (overlayScale != 1.0F) {
                 poseStack.translate(0.5D, 0.5D, 0.5D);
-                poseStack.scale(scale, scale, scale);
+                poseStack.scale(overlayScale, overlayScale, overlayScale);
                 poseStack.translate(-0.5D, -0.5D, -0.5D);
             }
             minecraft.getBlockRenderer().getModelRenderer().tesselateBlock(

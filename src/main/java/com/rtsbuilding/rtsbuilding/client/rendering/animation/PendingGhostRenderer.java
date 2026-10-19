@@ -89,16 +89,16 @@ public final class PendingGhostRenderer {
             BlockPos pos = ghost.pos;
             float scale = computeGrowScale(now - ghost.addedAtMs);
             double inset = 0.5D - scale * 0.44D;
-            double minX = pos.getX() + inset;
-            double minY = pos.getY() + inset;
-            double minZ = pos.getZ() + inset;
-            double maxX = pos.getX() + 1.0D - inset;
-            double maxY = pos.getY() + 1.0D - inset;
-            double maxZ = pos.getZ() + 1.0D - inset;
-            RtsSableClientSpatialCompat.renderInFrame(minecraft.level, pos, poseStack,
-                    () -> LevelRenderer.renderLineBox(
-                            poseStack, lineBuffer, minX, minY, minZ, maxX, maxY, maxZ,
-                            lineR, lineG, lineB, lineA));
+            RtsSableClientSpatialCompat.renderInBlockFrame(minecraft.level, pos, poseStack, localFrame -> {
+                double x = localFrame ? 0.0D : pos.getX();
+                double y = localFrame ? 0.0D : pos.getY();
+                double z = localFrame ? 0.0D : pos.getZ();
+                LevelRenderer.renderLineBox(
+                        poseStack, lineBuffer,
+                        x + inset, y + inset, z + inset,
+                        x + 1.0D - inset, y + 1.0D - inset, z + 1.0D - inset,
+                        lineR, lineG, lineB, lineA);
+            });
         }
     }
 
@@ -132,9 +132,15 @@ public final class PendingGhostRenderer {
                 BlockState state = group.getKey();
                 for (BlockPos pos : group.getValue()) {
                     float scale = computeGrowScale(now - GHOSTS.get(pos.asLong()).addedAtMs);
-                    RtsSableClientSpatialCompat.renderInFrame(minecraft.level, pos, poseStack,
-                            () -> GhostBlockModelRenderer.renderAt(
-                                    minecraft, poseStack, blockBuffer, state, pos, GHOST_ALPHA, scale));
+                    RtsSableClientSpatialCompat.renderInBlockFrame(minecraft.level, pos, poseStack, localFrame -> {
+                        if (localFrame) {
+                            GhostBlockModelRenderer.renderAtLocal(
+                                    minecraft, poseStack, blockBuffer, state, pos, GHOST_ALPHA, scale);
+                        } else {
+                            GhostBlockModelRenderer.renderAt(
+                                    minecraft, poseStack, blockBuffer, state, pos, GHOST_ALPHA, scale);
+                        }
+                    });
                 }
             }
             blockBuffer.endBatch();
@@ -155,12 +161,16 @@ public final class PendingGhostRenderer {
             PendingGhostEntry ghost = GHOSTS.get(pos.asLong());
             float scale = (ghost != null) ? computeGrowScale(now - ghost.addedAtMs) : BASE_SCALE;
             double inset = 0.5D - scale * 0.44D;
-            RtsSableClientSpatialCompat.renderInFrame(minecraft.level, pos, poseStack,
-                    () -> LevelRenderer.addChainedFilledBoxVertices(
-                            poseStack, fillBuffer,
-                            pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
-                            pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,
-                            fillR, fillG, fillB, fillA));
+            RtsSableClientSpatialCompat.renderInBlockFrame(minecraft.level, pos, poseStack, localFrame -> {
+                double x = localFrame ? 0.0D : pos.getX();
+                double y = localFrame ? 0.0D : pos.getY();
+                double z = localFrame ? 0.0D : pos.getZ();
+                LevelRenderer.addChainedFilledBoxVertices(
+                        poseStack, fillBuffer,
+                        x + inset, y + inset, z + inset,
+                        x + 1.0D - inset, y + 1.0D - inset, z + 1.0D - inset,
+                        fillR, fillG, fillB, fillA);
+            });
         }
     }
 

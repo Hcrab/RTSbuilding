@@ -114,28 +114,30 @@ public final class ShapeGhostRenderer {
         }
 
         // 建造预览由模型/线框渲染器逐方块建立局部帧，避免大 plot 坐标进入 float 矩阵。
-        // 挖掘类预览仍保留整组变换；它们的合并骨架需要保持连续拓扑。
+        // 破坏类预览以首格为锚建立局部帧，按 (pos - 锚点) 相对坐标绘制，合并骨架拓扑不受影响。
         if (!preview.destructive() && !preview.chainDestroyPreview()) {
             renderGhostPreviewInFrame(
-                    minecraft, preview, poseStack, lineBuffer, fillBuffer, selectionAabb);
+                    minecraft, preview, poseStack, lineBuffer, fillBuffer, selectionAabb, null);
             return;
         }
 
         BlockPos framePosition = firstPreviewPosition(preview);
         poseStack.pushPose();
         try {
-            if (minecraft.level != null && framePosition != null) {
-                RtsSableClientSpatialCompat.applyRenderPose(minecraft.level, framePosition, poseStack);
-            }
+            boolean localFrame = minecraft.level != null && framePosition != null
+                    && RtsSableClientSpatialCompat.applyBlockRenderFrame(
+                            minecraft.level, framePosition, poseStack);
             renderGhostPreviewInFrame(
-                    minecraft, preview, poseStack, lineBuffer, fillBuffer, selectionAabb);
+                    minecraft, preview, poseStack, lineBuffer, fillBuffer, selectionAabb,
+                    localFrame ? framePosition : null);
         } finally {
             poseStack.popPose();
         }
     }
 
     private static void renderGhostPreviewInFrame(Minecraft minecraft, ShapeDataRecords.GhostPreview preview,
-            PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer, AABB selectionAabb) {
+            PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer, AABB selectionAabb,
+            BlockPos localAnchor) {
 
         // ── Confirmed destructive work area ──
         if (preview.destructive() && preview.confirmedWorkArea()) {
@@ -146,19 +148,19 @@ public final class ShapeGhostRenderer {
             if (preview.chainDestroyPreview()) {
                 if (visual.fading()) {
                     MergedSkeletonRenderer.renderCachedSkeleton(preview, poseStack, lineBuffer, fillBuffer,
-                            1.0F, 0.30F, 0.035F, visual.alpha());
+                            1.0F, 0.30F, 0.035F, visual.alpha(), localAnchor);
                 } else {
                     MergedSkeletonRenderer.renderConfirmedDestroyWorkArea(preview, poseStack, lineBuffer,
-                            fillBuffer, visual.progress(), visual.alpha());
+                            fillBuffer, visual.progress(), visual.alpha(), localAnchor);
                 }
                 return;
             }
             if (com.rtsbuilding.rtsbuilding.Config.isRangeDestroySkeletonEnabled()) {
-                renderConfirmedRangeDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer, visual);
+                renderConfirmedRangeDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer, visual, localAnchor);
                 return;
             }
             DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer,
-                    visual.progress(), visual.alpha());
+                    visual.progress(), visual.alpha(), null, localAnchor);
             return;
         }
 
@@ -166,7 +168,7 @@ public final class ShapeGhostRenderer {
         // ── Ultimine (chain-mining) ghost ──
         if (preview.chainDestroyPreview()) {
             float progress = smoothedDestroyProgress(ClientRtsController.get(), preview);
-            UltimineGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer, progress);
+            UltimineGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer, progress, localAnchor);
             return;
         }
 
@@ -174,7 +176,7 @@ public final class ShapeGhostRenderer {
         if (preview.destructive()) {
             float progress = preview.confirmedWorkArea() ? smoothedDestroyProgress(ClientRtsController.get(), preview) : 0.0F;
             DestructiveGhostRenderer.render(
-                    preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F, selectionAabb);
+                    preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F, selectionAabb, localAnchor);
             return;
         }
 
@@ -224,12 +226,12 @@ public final class ShapeGhostRenderer {
     // ===== Range-destroy confirmed work area handling =====
 
     private static void renderConfirmedRangeDestroyWorkArea(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
-            VertexConsumer lineBuffer, VertexConsumer fillBuffer, DestroyVisualState visual) {
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer, DestroyVisualState visual, BlockPos localAnchor) {
         ClientRtsController controller = ClientRtsController.get();
 
         if (visual.fading()) {
             MergedSkeletonRenderer.renderCachedSkeleton(preview, poseStack, lineBuffer, fillBuffer,
-                    1.0F, 0.30F, 0.030F, visual.alpha());
+                    1.0F, 0.30F, 0.030F, visual.alpha(), localAnchor);
             return;
         }
         DestroyWorkAreaPhaseTracker.Phase phase = RANGE_PHASES.update(
@@ -237,12 +239,12 @@ public final class ShapeGhostRenderer {
         if (phase == DestroyWorkAreaPhaseTracker.Phase.FIRST_BLOCK) {
             // 第一块仍在挖掘时保留逐方块选择信息，只让整体颜色随裂纹阶段过渡。
             DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer,
-                    miningStageProgress(controller, preview), visual.alpha());
+                    miningStageProgress(controller, preview), visual.alpha(), null, localAnchor);
             return;
         }
         if (phase == DestroyWorkAreaPhaseTracker.Phase.ERODING) {
             MergedSkeletonRenderer.renderMergedSkeletonFast(preview, poseStack, lineBuffer, fillBuffer,
-                    visual.progress(), 0.30F, 0.030F, visual.alpha());
+                    visual.progress(), 0.30F, 0.030F, visual.alpha(), localAnchor);
             return;
         }
     }

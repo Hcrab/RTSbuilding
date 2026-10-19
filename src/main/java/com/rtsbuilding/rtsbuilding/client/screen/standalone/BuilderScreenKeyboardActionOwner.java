@@ -4,6 +4,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
@@ -255,7 +256,11 @@ final class BuilderScreenKeyboardActionOwner {
             if (gesture == null) {
                 return false;
             }
-            Direction cameraForward = screen.currentCameraHorizontalDirection();
+            // 物理体上世界系相机朝向与逻辑系不一致，先换算成目标所在系的方向。
+            Direction cameraForward = RtsSableClientSpatialCompat.toFrameDirection(
+                    screen.getMinecraft().level,
+                    screen.rotationHandles.targetPos(),
+                    screen.currentCameraHorizontalDirection());
             boolean supported = screen.rotationHandles.arcs(
                             screen.getMinecraft().level, cameraForward)
                     .stream()

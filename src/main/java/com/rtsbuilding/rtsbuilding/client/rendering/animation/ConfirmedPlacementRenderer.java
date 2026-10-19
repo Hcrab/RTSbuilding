@@ -24,6 +24,7 @@ import java.util.Map;
 final class ConfirmedPlacementRenderer {
     private static final long PLACE_DURATION_MS = 220L;
     private static final float MODEL_ALPHA = 0.58F;
+    private static final float MAX_MODEL_SCALE = 0.96F;
 
     private static final Map<Long, PlacementEntry> PLACEMENTS = new LinkedHashMap<>();
 
@@ -56,12 +57,18 @@ final class ConfirmedPlacementRenderer {
                 continue;
             }
             float scale = computeGrowScale(elapsed);
-            RtsSableClientSpatialCompat.renderInFrame(minecraft.level, entry.pos, poseStack, () -> {
+            RtsSableClientSpatialCompat.renderInBlockFrame(minecraft.level, entry.pos, poseStack, localFrame -> {
                 if (entry.state.getRenderShape() == RenderShape.MODEL) {
-                    GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
-                            entry.state, entry.pos, MODEL_ALPHA, scale);
+                    float modelScale = localFrame ? Math.min(scale, MAX_MODEL_SCALE) : scale;
+                    if (localFrame) {
+                        GhostBlockModelRenderer.renderAtLocal(minecraft, poseStack, blockBuffer,
+                                entry.state, entry.pos, MODEL_ALPHA, modelScale);
+                    } else {
+                        GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
+                                entry.state, entry.pos, MODEL_ALPHA, modelScale);
+                    }
                 } else {
-                    renderFilledBox(poseStack, fillBuffer, entry.pos, scale);
+                    renderFilledBox(poseStack, fillBuffer, entry.pos, scale, localFrame);
                 }
             });
         }
@@ -88,31 +95,38 @@ final class ConfirmedPlacementRenderer {
             float red = UiThemeWorldColors.red(UiThemeWorldColors.PLACEMENT_CONFIRMED);
             float green = UiThemeWorldColors.green(UiThemeWorldColors.PLACEMENT_CONFIRMED);
             float blue = UiThemeWorldColors.blue(UiThemeWorldColors.PLACEMENT_CONFIRMED);
-            RtsSableClientSpatialCompat.renderInFrame(minecraft.level, entry.pos, poseStack,
-                    () -> renderLineBox(poseStack, lineBuffer, entry.pos, scale,
-                            red, green, blue, 0.82F));
+            RtsSableClientSpatialCompat.renderInBlockFrame(minecraft.level, entry.pos, poseStack,
+                    localFrame -> renderLineBox(poseStack, lineBuffer, entry.pos, scale,
+                            red, green, blue, 0.82F, localFrame));
         }
     }
 
-    private static void renderFilledBox(PoseStack poseStack, VertexConsumer fillBuffer, BlockPos pos, float scale) {
+    private static void renderFilledBox(PoseStack poseStack, VertexConsumer fillBuffer, BlockPos pos, float scale,
+            boolean localFrame) {
         double inset = 0.5D - scale * 0.46D;
+        double x = localFrame ? 0.0D : pos.getX();
+        double y = localFrame ? 0.0D : pos.getY();
+        double z = localFrame ? 0.0D : pos.getZ();
         float red = UiThemeWorldColors.red(UiThemeWorldColors.PLACEMENT_CONFIRMED_FILL);
         float green = UiThemeWorldColors.green(UiThemeWorldColors.PLACEMENT_CONFIRMED_FILL);
         float blue = UiThemeWorldColors.blue(UiThemeWorldColors.PLACEMENT_CONFIRMED_FILL);
         LevelRenderer.addChainedFilledBoxVertices(
                 poseStack, fillBuffer,
-                pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
-                pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,
+                x + inset, y + inset, z + inset,
+                x + 1.0D - inset, y + 1.0D - inset, z + 1.0D - inset,
                 red, green, blue, 0.16F);
     }
 
     private static void renderLineBox(PoseStack poseStack, VertexConsumer lineBuffer, BlockPos pos, float scale,
-            float r, float g, float b, float alpha) {
+            float r, float g, float b, float alpha, boolean localFrame) {
         double inset = 0.5D - scale * 0.46D;
+        double x = localFrame ? 0.0D : pos.getX();
+        double y = localFrame ? 0.0D : pos.getY();
+        double z = localFrame ? 0.0D : pos.getZ();
         LevelRenderer.renderLineBox(
                 poseStack, lineBuffer,
-                pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
-                pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,
+                x + inset, y + inset, z + inset,
+                x + 1.0D - inset, y + 1.0D - inset, z + 1.0D - inset,
                 r, g, b, alpha);
     }
 

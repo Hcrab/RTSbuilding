@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.compat.create.RtsCreateGlueCompat;
 import com.rtsbuilding.rtsbuilding.client.compat.create.RtsCreateValueSettingsCompat;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
@@ -228,9 +229,18 @@ final class BuilderScreenPointerActionOwner {
                     && screen.controller.getMode() == BuilderMode.ROTATE) {
                 Vec3 origin = screen.cursorPicker.currentRayOrigin();
                 Vec3 direction = screen.cursorPicker.computeCursorRayDirection();
-                Direction cameraForward = screen.currentCameraHorizontalDirection();
+                // 物理体上的旋转手柄在 plot 逻辑系里：射线和相机水平朝向都先换算过去。
+                Direction cameraForward = RtsSableClientSpatialCompat.toFrameDirection(
+                        screen.getMinecraft().level,
+                        screen.rotationHandles.targetPos(),
+                        screen.currentCameraHorizontalDirection());
+                RtsSableClientSpatialCompat.Ray ray = RtsSableClientSpatialCompat.toRenderLocalRay(
+                        screen.getMinecraft().level,
+                        screen.rotationHandles.targetPos(),
+                        origin,
+                        direction);
                 PlacedBlockRotationGesture gesture = screen.rotationHandles.hitGesture(
-                        screen.getMinecraft().level, origin, direction, cameraForward);
+                        screen.getMinecraft().level, ray.origin(), ray.direction(), cameraForward);
                 if (gesture != null && screen.rotationHandles.targetPos() != null) {
                     screen.controller.rotateBlockStep(
                             screen.rotationHandles.targetPos(),
@@ -239,10 +249,16 @@ final class BuilderScreenPointerActionOwner {
                     return true;
                 }
                 BlockHitResult hit = screen.cursorPicker.pickBlockHit();
+                Direction selectForward = hit == null
+                        ? cameraForward
+                        : RtsSableClientSpatialCompat.toFrameDirection(
+                                screen.getMinecraft().level,
+                                hit.getBlockPos(),
+                                screen.currentCameraHorizontalDirection());
                 if (hit == null || !screen.rotationHandles.select(
                         screen.getMinecraft().level,
                         hit.getBlockPos(),
-                        cameraForward)) {
+                        selectForward)) {
                     screen.rotationHandles.clear();
                     if (hit != null && screen.getMinecraft().player != null) {
                         screen.getMinecraft().player.displayClientMessage(
