@@ -135,7 +135,8 @@ final class RtsFtbCompatImpl {
         }
         if (this.serverQuestFileGetInstanceMethod != null) {
             try {
-                return this.serverQuestFileGetInstanceMethod.invoke(null);
+                // 新版 FTB 返回 Optional，旧版直接返回实例；后续反射必须使用真实任务文件。
+                return unwrapOptional(this.serverQuestFileGetInstanceMethod.invoke(null));
             } catch (InvocationTargetException invocationTargetException) {
                 if (invocationTargetException.getCause() instanceof NullPointerException) {
                     return null;
