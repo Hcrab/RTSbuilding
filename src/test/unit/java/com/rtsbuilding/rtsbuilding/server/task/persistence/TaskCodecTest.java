@@ -41,6 +41,26 @@ class TaskCodecTest {
     }
 
     @Test
+    void restoredTaskCanAdvanceBeforeItsPersistedCreationTime() {
+        TaskSnapshot original = TaskStoreTest.snapshot(
+                TaskId.create(), SubmissionId.create(), UUID.randomUUID(), 31,
+                TaskLifecycleState.RUNNING, null, 4L, "minecraft:overworld");
+        TaskRepository.Image image = new TaskRepository.Image(
+                Map.of(original.id(), original), Map.of(), Set.of(), TaskAssetManifest.empty());
+
+        TaskSnapshot restored = codec.decodeImage(codec.encodeImage(image)).tasks().get(original.id());
+        assertEquals(original, restored);
+
+        TaskSnapshot advanced = restored.nextRevision(TaskLifecycleState.RUNNING, null,
+                original.createdGameTime() - 1L, 3, 2, 1, restored.payload());
+
+        assertEquals(new TaskSnapshot(original.id(), original.submissionId(), original.ownerId(),
+                original.dimensionId(), original.type(), TaskLifecycleState.RUNNING, original.workflowEntryId(),
+                null, original.revision() + 1L, original.createdGameTime(), original.updatedGameTime(),
+                original.totalUnits(), 3, 2, 1, original.payload()), advanced);
+    }
+
+    @Test
     void schemaV2RoundTripPreservesMandatoryAssetManifest() {
         TaskId taskId = TaskId.create();
         TaskAssetId assetId = TaskAssetId.forTask(taskId, "blueprint");

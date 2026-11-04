@@ -10,6 +10,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -127,7 +128,8 @@ final class RtsFtbCompatImpl {
         }
         if (this.serverQuestFileGetInstanceMethod != null) {
             try {
-                return this.serverQuestFileGetInstanceMethod.invoke(null);
+                // 新版 FTB 返回 Optional，旧版直接返回实例；后续反射必须使用真实任务文件。
+                return unwrapOptional(this.serverQuestFileGetInstanceMethod.invoke(null));
             } catch (InvocationTargetException invocationTargetException) {
                 if (invocationTargetException.getCause() instanceof NullPointerException) {
                     return null;
@@ -327,6 +329,13 @@ final class RtsFtbCompatImpl {
             }
         }
         throw new NoSuchMethodException("Missing no-arg method on " + type.getName());
+    }
+
+    private static Object unwrapOptional(Object value) {
+        if (value instanceof Optional<?> optional) {
+            return optional.orElse(null);
+        }
+        return value;
     }
 
     private static boolean asBoolean(Object value) {

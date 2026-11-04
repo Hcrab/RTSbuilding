@@ -49,9 +49,6 @@ public final class PlacedBlockTrackerData extends SavedData {
 
     /** V2 的当前格式；schema 缺失时才进入 V1 placed shadow 兼容路径。 */
     public static final int SCHEMA_VERSION = 2;
-    /** 防止损坏存档通过数组长度迫使服务端一次性分配无限对象。 */
-    public static final int MAX_TRACKED_ENTRIES = 1_000_000;
-    private static final int MAX_PALETTE_ENTRIES = 65_536;
     private static final int MAX_BLOCK_ID_LENGTH = 256;
     private static final ResourceLocation AIR_ID = new ResourceLocation("minecraft", "air");
 
@@ -232,9 +229,6 @@ public final class PlacedBlockTrackerData extends SavedData {
     @Override
     public CompoundTag save(CompoundTag tag) {
         int count = credentials.size();
-        if (count > MAX_TRACKED_ENTRIES) {
-            throw new IllegalStateException("placed tracker entries 超过有界上限");
-        }
 
         Map<ResourceLocation, Integer> blockIndices = new HashMap<>();
         List<String> blockPalette = new ArrayList<>();
@@ -264,10 +258,6 @@ public final class PlacedBlockTrackerData extends SavedData {
                     });
             entryIndex++;
         }
-        if (blockPalette.size() > MAX_PALETTE_ENTRIES
-                || ownerPalette.size() > MAX_PALETTE_ENTRIES) {
-            throw new IllegalStateException("placed tracker palette 超过有界上限");
-        }
 
         tag.putInt(KEY_SCHEMA, SCHEMA_VERSION);
         // 兼容周期内继续写 shadow；旧版本只会看到坐标，不会因缺键丢失全部位置。
@@ -277,7 +267,7 @@ public final class PlacedBlockTrackerData extends SavedData {
         for (String id : blockPalette) blocks.add(StringTag.valueOf(id));
         tag.put(KEY_BLOCK_PALETTE, blocks);
         tag.putIntArray(KEY_BLOCK_INDICES, encodedBlocks);
-        long[] owners = new long[ownerPalette.size() * 2];
+        long[] owners = new long[Math.multiplyExact(ownerPalette.size(), 2)];
         for (int i = 0; i < ownerPalette.size(); i++) {
             UUID owner = ownerPalette.get(i);
             owners[i * 2] = owner.getMostSignificantBits();
@@ -311,7 +301,6 @@ public final class PlacedBlockTrackerData extends SavedData {
     private void loadLegacy(CompoundTag tag) {
         if (!tag.contains(KEY_PLACED_SHADOW, Tag.TAG_LONG_ARRAY)) return;
         long[] positions = tag.getLongArray(KEY_PLACED_SHADOW);
-        if (positions.length > MAX_TRACKED_ENTRIES) throw new IllegalArgumentException("legacy tracker 越界");
         LongOpenHashSet seen = new LongOpenHashSet(Math.min(positions.length, 16_384));
         for (long packed : positions) {
             if (!seen.add(packed)) throw new IllegalArgumentException("legacy tracker 坐标重复");
@@ -333,8 +322,7 @@ public final class PlacedBlockTrackerData extends SavedData {
         int[] owners = tag.getIntArray(KEY_OWNER_INDICES);
         long[] generations = tag.getLongArray(KEY_GENERATIONS);
         byte[] kinds = tag.getByteArray(KEY_KINDS);
-        if (positions.length > MAX_TRACKED_ENTRIES
-                || blocks.length != positions.length
+        if (blocks.length != positions.length
                 || owners.length != positions.length
                 || generations.length != positions.length
                 || kinds.length != positions.length) {
@@ -345,15 +333,17 @@ public final class PlacedBlockTrackerData extends SavedData {
             throw new IllegalArgumentException("placed tracker shadow 不匹配");
         }
 
-        List<String> blockPalette = readBlockPalette(tag.getList(KEY_BLOCK_PALETTE, Tag.TAG_STRING));
+        ListTag encodedBlocks = (ListTag) tag.get(KEY_BLOCK_PALETTE);
         long[] ownerPalette = tag.getLongArray(KEY_OWNER_PALETTE);
-        if (ownerPalette.length > MAX_PALETTE_ENTRIES * 2L || (ownerPalette.length & 1) != 0) {
+        int ownerCount = ownerPalette.length / 2;
+        // 每条凭据最多引用一个方块和一个所有者，先检查数量再解码。
+        if ((ownerPalette.length & 1) != 0 || ownerCount > positions.length) {
             throw new IllegalArgumentException("placed tracker owner palette 越界");
         }
-        int ownerCount = ownerPalette.length / 2;
-        if (blockPalette.size() > MAX_PALETTE_ENTRIES) {
+        if (encodedBlocks.size() > positions.length) {
             throw new IllegalArgumentException("placed tracker block palette 越界");
         }
+        List<ResourceLocation> blockPalette = readBlockPalette(encodedBlocks);
 
         LongOpenHashSet seen = new LongOpenHashSet(Math.min(positions.length, 16_384));
         long maxGeneration = 0L;
@@ -371,11 +361,7 @@ public final class PlacedBlockTrackerData extends SavedData {
             CredentialKind kind = CredentialKind.values()[kindIndex];
             UUID owner = ownerIndex < 0 ? null
                     : new UUID(ownerPalette[ownerIndex * 2], ownerPalette[ownerIndex * 2 + 1]);
-            ResourceLocation blockId = blockIndex < 0 ? null
-                    : ResourceLocation.tryParse(blockPalette.get(blockIndex));
-            if (blockIndex >= 0 && blockId == null) {
-                throw new IllegalArgumentException("placed tracker block ID 无效");
-            }
+            ResourceLocation blockId = blockIndex < 0 ? null : blockPalette.get(blockIndex);
             if (kind == CredentialKind.V2 && (owner == null || blockId == null)) {
                 throw new IllegalArgumentException("V2 credential 缺少 owner 或 block ID");
             }
@@ -391,12 +377,11 @@ public final class PlacedBlockTrackerData extends SavedData {
                 ? persistedNext : incrementGeneration(maxGeneration);
     }
 
-    private static List<String> readBlockPalette(ListTag encoded) {
-        if (encoded.size() > MAX_PALETTE_ENTRIES
-                || (!encoded.isEmpty() && encoded.getElementType() != Tag.TAG_STRING)) {
+    private static List<ResourceLocation> readBlockPalette(ListTag encoded) {
+        if (!encoded.isEmpty() && encoded.getElementType() != Tag.TAG_STRING) {
             throw new IllegalArgumentException("placed tracker block palette 类型无效");
         }
-        List<String> palette = new ArrayList<>(encoded.size());
+        List<ResourceLocation> palette = new ArrayList<>(encoded.size());
         for (int i = 0; i < encoded.size(); i++) {
             String id = encoded.getString(i);
             if (id.isEmpty() || id.length() > MAX_BLOCK_ID_LENGTH) {
@@ -406,7 +391,7 @@ public final class PlacedBlockTrackerData extends SavedData {
             if (parsed == null || !parsed.toString().equals(id)) {
                 throw new IllegalArgumentException("placed tracker block palette ID 无效");
             }
-            palette.add(id);
+            palette.add(parsed);
         }
         return palette;
     }

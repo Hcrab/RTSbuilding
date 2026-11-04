@@ -117,8 +117,10 @@ public record TaskSnapshot(
     public TaskSnapshot nextRevision(TaskLifecycleState nextState, TaskWaitKey nextWaitKey,
             long gameTime, int nextCursor, int nextSucceeded, int nextFailed,
             CompoundTag nextPayload, RtsOperationReason nextReason, String nextReasonDetail) {
+        // 世界 gameTime 是任务级高水位元数据。崩溃恢复或换维度后，传入的时间可能更早。
+        // 它与 dayTime 无关，也不用于执行或排序。revision 与 cursor 记录实际顺序和进度。
         return new TaskSnapshot(id, submissionId, ownerId, dimensionId, type, nextState,
-                workflowEntryId, nextWaitKey, revision + 1L, createdGameTime, gameTime,
+                workflowEntryId, nextWaitKey, revision + 1L, createdGameTime, Math.max(updatedGameTime, gameTime),
                 totalUnits, nextCursor, nextSucceeded, nextFailed, nextPayload, nextReason, nextReasonDetail);
     }
 }

@@ -3,6 +3,8 @@ package com.rtsbuilding.rtsbuilding.server.data;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
 
@@ -126,6 +128,23 @@ class PlacedBlockTrackerDataTest {
         corrupt.putByteArray("kinds", new byte[0]);
         PlacedBlockTrackerData loaded = PlacedBlockTrackerData.load(corrupt);
         assertFalse(loaded.isPlaced(BlockPos.ZERO));
+    }
+
+    @Test
+    void palettesLargerThanPositionCountFailClosed() {
+        PlacedBlockTrackerData data = new PlacedBlockTrackerData();
+        data.markPlaced(BlockPos.ZERO, UUID.randomUUID(), STONE);
+        CompoundTag saved = data.save(new CompoundTag());
+
+        CompoundTag tooManyBlocks = saved.copy();
+        ListTag blocks = tooManyBlocks.getList("block_palette", Tag.TAG_STRING);
+        blocks.add(StringTag.valueOf(DIRT.toString()));
+        assertFalse(PlacedBlockTrackerData.load(tooManyBlocks).isPlaced(BlockPos.ZERO));
+
+        CompoundTag tooManyOwners = saved.copy();
+        long[] owners = saved.getLongArray("owner_palette");
+        tooManyOwners.putLongArray("owner_palette", new long[]{owners[0], owners[1], 0L, 1L});
+        assertFalse(PlacedBlockTrackerData.load(tooManyOwners).isPlaced(BlockPos.ZERO));
     }
 
     @Test
