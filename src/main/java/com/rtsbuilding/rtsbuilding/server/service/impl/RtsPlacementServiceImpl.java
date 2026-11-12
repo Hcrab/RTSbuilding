@@ -11,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.PlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExecutor;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementHelper;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
@@ -55,7 +56,20 @@ public final class RtsPlacementServiceImpl implements PlacementService {
         double hitOffsetZ = clickedPos == null ? 0.5D : hitZ - clickedPos.getZ();
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
 
-        if (player != null && session != null && !forceEmptyHand) {
+        if (forceEmptyHand) {
+            if (player == null || clickedPos == null || face == null) {
+                return;
+            }
+            // 空手右键需要立即打开远程菜单；排入施工队列会因缺少工作流 ID 而被取消。
+            RtsPlacementExecutor.placeSelectedInternal(
+                    player, session, clickedPos, face, hitX, hitY, hitZ, rotateSteps, statePreset,
+                    forcePlace, skipIfOccupied, itemId, itemPrototype,
+                    rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ,
+                    quickBuild, true, true, true);
+            return;
+        }
+
+        if (player != null && session != null) {
             PipelineRegistry.execute(quickBuild ? RtsWorkflowType.QUICK_BUILD : RtsWorkflowType.PLACE_SINGLE,
                     PlaceContext.builder(player)
                             .clickedPositions(clickedPos == null ? List.of() : List.of(clickedPos))
@@ -82,7 +96,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
             return;
         }
 
-        // 回退：forceEmptyHand 或无会话 — 入队但不经过工作流
+        // 无会话时沿用原有放置回退。
         RtsPlacementBatch.enqueuePlaceBatch(
                 player,
                 session,

@@ -237,6 +237,8 @@ If you need GitHub, Discord, QQ, or another feedback channel, reply “反馈渠
 
 # Technical Information Appendix
 
+After a server restart, tasks retain their last recorded update time, cursor, and result counts. They can progress or pause when the world clock is behind their snapshot. Placement records preserve position, block, owner, and generation across saves, including worlds with over a million records. FTB quest detection supports versions that return the quest file directly or through an Optional.
+
 ## AI diagnostic context: client to server
 
 ### Overall implementation
