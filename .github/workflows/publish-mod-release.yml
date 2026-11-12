@@ -74,11 +74,21 @@ jobs:
       - name: Verify version and build NeoForge 1.21.1
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           set -euo pipefail
           actual_version="$(sed -n 's/^mod_version=//p' gradle.properties)"
           test "$actual_version" = "$RELEASE_TAG"
+          jar="rtsbuilding-neoforge-1.21.1-${RELEASE_TAG}.jar"
+          assets="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets)"
+          if jq -e --arg jar "$jar" '.assets[] | select(.name == $jar)' <<< "$assets" > /dev/null; then
+            digest="$(jq -er --arg jar "$jar" '.assets[] | select(.name == $jar) | .digest | capture("^sha256:(?<hash>[0-9a-f]{64})$").hash' <<< "$assets")"
+            mkdir -p build/libs
+            gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$jar" --dir build/libs
+            printf '%s  %s\n' "$digest" "build/libs/$jar" | sha256sum --check
+            exit 0
+          fi
           chmod +x gradlew
           ./gradlew build --no-daemon --no-configuration-cache
           test -f "build/libs/rtsbuilding-neoforge-1.21.1-${RELEASE_TAG}.jar"
@@ -166,11 +176,21 @@ jobs:
       - name: Verify version and build Forge 1.20.1
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           set -euo pipefail
           actual_version="$(sed -n 's/^mod_version=//p' gradle.properties)"
           test "$actual_version" = "$RELEASE_TAG"
+          jar="rtsbuilding-forge-1.20.1-${RELEASE_TAG}.jar"
+          assets="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets)"
+          if jq -e --arg jar "$jar" '.assets[] | select(.name == $jar)' <<< "$assets" > /dev/null; then
+            digest="$(jq -er --arg jar "$jar" '.assets[] | select(.name == $jar) | .digest | capture("^sha256:(?<hash>[0-9a-f]{64})$").hash' <<< "$assets")"
+            mkdir -p build/libs
+            gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$jar" --dir build/libs
+            printf '%s  %s\n' "$digest" "build/libs/$jar" | sha256sum --check
+            exit 0
+          fi
           chmod +x gradlew
           ./gradlew build --no-daemon --no-configuration-cache
           test -f "build/libs/rtsbuilding-forge-1.20.1-${RELEASE_TAG}.jar"
